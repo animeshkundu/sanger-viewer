@@ -12,7 +12,7 @@ describe('performance smoke', () => {
     const trace = parseTrace(buffer, '3730.ab1')
     const elapsed = performance.now() - t0
 
-    expect(elapsed).toBeLessThan(3000)
+    expect(elapsed).toBeLessThan(2000)
     expect(trace.sampleCount).toBeGreaterThan(1000)
   })
 })
