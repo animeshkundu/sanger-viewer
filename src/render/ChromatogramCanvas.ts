@@ -13,6 +13,9 @@ export class ChromatogramCanvas {
   private trimBoundaries: TrimBoundaries | null = null
   private searchMatches: SubsequenceMatch[] = []
   private activeSearchMatchIndex = -1
+  private resizeObserver: ResizeObserver | null = null
+  private themeMediaQuery: MediaQueryList | null = null
+  private themeObserver: MutationObserver | null = null
   private searchHighlightColors = {
     matchColor: 'rgba(59, 130, 246, 0.18)',
     activeFill: 'rgba(245, 158, 11, 0.30)',
@@ -25,10 +28,12 @@ export class ChromatogramCanvas {
     this.ctx = ctx
     this.refreshSearchHighlightColors()
     if (typeof window !== 'undefined') {
-      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', this.handleThemeChange)
+      this.themeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+      this.themeMediaQuery.addEventListener('change', this.handleThemeChange)
     }
     if (typeof MutationObserver !== 'undefined') {
-      new MutationObserver(this.handleThemeMutations).observe(document.documentElement, {
+      this.themeObserver = new MutationObserver(this.handleThemeMutations)
+      this.themeObserver.observe(document.documentElement, {
         attributes: true,
         attributeFilter: ['class', 'data-theme', 'style'],
       })
@@ -39,8 +44,21 @@ export class ChromatogramCanvas {
     // runs before the element is appended to the document — clientWidth would
     // be 0, leaving the physical backing buffer at the Math.max(1,…) minimum
     // of 1×1 px and making every getImageData call return only 1 pixel.
-    const ro = new ResizeObserver(() => this.resize())
-    ro.observe(canvas)
+    this.resizeObserver = new ResizeObserver(() => this.resize())
+    this.resizeObserver.observe(canvas)
+  }
+
+  destroy(): void {
+    if (this.raf) {
+      cancelAnimationFrame(this.raf)
+      this.raf = 0
+    }
+    this.resizeObserver?.disconnect()
+    this.resizeObserver = null
+    this.themeObserver?.disconnect()
+    this.themeObserver = null
+    this.themeMediaQuery?.removeEventListener('change', this.handleThemeChange)
+    this.themeMediaQuery = null
   }
 
   setTrace(trace: TraceData): void {
@@ -183,6 +201,7 @@ export class ChromatogramCanvas {
   }
 
   private refreshSearchHighlightColors(): void {
+    if (typeof document === 'undefined') return
     const cssVars = getComputedStyle(document.documentElement)
     this.searchHighlightColors = {
       matchColor: cssVars.getPropertyValue('--color-search-match-bg').trim() || this.searchHighlightColors.matchColor,

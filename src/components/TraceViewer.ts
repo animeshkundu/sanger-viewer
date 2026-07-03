@@ -158,6 +158,13 @@ export function createTraceViewer(): HTMLDivElement {
   canvas.style.touchAction = 'none'
 
   const renderer = new ChromatogramCanvas(canvas)
+  const rootDisconnectObserver = new MutationObserver(() => {
+    if (!root.isConnected) {
+      renderer.destroy()
+      rootDisconnectObserver.disconnect()
+    }
+  })
+  rootDisconnectObserver.observe(document.body, { childList: true, subtree: true })
   const tapMoveThreshold = 8
   const activePointers = new Map<number, { clientX: number; clientY: number; startX: number; startY: number; moved: boolean }>()
   let lastPinchDistance = 0
