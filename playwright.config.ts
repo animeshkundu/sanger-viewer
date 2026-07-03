@@ -1,4 +1,4 @@
-import { defineConfig } from '@playwright/test'
+import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
   testDir: 'tests/e2e',
@@ -10,5 +10,20 @@ export default defineConfig({
     command: 'npm run dev -- --host 127.0.0.1 --port 4173',
     port: 4173,
     reuseExistingServer: !process.env.CI
-  }
+  },
+  projects: [
+    {
+      name: 'desktop',
+      use: {
+        ...devices['Desktop Chrome']
+      }
+    },
+    {
+      name: 'tablet',
+      use: {
+        ...devices['iPad (gen 7)'],
+        browserName: 'chromium'
+      }
+    }
+  ]
 })
