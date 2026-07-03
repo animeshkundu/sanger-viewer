@@ -336,10 +336,17 @@ export function createTraceViewer(): HTMLDivElement {
   }
 
   let mixedBaseRaf = 0
+  const cancelMixedBaseRecompute = () => {
+    if (!mixedBaseRaf) return
+    cancelAnimationFrame(mixedBaseRaf)
+    mixedBaseRaf = 0
+  }
   const scheduleMixedBaseRecompute = () => {
     if (mixedBaseRaf) return
+    const scheduledSlotId = activeSlotId
     mixedBaseRaf = requestAnimationFrame(() => {
       mixedBaseRaf = 0
+      if (scheduledSlotId !== activeSlotId) return
       applyDisplayTrace(true)
     })
   }
@@ -476,6 +483,7 @@ export function createTraceViewer(): HTMLDivElement {
   }
 
   const clearDisplayedTrace = () => {
+    cancelMixedBaseRecompute()
     rawTrace = null
     isRevcomp = false
     trimSettings = { ...DEFAULT_TRIM_SETTINGS }
@@ -500,6 +508,7 @@ export function createTraceViewer(): HTMLDivElement {
    * and restore all per-slot state (trace, strand, trim, search, viewport).
    */
   const switchToSlot = (id: string, saveOutgoing = true) => {
+    cancelMixedBaseRecompute()
     if (saveOutgoing) saveCurrentSlot()
     workspace.activate(id)
     activeSlotId = id
@@ -542,6 +551,7 @@ export function createTraceViewer(): HTMLDivElement {
 
   const load = async (file: File) => {
     try {
+      cancelMixedBaseRecompute()
       saveCurrentSlot()
       setState('loading', `Loading ${file.name}…`)
       const buffer = await file.arrayBuffer()
@@ -579,6 +589,7 @@ export function createTraceViewer(): HTMLDivElement {
 
   const loadSample = async () => {
     try {
+      cancelMixedBaseRecompute()
       saveCurrentSlot()
       setState('loading', 'Loading sample trace…')
       const sampleBaseUrl = (import.meta.env.BASE_URL as string).replace(/\/?$/, '/')
