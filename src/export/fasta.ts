@@ -11,14 +11,17 @@ export function toFasta(
   // Keep the _revcomp suffix in the FASTA ID (backward-compatible with existing tests/tooling).
   const fastaId = isRevcomp ? `${id}_revcomp` : id
 
-  const useTrimmed = mode === 'trimmed' && trim !== null && trim.status === 'ok'
-  const sequence = useTrimmed ? trim.trimmedSequence : trace.sequence
+  const inTrimmedMode = mode === 'trimmed' && trim !== null
+  const useTrimmedSequence = inTrimmedMode && (trim.status === 'ok' || trim.status === 'all-trimmed')
+  const sequence = useTrimmedSequence ? trim.trimmedSequence : trace.sequence
 
   // Build annotation tags for the header comment.
   const tags: string[] = []
   if (isRevcomp) tags.push('reverse complement')
-  if (useTrimmed && trim) {
+  if (inTrimmedMode && trim && trim.status === 'ok') {
     tags.push(`trimmed ${trim.trimStart + 1}–${trim.trimEnd}/${trace.baseCalls.length} bp Q${trim.meanQuality.toFixed(1)}`)
+  } else if (inTrimmedMode && trim && trim.status === 'all-trimmed') {
+    tags.push(`trimmed 0–0/${trace.baseCalls.length} bp`)
   }
 
   const header = tags.length > 0 ? `>${fastaId} [${tags.join('; ')}]` : `>${fastaId}`

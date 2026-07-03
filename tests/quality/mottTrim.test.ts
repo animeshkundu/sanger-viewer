@@ -206,7 +206,7 @@ describe('mottTrim — real fixture files', () => {
     const r = mottTrim(trace.qualities, trace.baseCalls, 20)
     if (r.status !== 'ok') return
     // The real trace should have at least some trimming at Q20
-    expect(r.trimmedLength).toBeLessThanOrEqual(trace.baseCalls.length)
+    expect(r.trimmedLength).toBeLessThan(trace.baseCalls.length)
   })
 
   it('3100.ab1: Q0 keeps at least as many bases as Q20', async () => {

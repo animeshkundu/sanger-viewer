@@ -140,8 +140,8 @@ test('Trimmed FASTA is shorter than Full FASTA for real fixture', async ({ page 
     .filter((l) => !l.startsWith('>') && l.trim().length > 0)
     .join('')
 
-  // Trimmed sequence must be at most as long as the full sequence
-  expect(trimmedSeq.length).toBeLessThanOrEqual(fullSeq.length)
+  // Trimmed sequence must be shorter than the full sequence
+  expect(trimmedSeq.length).toBeLessThan(fullSeq.length)
   // The trimmed sequence must be a contiguous substring of the full sequence
   expect(fullSeq).toContain(trimmedSeq)
 })

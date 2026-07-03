@@ -30,6 +30,14 @@ export function renderSequence(
   const fragment = document.createDocumentFragment()
 
   const inTrimmedMode = mode === 'trimmed' && trim !== null && trim.status === 'ok'
+  const allTrimmedInTrimmedMode = mode === 'trimmed' && trim !== null && trim.status === 'all-trimmed'
+
+  if (allTrimmedInTrimmedMode) {
+    const emptyState = document.createElement('div')
+    emptyState.textContent = 'All bases trimmed at this threshold.'
+    panel.appendChild(emptyState)
+    return
+  }
 
   if (inTrimmedMode) {
     // Show only the kept window; centre selection within it.
@@ -64,4 +72,3 @@ export function renderSequence(
 
   panel.appendChild(fragment)
 }
-

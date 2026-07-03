@@ -23,7 +23,6 @@ export interface BaseHoverInfo {
  * Trim region boundaries for canvas overlay rendering.
  * Both indices are into the baseCalls / peakPositions arrays.
  * trimStart is the first kept base (inclusive); trimEnd is exclusive.
- * null means "not yet computed" or "no trim applied".
  */
 export interface TrimBoundaries {
   trimStart: number

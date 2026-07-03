@@ -1,5 +1,5 @@
 import { ChromatogramCanvas } from '../render/ChromatogramCanvas'
-import { createControls, setControlsDisabled, setStrandToggleState, setTrimSummary, setTrimMode, getTrimThreshold } from './Controls'
+import { createControls, setControlsDisabled, setStrandToggleState, setTrimSummary, setTrimMode } from './Controls'
 import { createTooltip, hideTooltip, showTooltip } from './Tooltip'
 import { createSequencePanel, renderSequence } from './SequencePanel'
 import { createPositionReadout, updatePositionReadout } from './PositionReadout'
