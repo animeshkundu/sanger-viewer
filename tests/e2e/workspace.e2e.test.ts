@@ -78,10 +78,14 @@ test.describe('Multi-trace workspace', () => {
       .not.toBeNull()
     const initialViewport = await readViewportState(page)
     await page.getByRole('button', { name: 'Zoom +' }).click()
-    await page.getByRole('button', { name: 'Pan →' }).click()
     await expect
       .poll(async () => await readViewportState(page))
       .not.toEqual(initialViewport)
+    const zoomedViewport = await readViewportState(page)
+    await page.getByRole('button', { name: 'Pan →' }).click()
+    await expect
+      .poll(async () => await readViewportState(page))
+      .not.toEqual(zoomedViewport)
     const expectedViewport = await readViewportState(page)
 
     await page.setInputFiles('#file-input-extra', FIXTURE_B)

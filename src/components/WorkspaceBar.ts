@@ -84,7 +84,7 @@ export function renderWorkspaceBar(bar: HTMLDivElement, slots: readonly TraceSlo
       }
     })
     tab.addEventListener('keydown', (event) => {
-      if (event.key === 'Backspace' || event.key === 'Delete') {
+      if (slots.length > 1 && (event.key === 'Backspace' || event.key === 'Delete')) {
         event.preventDefault()
         bar.dispatchEvent(new CustomEvent('workspace-close', { bubbles: true, detail: { id: slot.id } }))
       }
