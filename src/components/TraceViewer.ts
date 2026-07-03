@@ -13,8 +13,10 @@ import { createTooltip, hideTooltip, showTooltip } from './Tooltip'
 import { createSequencePanel, renderSequence } from './SequencePanel'
 import { createPositionReadout, updatePositionReadout } from './PositionReadout'
 import { createMetadataPanel, updateMetadataPanel } from './MetadataPanel'
+import { createWorkspaceBar, renderWorkspaceBar } from './WorkspaceBar'
 import { downloadBlob } from '../export/png'
 import { toFasta } from '../export/fasta'
+import { exportSvg } from '../export/svg'
 import { reverseComplementTrace } from '../revcomp'
 import { mottTrim, DEFAULT_TRIM_SETTINGS } from '../quality/mottTrim'
 import {
@@ -23,6 +25,7 @@ import {
   normalizeSearchQuery,
   type SubsequenceMatch
 } from '../search/findSubsequence'
+import { TraceWorkspace, makeSlot } from '../workspace/TraceWorkspace'
 import type { TrimResult, TrimSettings } from '../quality/mottTrim'
 import type { TraceData } from '../types/trace'
 
@@ -80,6 +83,8 @@ export function createTraceViewer(): HTMLDivElement {
 
       <!-- File input always at dropzone level so setInputFiles works in any state -->
       <input type="file" id="file-input" accept=".ab1,.scf" class="sr-only" />
+      <!-- Secondary file input for "Open another" from WorkspaceBar -->
+      <input type="file" id="file-input-extra" accept=".ab1,.scf" class="sr-only" />
 
       <!-- Empty state (shown when no trace is loaded) -->
       <div id="empty-state" class="empty-state">
@@ -141,9 +146,11 @@ export function createTraceViewer(): HTMLDivElement {
   const readout = createPositionReadout()
   const tooltip = createTooltip()
   const metadataPanel = createMetadataPanel()
-  root.append(controls, readout, sequencePanel, metadataPanel, tooltip)
+  const workspaceBar = createWorkspaceBar()
+  root.append(controls, workspaceBar, readout, sequencePanel, metadataPanel, tooltip)
 
   const fileInput = root.querySelector<HTMLInputElement>('#file-input')!
+  const fileInputExtra = root.querySelector<HTMLInputElement>('#file-input-extra')!
   const status = root.querySelector<HTMLElement>('#status')!
   const dropzone = root.querySelector<HTMLElement>('.dropzone')!
   const emptyStateEl = root.querySelector<HTMLElement>('#empty-state')!
@@ -184,6 +191,8 @@ export function createTraceViewer(): HTMLDivElement {
   let trimRaf = 0
   let viewerState: ViewerState = 'empty'
   let searchState: SearchState = { query: '', matches: [], activeIndex: -1 }
+  const workspace = new TraceWorkspace(5)
+  let activeSlotId: string | null = null
 
   const getDisplaySearchMatches = () =>
     rawTrace ? mapCanonicalMatchesToDisplay(searchState.matches, rawTrace.baseCalls.length, isRevcomp) : []
@@ -397,6 +406,67 @@ export function createTraceViewer(): HTMLDivElement {
     canvasLeft = canvas.getBoundingClientRect().left
   }
 
+  /** Push current workspace state to the WorkspaceBar UI. */
+  const syncWorkspaceBar = () => {
+    renderWorkspaceBar(workspaceBar, workspace.getAll(), activeSlotId)
+  }
+
+  /**
+   * Save the currently active slot's per-slot state back into the workspace
+   * so it is correctly restored when switching back later.
+   */
+  const saveCurrentSlot = () => {
+    if (!activeSlotId) return
+    workspace.updateSlot(activeSlotId, {
+      rawTrace,
+      isRevcomp,
+      trimSettings: { ...trimSettings },
+      trimResult,
+      searchState: { ...searchState },
+      viewport: renderer.getViewportState(),
+    })
+  }
+
+  /**
+   * Activate a workspace slot: save the current slot, switch to the new one,
+   * and restore all per-slot state (trace, strand, trim, search, viewport).
+   */
+  const switchToSlot = (id: string) => {
+    saveCurrentSlot()
+    workspace.activate(id)
+    activeSlotId = id
+    const slot = workspace.getActive()
+    if (!slot) return
+
+    // Restore slot state.
+    rawTrace = slot.rawTrace
+    isRevcomp = slot.isRevcomp
+    trimSettings = { ...slot.trimSettings }
+    trimResult = slot.trimResult
+    searchState = { ...slot.searchState }
+
+    // Reset interaction state.
+    selectedBaseIndex = null
+    hoveredBaseIndex = null
+    hideTooltip(tooltip)
+    setStrandToggleState(controls, isRevcomp)
+
+    if (rawTrace) {
+      updateMetadataPanel(metadataPanel, rawTrace.metadata)
+      applyDisplayTrace()
+      renderer.setViewportState(slot.viewport.startSample, slot.viewport.samplesPerPixel)
+      refreshReadout()
+      const msg = `Loaded ${rawTrace.fileName} (${rawTrace.baseCalls.length} bases)`
+      setState('loaded', msg)
+    } else {
+      // Evicted slot — show the file name but indicate it needs reloading.
+      updateMetadataPanel(metadataPanel, null)
+      setState('error', `${slot.fileName} was evicted from memory — please re-open the file`)
+    }
+
+    syncWorkspaceBar()
+  }
+
   const load = async (file: File) => {
     try {
       resetSearchState()
@@ -408,10 +478,19 @@ export function createTraceViewer(): HTMLDivElement {
       hoveredBaseIndex = null
       isRevcomp = false
       rawTrace = trace
+      trimSettings = { ...DEFAULT_TRIM_SETTINGS }
+      trimResult = null
+      searchState = { query: '', matches: [], activeIndex: -1 }
       setStrandToggleState(controls, false)
       hideTooltip(tooltip)
       updateMetadataPanel(metadataPanel, trace.metadata)
       applyDisplayTrace()
+      // Register as a new workspace slot (the slot viewport is initialised by makeSlot;
+      // applyDisplayTrace() has set the renderer, so we read it back for accuracy).
+      const slot = makeSlot(trace)
+      const newId = workspace.add(slot)
+      activeSlotId = newId
+      syncWorkspaceBar()
       const msg = `Loaded ${trace.fileName} (${trace.baseCalls.length} bases)`
       setState('loaded', msg)
     } catch (error) {
@@ -436,10 +515,17 @@ export function createTraceViewer(): HTMLDivElement {
       hoveredBaseIndex = null
       isRevcomp = false
       rawTrace = trace
+      trimSettings = { ...DEFAULT_TRIM_SETTINGS }
+      trimResult = null
+      searchState = { query: '', matches: [], activeIndex: -1 }
       setStrandToggleState(controls, false)
       hideTooltip(tooltip)
       updateMetadataPanel(metadataPanel, trace.metadata)
       applyDisplayTrace()
+      const slot = makeSlot(trace)
+      const newId = workspace.add(slot)
+      activeSlotId = newId
+      syncWorkspaceBar()
       const msg = `Loaded ${trace.fileName} (${trace.baseCalls.length} bases)`
       setState('loaded', msg)
     } catch (error) {
@@ -452,6 +538,13 @@ export function createTraceViewer(): HTMLDivElement {
   fileInput.addEventListener('change', () => {
     const file = fileInput.files?.[0]
     if (file) void load(file)
+  })
+
+  fileInputExtra.addEventListener('change', () => {
+    const file = fileInputExtra.files?.[0]
+    if (file) void load(file)
+    // Reset so the same file can be re-opened if desired.
+    fileInputExtra.value = ''
   })
 
   sampleBtn.addEventListener('click', () => void loadSample())
@@ -473,6 +566,41 @@ export function createTraceViewer(): HTMLDivElement {
     if (file) void load(file)
   })
 
+  // ── Workspace events ─────────────────────────────────────────────────────────
+  root.addEventListener('workspace-switch', (event) => {
+    const { id } = (event as CustomEvent<{ id: string }>).detail
+    if (id !== activeSlotId) switchToSlot(id)
+  })
+
+  root.addEventListener('workspace-close', (event) => {
+    const { id } = (event as CustomEvent<{ id: string }>).detail
+    const wasActive = id === activeSlotId
+    workspace.close(id)
+    if (wasActive) {
+      const next = workspace.getActive()
+      if (next) {
+        activeSlotId = next.id
+        switchToSlot(activeSlotId)
+      } else {
+        // No slots left → go back to empty state.
+        activeSlotId = null
+        rawTrace = null
+        isRevcomp = false
+        trimResult = null
+        searchState = { query: '', matches: [], activeIndex: -1 }
+        updateMetadataPanel(metadataPanel, null)
+        setState('empty')
+        syncWorkspaceBar()
+      }
+    } else {
+      syncWorkspaceBar()
+    }
+  })
+
+  root.addEventListener('workspace-open', () => {
+    fileInputExtra.click()
+  })
+
   controls.addEventListener('click', async (event) => {
     const target = event.target as HTMLElement
     const action = target.getAttribute('data-action')
@@ -488,6 +616,21 @@ export function createTraceViewer(): HTMLDivElement {
     if (action === 'export-png') {
       const blob = await renderer.exportPngBlob()
       downloadBlob(blob, `${trace?.fileName ?? 'trace'}-view.png`)
+    }
+    if (action === 'export-svg' && rawTrace) {
+      const vp = renderer.getViewportState()
+      const displayTrace = isRevcomp ? reverseComplementTrace(rawTrace) : rawTrace
+      const vWidth = canvas.clientWidth || 1200
+      const vHeight = canvas.clientHeight || 400
+      const svg = exportSvg(displayTrace, {
+        width: vWidth * 2,
+        height: vHeight * 2,
+        startSample: vp.startSample,
+        endSample: vp.startSample + vWidth * vp.samplesPerPixel,
+      })
+      const blob = new Blob([svg], { type: 'image/svg+xml' })
+      const suffix = isRevcomp ? '-revcomp' : ''
+      downloadBlob(blob, `${displayTrace.fileName.replace(/\.[^.]+$/, '')}${suffix}-view.svg`)
     }
     if (action === 'toggle-strand' && rawTrace) {
       isRevcomp = !isRevcomp

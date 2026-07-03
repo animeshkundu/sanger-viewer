@@ -13,6 +13,7 @@ export function createControls(): HTMLDivElement {
     <button data-action="fit">Fit</button>
     <button data-action="toggle-strand" aria-pressed="false" title="Toggle reverse complement strand">5′→3′</button>
     <button data-action="export-png">Export PNG</button>
+    <button data-action="export-svg">Export SVG</button>
     <button data-action="export-fasta">Export FASTA</button>
     <div class="search-controls" role="group" aria-label="Sequence search">
       <label class="search-label" for="search-input">

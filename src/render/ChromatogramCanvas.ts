@@ -131,6 +131,18 @@ export class ChromatogramCanvas {
     return { start: Math.round(vp.startSample), end: Math.round(vp.endSample) }
   }
 
+  /** Return raw viewport state for persistence (e.g. workspace slot save). */
+  getViewportState(): { startSample: number; samplesPerPixel: number } {
+    return { startSample: this.startSample, samplesPerPixel: this.samplesPerPixel }
+  }
+
+  /** Restore saved viewport state (e.g. when switching workspace slots). */
+  setViewportState(startSample: number, samplesPerPixel: number): void {
+    this.startSample = startSample
+    this.samplesPerPixel = samplesPerPixel
+    this.requestDraw()
+  }
+
   hitTest(clientX: number): BaseHoverInfo | null {
     if (!this.trace) return null
     const rect = this.canvas.getBoundingClientRect()

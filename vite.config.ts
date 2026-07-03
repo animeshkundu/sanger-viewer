@@ -15,7 +15,8 @@ export default defineConfig(({ command }) => ({
         blogE2eEntry: fileURLToPath(new URL('./blog/2026-07-03-v4-e2e/index.html', import.meta.url)),
         blogStrandToggleEntry: fileURLToPath(new URL('./blog/2026-07-03-v5-strand-toggle/index.html', import.meta.url)),
         blogQualityTrimmingEntry: fileURLToPath(new URL('./blog/2026-07-03-v7-quality-trimming/index.html', import.meta.url)),
-        blogMetadataEntry: fileURLToPath(new URL('./blog/2026-07-03-v9-metadata/index.html', import.meta.url))
+        blogMetadataEntry: fileURLToPath(new URL('./blog/2026-07-03-v9-metadata/index.html', import.meta.url)),
+        blogMultiTraceEntry: fileURLToPath(new URL('./blog/2026-07-03-v10-multi-trace/index.html', import.meta.url))
       }
     }
   },
