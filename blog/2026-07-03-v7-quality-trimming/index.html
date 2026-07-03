@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PHRED quality trimming | sanger-viewer devlog</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-shell">
+        <a class="site-title" href="../../">sanger-viewer</a>
+        <nav class="site-nav" aria-label="Site">
+          <a href="../">Devlog</a>
+        </nav>
+      </div>
+    </header>
+    <main class="site-shell blog-entry">
+      <p><a href="../">← Back to devlog</a></p>
+      <h1>Snipping the ragged ends: PHRED quality trimming ships</h1>
+      <p><time datetime="2026-07-03">July 3, 2026</time></p>
+      <p>
+        Every Sanger trace has two flavours of signal. There is the clean core in the
+        middle — tight peaks, confident base calls, reliable PHRED scores — and then there
+        are the ends. The first twenty or thirty bases after the primer are often a noisy
+        mess: overlapping peaks, miscalled bases, quality scores in the single digits. The
+        last thirty bases fade into a similar haze as the polymerase runs out of steam.
+        Professional viewers like Chromas and FinchTV have always let you trim those ends
+        away before you copy the sequence or export a FASTA. Step 7 brings that to
+        sanger-viewer.
+      </p>
+
+      <h2>What the Mott algorithm actually does</h2>
+      <p>
+        The algorithm dates to a 1995 paper by Rodger Mott (the same Mott behind the early
+        QTL work) and was popularised by the Phred base-caller. It is clever and very
+        simple. For each base at position <em>i</em>, compute a score:
+      </p>
+      <pre>score(i) = quality(i) − threshold</pre>
+      <p>
+        A base with quality 30 at threshold 20 scores +10: it is pushing the window in a
+        good direction. A base with quality 5 scores −15: it is dragging the window down.
+        You then run Kadane's maximum-sum subarray algorithm over that score sequence.
+        Kadane is the classic O(n) trick for finding the contiguous subsequence whose
+        values sum to the highest total — except here that window is the kept region, and
+        everything outside it is trimmed away.
+      </p>
+      <p>
+        The result is two indices: <code>trimStart</code> (first kept base, inclusive) and
+        <code>trimEnd</code> (one past the last kept base, exclusive). The length of the
+        kept window is <code>trimEnd − trimStart</code>. We also report the mean PHRED
+        quality over that window so you can see at a glance how confident the trimmed read
+        is.
+      </p>
+      <p>
+        There are two degenerate cases the algorithm handles cleanly. If every base scores
+        below threshold, the running sum never beats zero and nothing is kept — we return
+        an <code>all-trimmed</code> status with a zero-length sequence rather than
+        crashing. If there is no quality data at all (some old SCF files omit it), we
+        return a <code>no-quality</code> status and the full sequence unchanged, with a
+        visible label in the controls telling you why no trimming happened.
+      </p>
+
+      <h2>What you see on screen</h2>
+      <p>
+        The trim controls live in a second row directly below the main toolbar. There is a
+        labelled range slider from Q=0 to Q=40 (default Q=20), a live numeric readout
+        next to the thumb, and a pair of segmented "Full / Trimmed" buttons that switch
+        the sequence panel and FASTA export between the two modes. Moving the slider
+        triggers a rAF-throttled recompute exactly like the position readout already uses,
+        so dragging stays smooth even on the large 3730-base fixture. No intermediate
+        states, no jank.
+      </p>
+      <p>
+        On the canvas, trimmed end-regions are shaded with a semi-transparent amber
+        overlay. Two dashed amber boundary lines mark the transition from trimmed to kept
+        territory. The shading sits in the rendering stack between the background fill and
+        the trace curves — visible and distinctive, but not obscuring the signal. The
+        overlay is theme-aware and works in both light and dark mode.
+      </p>
+      <p>
+        In the sequence panel, switching to Trimmed mode shows only the kept window
+        (centred on any selected base, still ±120 bases wide within the window). Full mode
+        shows the ±120-base window as before, but now with a visual dimming on bases
+        outside the quality boundary so you can see where the trim falls without losing
+        context.
+      </p>
+
+      <h2>Export</h2>
+      <p>
+        The FASTA export reads the current mode. In Trimmed mode the exported sequence
+        contains only the kept bases, and the FASTA header carries a compact annotation
+        like <code>[trimmed 23–761/795 bp Q38.2]</code> so downstream tools or lab
+        colleagues can see exactly what was removed. In Full mode the export is identical
+        to the old behaviour. Reverse complement and quality trimming compose correctly:
+        you can flip the strand and trim the revcomp read and the sequence and coordinates
+        are always consistent.
+      </p>
+      <p>
+        The exported filename picks up a <code>-trimmed</code> suffix (and a
+        <code>-revcomp</code> suffix if you are on the reverse strand) so the two modes
+        never collide in your Downloads folder.
+      </p>
+
+      <h2>Tests</h2>
+      <p>
+        The trimming algorithm lives in <code>src/quality/mottTrim.ts</code> as a pure
+        function with no DOM dependencies. That made it easy to write a thorough set of
+        Vitest unit tests covering:
+      </p>
+      <ul>
+        <li>Known quality arrays with hand-computed expected boundaries.</li>
+        <li>The two degenerate cases: null/empty quality data and all-below-threshold.</li>
+        <li>Threshold = 0 (trivially keeps everything).</li>
+        <li>Monotonicity: Q=0 keeps at least as many bases as Q=20, and Q=40 keeps fewer.</li>
+        <li>Real fixture integration: parsing both AB1 files and running trim, checking
+            that the trimmed sequence is a contiguous substring of the full sequence.</li>
+        <li>Statistics: the reported mean quality matches the arithmetic mean over the
+            kept window.</li>
+      </ul>
+      <p>
+        The Playwright E2E suite adds tests that act like a real user: load the 3100.ab1
+        fixture, confirm the trim controls render and the summary line appears, drag the
+        slider and assert the summary changes, switch between Full and Trimmed modes and
+        confirm the canvas ink sum differs, and export FASTAs in both modes to confirm the
+        trimmed sequence is shorter, is contained in the full sequence, and that the
+        headers carry the right annotations. These run on both desktop Chrome and the
+        emulated iPad project.
+      </p>
+
+      <h2>What is still ahead</h2>
+      <p>
+        CI is green. Lint, typecheck, 49 Vitest unit tests, all Playwright E2E tests on
+        desktop and tablet pass without regressions.
+      </p>
+      <p>
+        The north-star roadmap continues: subsequence find with IUPAC ambiguity codes and
+        both-strand search, per-base peak amplitude display in the tooltip, multi-trace
+        workspace, and high-resolution vector export. Each is its own small PR, its own
+        devlog entry, its own green CI run.
+      </p>
+    </main>
+  </body>
+</html>
