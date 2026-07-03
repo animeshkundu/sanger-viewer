@@ -15,22 +15,51 @@ describe('ABIF metadata (310.ab1)', () => {
   it('extracts sampleName', async () => {
     const buffer = await readFixture('fixtures/ab1/310.ab1')
     const trace = parseTrace(buffer, '310.ab1')
-    expect(trace.metadata.sampleName).toBeDefined()
-    expect(typeof trace.metadata.sampleName).toBe('string')
-    expect((trace.metadata.sampleName as string).length).toBeGreaterThan(0)
+    expect(trace.metadata.sampleName).toBe('D11F')
   })
 
   it('extracts instrument', async () => {
     const buffer = await readFixture('fixtures/ab1/310.ab1')
     const trace = parseTrace(buffer, '310.ab1')
-    expect(trace.metadata.instrument).toBeDefined()
-    expect(typeof trace.metadata.instrument).toBe('string')
+    expect(trace.metadata.instrument).toBe('ABI PRISM 310')
   })
 
   it('has no version field (ABIF format)', async () => {
     const buffer = await readFixture('fixtures/ab1/310.ab1')
     const trace = parseTrace(buffer, '310.ab1')
     expect(trace.metadata.version).toBeUndefined()
+  })
+})
+
+describe('ABIF exact field values (310.ab1)', () => {
+  it('model is exact trimmed value', async () => {
+    const buffer = await readFixture('fixtures/ab1/310.ab1')
+    const trace = parseTrace(buffer, '310.ab1')
+    expect(trace.metadata.model).toBe('310')
+  })
+
+  it('comment is exact value', async () => {
+    const buffer = await readFixture('fixtures/ab1/310.ab1')
+    const trace = parseTrace(buffer, '310.ab1')
+    expect(trace.metadata.comment).toBe('Hassan,Ina')
+  })
+
+  it('dyeSet is exact composed value (Joe/Fam/Tamra/Rox)', async () => {
+    const buffer = await readFixture('fixtures/ab1/310.ab1')
+    const trace = parseTrace(buffer, '310.ab1')
+    expect(trace.metadata.dyeSet).toBe('Joe/Fam/Tamra/Rox')
+  })
+
+  it('lane is exact numeric value', async () => {
+    const buffer = await readFixture('fixtures/ab1/310.ab1')
+    const trace = parseTrace(buffer, '310.ab1')
+    expect(trace.metadata.lane).toBe(15)
+  })
+
+  it('runDate is exact timestamp string', async () => {
+    const buffer = await readFixture('fixtures/ab1/310.ab1')
+    const trace = parseTrace(buffer, '310.ab1')
+    expect(trace.metadata.runDate).toBe('2009-02-24 11:26:11 +01:00')
   })
 })
 

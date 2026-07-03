@@ -32,6 +32,8 @@ test('metadata panel appears after loading AB1 fixture', async ({ page }) => {
   const rows = panel.locator('.metadata-row')
   const count = await rows.count()
   expect(count).toBeGreaterThan(0)
+  // Verify exact sample name value is rendered
+  await expect(panel).toContainText('D11F')
 })
 
 test('metadata panel renders with SCF fixture (graceful absence)', async ({ page }) => {
