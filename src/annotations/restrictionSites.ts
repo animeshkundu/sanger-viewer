@@ -46,6 +46,8 @@ function createSiteFeature(
   recognitionLength: number,
 ): RestrictionSiteFeature {
   const end = start + recognitionLength
+  // Type IIS enzymes can cut outside the recognition span; cut coordinates are
+  // reported as absolute positions on the displayed sequence regardless of span.
   const cutForward = strand === '+'
     ? start + enzyme.cutOffsets.forward
     : start + recognitionLength - enzyme.cutOffsets.forward

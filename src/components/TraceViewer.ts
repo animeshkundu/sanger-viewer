@@ -76,6 +76,9 @@ type SearchState = {
   activeIndex: number
 }
 
+const ANNOTATION_VIEWPORT_EXTRA_BASES = 12
+const ANNOTATION_FEATURE_PADDING_BASES = 6
+
 export function createTraceViewer(): HTMLDivElement {
   const root = document.createElement('div')
   root.className = 'viewer'
@@ -406,8 +409,12 @@ export function createTraceViewer(): HTMLDivElement {
     const visibleRange = mapSampleViewportToBaseRange(trace.peakPositions, {
       startSample: viewportState.startSample,
       endSample: viewportEndSample,
-    }, 12)
-    const visibleFeatures = filterAnnotationFeaturesByRange(annotationFeatures, visibleRange, 6)
+    }, ANNOTATION_VIEWPORT_EXTRA_BASES)
+    const visibleFeatures = filterAnnotationFeaturesByRange(
+      annotationFeatures,
+      visibleRange,
+      ANNOTATION_FEATURE_PADDING_BASES,
+    )
     annotationTrack.render({
       visibleFeatures,
       visibleRange,
