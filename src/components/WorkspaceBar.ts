@@ -70,7 +70,7 @@ export function renderWorkspaceBar(bar: HTMLDivElement, slots: readonly TraceSlo
     const closeBtn = document.createElement('button')
     closeBtn.className = 'workspace-bar__tab-close'
     closeBtn.setAttribute('aria-label', `Close ${slot.fileName}`)
-    closeBtn.tabIndex = -1
+    closeBtn.tabIndex = slots.length <= 1 ? -1 : 0
     closeBtn.textContent = '×'
     closeBtn.addEventListener('click', (e) => {
       e.stopPropagation()

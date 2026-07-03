@@ -518,7 +518,6 @@ export function createTraceViewer(): HTMLDivElement {
       clearDisplayedTrace()
       activeSlotId = null
       syncWorkspaceBar()
-      resetSearchState()
       const msg = error instanceof Error ? error.message : 'Failed to parse file'
       setState('error', msg)
     }
@@ -557,7 +556,6 @@ export function createTraceViewer(): HTMLDivElement {
       clearDisplayedTrace()
       activeSlotId = null
       syncWorkspaceBar()
-      resetSearchState()
       const msg = error instanceof Error ? error.message : 'Failed to load sample'
       setState('error', msg)
     }
