@@ -69,12 +69,13 @@ describe('SCF metadata (abcZ_F.scf)', () => {
 })
 
 describe('metadata graceful absence', () => {
-  it('ABIF fields are all optional (absent fields are undefined, not throw)', async () => {
+  it('ABIF optional fields are undefined or of expected primitive type', async () => {
     const buffer = await readFixture('fixtures/ab1/310.ab1')
     const trace = parseTrace(buffer, '310.ab1')
-    // model might be absent in some fixtures — must be undefined or string, never throw
-    expect(() => trace.metadata.model).not.toThrow()
-    expect(() => trace.metadata.dyeSet).not.toThrow()
-    expect(() => trace.metadata.lane).not.toThrow()
+    // Each optional field must be undefined OR a finite primitive of the correct type
+    const { model, dyeSet, lane } = trace.metadata
+    expect(model === undefined || typeof model === 'string').toBe(true)
+    expect(dyeSet === undefined || typeof dyeSet === 'string').toBe(true)
+    expect(lane === undefined || (typeof lane === 'number' && Number.isFinite(lane))).toBe(true)
   })
 })

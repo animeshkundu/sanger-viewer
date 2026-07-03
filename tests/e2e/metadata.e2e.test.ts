@@ -79,13 +79,15 @@ test('tooltip includes amplitude values on hover', async ({ page, isMobile }) =>
     }
   }
 
-  if (tooltipVisible) {
-    const tooltipText = await page.locator('.tooltip').textContent()
-    // Tooltip should include amplitude labels
-    expect(tooltipText).toMatch(/A:\d+/)
-    expect(tooltipText).toMatch(/C:\d+/)
-    expect(tooltipText).toMatch(/G:\d+/)
-    expect(tooltipText).toMatch(/T:\d+/)
-    expect(tooltipText).toContain('peak:')
+  if (!tooltipVisible) {
+    throw new Error('Tooltip never appeared after sweep and zoom — amplitude assertions cannot run')
   }
+
+  const tooltipText = await page.locator('.tooltip').textContent()
+  // Tooltip should include amplitude labels
+  expect(tooltipText).toMatch(/A:\d+/)
+  expect(tooltipText).toMatch(/C:\d+/)
+  expect(tooltipText).toMatch(/G:\d+/)
+  expect(tooltipText).toMatch(/T:\d+/)
+  expect(tooltipText).toContain('peak:')
 })
