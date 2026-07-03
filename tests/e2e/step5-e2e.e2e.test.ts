@@ -38,15 +38,22 @@ function fixturePath(rel: string) {
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Sum of all non-alpha pixel channels — returns 0 only when the canvas is blank. */
-async function canvasPixelSum(page: Page): Promise<number> {
+/**
+ * A blank white canvas fills every pixel with (255, 255, 255) so raw RGB
+ * sums are always large even when nothing is drawn.  Instead, sum the
+ * *deviation from white* for every pixel: a pure-white canvas returns 0
+ * while any coloured trace returns a large positive value.
+ */
+const INK_THRESHOLD = 1000
+
+async function canvasInkSum(page: Page): Promise<number> {
   return page.locator('[data-testid="chromatogram-canvas"]').evaluate((el) => {
     const canvas = el as HTMLCanvasElement
     const ctx = canvas.getContext('2d')!
     const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height)
     let sum = 0
     for (let i = 0; i < data.length; i += 4) {
-      sum += data[i] + data[i + 1] + data[i + 2]
+      sum += Math.abs(255 - data[i]) + Math.abs(255 - data[i + 1]) + Math.abs(255 - data[i + 2])
     }
     return sum
   })
@@ -93,8 +100,11 @@ test.describe('per-fixture: load through UI and assert canvas is non-blank', () 
       await page.setInputFiles('#file-input', fixturePath(fixture.rel))
       await expect(page.locator('#status')).toContainText('Loaded')
 
-      const pixelSum = await canvasPixelSum(page)
-      expect(pixelSum).toBeGreaterThan(0)
+      // The trace is drawn via requestAnimationFrame, so poll until ink appears
+      // (a blank/broken render returns 0 because we measure deviation from white).
+      await expect
+        .poll(() => canvasInkSum(page), { timeout: 5000 })
+        .toBeGreaterThan(INK_THRESHOLD)
     })
   }
 })
@@ -195,13 +205,15 @@ test('file-switch replaces canvas content', async ({ page }) => {
 
   await page.setInputFiles('#file-input', fixturePath(FIXTURES[0].rel))
   await expect(page.locator('#status')).toContainText('Loaded')
-  const sum1 = await canvasPixelSum(page)
-  expect(sum1).toBeGreaterThan(0)
+  // Poll until the rAF-scheduled draw lands; a blank canvas yields 0 ink.
+  await expect.poll(() => canvasInkSum(page), { timeout: 5000 }).toBeGreaterThan(INK_THRESHOLD)
+  const sum1 = await canvasInkSum(page)
 
   await page.setInputFiles('#file-input', fixturePath(FIXTURES[1].rel))
   await expect(page.locator('#status')).toContainText('Loaded')
-  const sum2 = await canvasPixelSum(page)
-  expect(sum2).toBeGreaterThan(0)
+  // Poll again so we capture the new trace, not the previous one.
+  await expect.poll(() => canvasInkSum(page), { timeout: 5000 }).toBeGreaterThan(INK_THRESHOLD)
+  const sum2 = await canvasInkSum(page)
 
   // The two traces have different sample counts so their rendered pixel sums differ
   expect(sum1).not.toBe(sum2)
