@@ -73,7 +73,10 @@ export function mottTrim(
     }
   }
 
-  const n = qualities.length
+  // Clamp to the shorter of the two arrays so returned indices are always valid
+  // for both qualities[] and baseCalls[] (callers also index peakPositions which
+  // normally matches baseCalls length, so this guards against any mismatch).
+  const n = Math.min(qualities.length, baseCalls.length)
 
   // Mott / Kadane pass: score[i] = quality[i] − threshold
   let runningSum = 0

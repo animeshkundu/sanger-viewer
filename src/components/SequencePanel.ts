@@ -12,8 +12,10 @@ export function createSequencePanel(): HTMLDivElement {
  * Render the sequence panel.
  *
  * When trim is provided and mode === 'trimmed' and status === 'ok':
- *   - Only the kept window [trimStart, trimEnd) is shown.
- *   - Bases outside the window are omitted entirely in trimmed mode.
+ *   - A ±120-base window around the selected base (clamped to kept region) is shown.
+ *   - When no base is selected, a ~240-base window anchored at trimStart is shown
+ *     to avoid rendering thousands of spans for long reads on initial load.
+ *   - Bases outside the kept region are omitted entirely.
  * When mode === 'full' (or trim is absent):
  *   - The ±120-base window around the selected/hovered base is shown as before.
  *   - Trimmed end-bases are visually marked with a .trimmed-base class so the user
@@ -44,9 +46,11 @@ export function renderSequence(
 
   if (inTrimmedMode) {
     // Show only the kept window; centre selection within it.
+    // When no base is selected, anchor at trimStart and cap at trimStart+240 to avoid
+    // rendering thousands of spans for long reads (same ~240-base budget as full mode).
     const { trimStart, trimEnd } = trim
-    const windowStart = Math.max(trimStart, selected >= 0 ? Math.max(trimStart, selected - 120) : trimStart)
-    const windowEnd = Math.min(trimEnd, selected >= 0 ? Math.min(trimEnd, selected + 120) : trimEnd)
+    const windowStart = selected >= 0 ? Math.max(trimStart, selected - 120) : trimStart
+    const windowEnd = selected >= 0 ? Math.min(trimEnd, selected + 120) : Math.min(trimEnd, trimStart + 240)
 
     trace.baseCalls.slice(windowStart, windowEnd).forEach((base, idx) => {
       const span = document.createElement('span')
