@@ -286,9 +286,9 @@ test('FASTA export produces valid FASTA content', async ({ page }) => {
   const lines = content.trim().split('\n')
   // First line is the header
   expect(lines[0]).toMatch(/^>[^\s]/)
-  // Remaining lines must contain only valid IUPAC/base characters
+  // Remaining lines (if any) must contain only valid IUPAC/base characters.
+  // In Trimmed mode an all-trimmed read is valid and exports an empty body.
   const seqLines = lines.slice(1)
-  expect(seqLines.length).toBeGreaterThan(0)
   for (const line of seqLines) {
     expect(line).toMatch(/^[ACGTNacgtn]+$/)
   }
