@@ -400,6 +400,7 @@ export function createTraceViewer(): HTMLDivElement {
   const load = async (file: File) => {
     try {
       resetSearchState()
+      updateMetadataPanel(metadataPanel, null)
       setState('loading', `Loading ${file.name}…`)
       const buffer = await file.arrayBuffer()
       const trace = await parseInWorker(buffer, file.name)
@@ -423,6 +424,7 @@ export function createTraceViewer(): HTMLDivElement {
   const loadSample = async () => {
     try {
       resetSearchState()
+      updateMetadataPanel(metadataPanel, null)
       setState('loading', 'Loading sample trace…')
       const sampleBaseUrl = (import.meta.env.BASE_URL as string).replace(/\/?$/, '/')
       const sampleUrl = `${sampleBaseUrl}sample.ab1`

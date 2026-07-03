@@ -26,7 +26,7 @@ test('metadata panel appears after loading AB1 fixture', async ({ page }) => {
   await page.setInputFiles('#file-input', fixturePath('fixtures/ab1/310.ab1'))
   await expect(page.locator('#status')).toContainText('Loaded')
 
-  const panel = page.locator('[data-testid="metadata-panel"]')
+  const panel = page.getByRole('region', { name: 'Trace metadata' })
   await expect(panel).toBeVisible()
   // Must contain at least one metadata label/value row
   const rows = panel.locator('.metadata-row')
@@ -34,6 +34,26 @@ test('metadata panel appears after loading AB1 fixture', async ({ page }) => {
   expect(count).toBeGreaterThan(0)
   // Verify exact sample name value is rendered
   await expect(panel).toContainText('D11F')
+})
+
+test('metadata panel clears after a failed file load', async ({ page }) => {
+  await page.goto('')
+  await page.setInputFiles('#file-input', fixturePath('fixtures/ab1/310.ab1'))
+  await expect(page.locator('#status')).toContainText('Loaded')
+
+  const panel = page.locator('[data-testid="metadata-panel"]')
+  await expect(page.getByRole('region', { name: 'Trace metadata' })).toBeVisible()
+  await expect(panel).toContainText('D11F')
+
+  await page.setInputFiles('#file-input', {
+    name: 'bad.ab1',
+    mimeType: 'application/octet-stream',
+    buffer: Buffer.from([0x00, 0x01, 0x02, 0x03])
+  })
+
+  await expect(page.locator('#error-banner')).toBeVisible()
+  await expect(panel).toBeHidden()
+  await expect(panel.locator('.metadata-row')).toHaveCount(0)
 })
 
 test('metadata panel renders with SCF fixture (graceful absence)', async ({ page }) => {

@@ -3,6 +3,7 @@ import type { TraceMetadata } from '../types/trace'
 export function createMetadataPanel(): HTMLDivElement {
   const el = document.createElement('div')
   el.className = 'metadata-panel hidden'
+  el.setAttribute('role', 'region')
   el.setAttribute('aria-label', 'Trace metadata')
   el.setAttribute('data-testid', 'metadata-panel')
   return el
