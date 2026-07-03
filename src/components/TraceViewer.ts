@@ -1,4 +1,3 @@
-import { parseTrace } from '../parsers'
 import { ChromatogramCanvas } from '../render/ChromatogramCanvas'
 import { createControls, setControlsDisabled } from './Controls'
 import { createTooltip, hideTooltip, showTooltip } from './Tooltip'
@@ -6,6 +5,41 @@ import { createSequencePanel, renderSequence } from './SequencePanel'
 import { createPositionReadout, updatePositionReadout } from './PositionReadout'
 import { downloadBlob } from '../export/png'
 import { toFasta } from '../export/fasta'
+import type { TraceData } from '../types/trace'
+
+// Lazily-loaded worker module (Vite ?worker import, only in browser bundles).
+type WorkerConstructor = new () => Worker
+let WorkerCtor: WorkerConstructor | null = null
+async function getWorkerCtor(): Promise<WorkerConstructor> {
+  if (!WorkerCtor) {
+    const mod = await import('../workers/parser.worker?worker')
+    WorkerCtor = mod.default as WorkerConstructor
+  }
+  return WorkerCtor
+}
+
+/** Parse a trace file in a dedicated Worker, transferring the buffer. */
+function parseInWorker(buffer: ArrayBuffer, fileName: string): Promise<TraceData> {
+  return getWorkerCtor().then(
+    (Ctor) =>
+      new Promise<TraceData>((resolve, reject) => {
+        const worker = new Ctor()
+        worker.onmessage = (event: MessageEvent<{ ok: boolean; trace?: TraceData; error?: string }>) => {
+          worker.terminate()
+          if (event.data.ok && event.data.trace) {
+            resolve(event.data.trace)
+          } else {
+            reject(new Error(event.data.error ?? 'Parse error'))
+          }
+        }
+        worker.onerror = (err: ErrorEvent) => {
+          worker.terminate()
+          reject(new Error(err.message))
+        }
+        worker.postMessage({ buffer, fileName }, [buffer])
+      })
+  )
+}
 
 type ViewerState = 'empty' | 'loading' | 'loaded' | 'error'
 
@@ -138,6 +172,17 @@ export function createTraceViewer(): HTMLDivElement {
     updatePositionReadout(readout, vp.start, vp.end)
   }
 
+  // rAF-throttled variant — use this in high-frequency event handlers (wheel,
+  // pointermove) to avoid synchronous DOM writes at pointer-event rate.
+  let readoutRaf = 0
+  const scheduleReadout = () => {
+    if (readoutRaf) return
+    readoutRaf = requestAnimationFrame(() => {
+      readoutRaf = 0
+      refreshReadout()
+    })
+  }
+
   const refreshSequence = () => {
     const trace = renderer.getCurrentTrace()
     if (!trace) return
@@ -183,7 +228,7 @@ export function createTraceViewer(): HTMLDivElement {
     try {
       setState('loading', `Loading ${file.name}…`)
       const buffer = await file.arrayBuffer()
-      const trace = parseTrace(buffer, file.name)
+      const trace = await parseInWorker(buffer, file.name)
       selectedBaseIndex = null
       hoveredBaseIndex = null
       hideTooltip(tooltip)
@@ -206,7 +251,7 @@ export function createTraceViewer(): HTMLDivElement {
       const response = await fetch(sampleUrl)
       if (!response.ok) throw new Error(`Could not fetch sample (${response.status})`)
       const buffer = await response.arrayBuffer()
-      const trace = parseTrace(buffer, 'sample.ab1')
+      const trace = await parseInWorker(buffer, 'sample.ab1')
       selectedBaseIndex = null
       hoveredBaseIndex = null
       hideTooltip(tooltip)
@@ -271,7 +316,7 @@ export function createTraceViewer(): HTMLDivElement {
     event.preventDefault()
     const factor = event.deltaY < 0 ? 0.9 : 1.1
     renderer.zoom(factor, event.offsetX)
-    refreshReadout()
+    scheduleReadout()
   })
 
   canvas.addEventListener('pointerdown', (event) => {
@@ -307,7 +352,7 @@ export function createTraceViewer(): HTMLDivElement {
 
       if (activePointers.size === 1) {
         renderer.panPixels(pointer.clientX - event.clientX)
-        refreshReadout()
+        scheduleReadout()
         return
       }
       if (activePointers.size === 2) {
@@ -317,7 +362,7 @@ export function createTraceViewer(): HTMLDivElement {
         const centerX = (first.clientX + second.clientX) / 2 - canvasLeft
         if (lastPinchDistance > 0) {
           renderer.zoom(lastPinchDistance / currentDistance, centerX)
-          refreshReadout()
+          scheduleReadout()
         }
         lastPinchDistance = currentDistance
         return

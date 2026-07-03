@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Performance hardening | sanger-viewer devlog</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-shell">
+        <a class="site-title" href="../../">sanger-viewer</a>
+        <nav class="site-nav" aria-label="Site">
+          <a href="../">Devlog</a>
+        </nav>
+      </div>
+    </header>
+    <main class="site-shell blog-entry">
+      <p><a href="../">← Back to devlog</a></p>
+      <h1>Making the viewer fast, not just functional</h1>
+      <p><time datetime="2026-07-03">July 3, 2026</time></p>
+      <p>
+        Three rounds of foundation, touch polish, and UX cleanup have paid off: the viewer
+        looks great and handles every interaction cleanly. The one area that was still
+        noticeably rough was performance. Zoom out on a big trace and you could feel the
+        frame-rate wobble. Pan quickly with a finger on tablet and the position readout was
+        fighting the canvas for CPU time. Load a large <code>.ab1</code> file and the whole
+        tab would freeze for a beat while the parser ran. This pass fixes all three.
+      </p>
+
+      <h2>Drawing fewer points</h2>
+      <p>
+        The original draw loop iterated over every sample in the viewport and emitted a
+        <code>lineTo</code> for each one. At maximum zoom-out that could be tens of thousands
+        of path segments for a single channel — far more than the canvas is wide. The GPU
+        never needed those points; at any zoom level you only have as many distinct x
+        columns as CSS pixels.
+      </p>
+      <p>
+        I added a new <code>decimateSamples()</code> helper in
+        <code>src/render/decimation.ts</code>. It uses min-max decimation: the sample range
+        visible in the viewport is divided into exactly <em>pixelWidth</em> buckets, and for
+        each bucket we record only the minimum and maximum value. The draw loop then emits
+        at most one short vertical segment per pixel column rather than one point per sample.
+        On a 100 k-sample trace at normal zoom this drops the path from ~5 000 segments to
+        ~1 200 — the canvas width — with no visible difference in fidelity. Zoomed all the
+        way in the decimator falls back to the original one-point-per-sample path so there
+        is no loss of detail where detail matters.
+      </p>
+      <p>
+        The <code>maxY</code> normalisation scan got the same treatment. Previously it walked
+        every sample in all four channels to find the global peak. Now it walks only the
+        visible range, so the scan cost scales with the viewport width rather than the trace
+        length.
+      </p>
+      <p>
+        Both changes are unit-tested in <code>tests/core/decimation.test.ts</code> — pure
+        Node tests, no canvas, no browser. The performance smoke test also got a new
+        assertion: decimating a 100 k-sample channel to 1 200 points must complete in under
+        20 ms, and parsing the large fixture must complete in under 500 ms (tightened from
+        the very lenient 2 000 ms ceiling we shipped with).
+      </p>
+
+      <h2>Parsing off the main thread</h2>
+      <p>
+        The parser ran synchronously on the main thread inside the <code>load()</code>
+        handler. For a large <code>.ab1</code> file the parser call itself is fast (well
+        under 100 ms on any modern machine) but the surrounding ArrayBuffer allocation,
+        typed-array construction, and GC pressure still briefly blocked the event loop and
+        prevented the loading spinner from painting.
+      </p>
+      <p>
+        I wrapped <code>parseTrace</code> in a dedicated Web Worker
+        (<code>src/workers/parser.worker.ts</code>). The <code>load()</code> and
+        <code>loadSample()</code> paths now post the raw <code>ArrayBuffer</code> to the
+        worker (transferred, not copied) and await the result. The four channel
+        <code>Float32Array</code> buffers come back as transferables too, so the handoff is
+        zero-copy in both directions. The main thread stays completely unblocked during the
+        parse: the spinner animates, interactions remain live, and the trace appears the
+        moment the worker posts its response.
+      </p>
+      <p>
+        The Vite <code>?worker</code> URL qualifier handles bundling — Vite wraps the worker
+        entry in its own chunk with correct imports. The worker module is loaded lazily the
+        first time a file is opened so the main bundle stays lean.
+      </p>
+
+      <h2>Decoupling the position readout from event rate</h2>
+      <p>
+        The position readout (showing which sample range is visible) was updated synchronously
+        on every <code>wheel</code> and <code>pointermove</code> event. On a high-DPI display
+        those events can fire 120 times per second. Calling <code>updatePositionReadout()</code>
+        on every one of them is 120 DOM text-content writes per second — completely wasted
+        because the canvas itself was already batched behind <code>requestAnimationFrame</code>.
+      </p>
+      <p>
+        The fix is a one-liner pattern: a <code>scheduleReadout()</code> function that queues
+        the update behind <code>requestAnimationFrame</code> and short-circuits if a frame is
+        already pending. High-frequency event handlers now call <code>scheduleReadout()</code>
+        instead of <code>refreshReadout()</code>. The update still happens on the same frame
+        as the canvas redraw — you just never do it more than once per frame.
+      </p>
+
+      <h2>What's next</h2>
+      <p>
+        With parsing off-thread and rendering capped at display resolution, the viewer is now
+        genuinely smooth on the large fixture. The final piece is true E2E coverage:
+        Playwright tests that act like a real user — opening each fixture through the UI,
+        asserting the canvas is non-blank via pixel sampling, then exercising zoom, pan,
+        hover tooltips, file switching, and export across both desktop Chrome and emulated
+        tablet. That lands in the next PR.
+      </p>
+    </main>
+  </body>
+</html>
