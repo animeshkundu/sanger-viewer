@@ -36,6 +36,19 @@ describe('annotation engine', () => {
     })
   })
 
+  it('resets ORF detection at an IUPAC ambiguity codon inside a would-be ORF', () => {
+    // Sequence: ATG (start) + AGR (ambiguous codon with R=A/G) + AAA + TAA (stop)
+    // With a canonical sequence "ATGAGAAAATAA" the ORF spans 0–12.
+    // But "ATGAGRAAATAA" has an IUPAC ambiguity code (R) at codon position 1,
+    // so the ORF must be reset there and no ORF should cover the full span.
+    const sequence = 'ATGAGRAAATAA'
+    const orfs = detectOrfFeatures(sequence)
+
+    // No ORF should start at 0 and run all the way to 12, because the ambiguous
+    // codon at positions 3–5 must reset the in-progress ORF.
+    expect(orfs.some((f) => f.strand === '+' && f.start === 0 && f.end === 12)).toBe(false)
+  })
+
   it('filters annotation features by a viewport range using half-open intervals', () => {
     const sequence = 'CCCATGAAATAACCCTTAGGGCATCCCAAGAATTCGGAGACCTT'
     const features = buildAnnotationFeatures(sequence)

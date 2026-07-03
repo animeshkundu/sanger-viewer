@@ -301,9 +301,9 @@ export function createTraceViewer(): HTMLDivElement {
   const buildDisplayTrace = (): TraceData | null => {
     if (!rawTrace) return null
     const strandTrace = isRevcomp ? reverseComplementTrace(rawTrace) : rawTrace
-    annotationFeatures = buildAnnotationFeatures(strandTrace.sequence)
     mixedBaseResult = callMixedBases(strandTrace, mixedBaseThreshold)
     setMixedSummary(controls, mixedBaseResult.ambiguousCount)
+    annotationFeatures = buildAnnotationFeatures(mixedBaseResult.sequence)
     return {
       ...strandTrace,
       baseCalls: mixedBaseResult.baseCalls,
