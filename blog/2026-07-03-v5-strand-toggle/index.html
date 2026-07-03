@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Reverse-complement strand view | sanger-viewer devlog</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-shell">
+        <a class="site-title" href="../../">sanger-viewer</a>
+        <nav class="site-nav" aria-label="Site">
+          <a href="../">Devlog</a>
+        </nav>
+      </div>
+    </header>
+    <main class="site-shell blog-entry">
+      <p><a href="../">← Back to devlog</a></p>
+      <h1>Seeing both strands: reverse-complement view ships</h1>
+      <p><time datetime="2026-07-03">July 3, 2026</time></p>
+      <p>
+        Every Sanger trace is fundamentally a single-stranded read — you load it, you see
+        bases from left to right in the 5′ to 3′ direction, and that is the end of the
+        story. Except it is not. Half the time the primer points the other way, and you are
+        staring at the complement of the thing you actually care about. Professional viewers
+        like Chromas and FinchTV have always offered a one-click strand flip. Step 6 brings
+        that to sanger-viewer.
+      </p>
+
+      <h2>What the toggle actually does</h2>
+      <p>
+        The strand toggle button (labelled <strong>5′→3′</strong> when showing the forward
+        read, <strong>3′→5′</strong> when showing the reverse complement) is a single
+        <code>data-action="toggle-strand"</code> button in the toolbar. Clicking it computes
+        a fresh derived <code>TraceData</code> through <code>reverseComplementTrace()</code>
+        and hands it straight to the existing renderer. No conditional logic scattered
+        through the render path — the canvas, sequence panel, tooltip, and FASTA export all
+        see the same <code>TraceData</code> interface they always did, now just with
+        mirrored content.
+      </p>
+      <p>
+        The raw parsed trace is kept in a separate <code>rawTrace</code> variable in
+        <code>TraceViewer</code>. Toggling computes the display trace on the fly — it is
+        fast enough on the largest fixture (3730 bases, tens of thousands of samples) that
+        no caching or worker offloading is needed. Toggling back is equally instant.
+      </p>
+
+      <h2>What reverseComplementTrace does under the hood</h2>
+      <p>
+        The <code>src/revcomp.ts</code> module exports two things: a pure
+        <code>iupacComplement(base)</code> function covering the full 15-character IUPAC
+        alphabet, and <code>reverseComplementTrace(trace)</code> which builds a new
+        <code>TraceData</code> with:
+      </p>
+      <ul>
+        <li>
+          <strong>Channels mirrored:</strong> the new A channel is the T channel reversed
+          element-by-element; new T = reversed A; new C = reversed G; new G = reversed C.
+          This physically flips the chromatogram left-to-right and swaps the colour
+          assignments so the trace reads naturally from left to right again.
+        </li>
+        <li>
+          <strong>Peak positions recomputed:</strong> each old position <em>p</em> maps to
+          <code>sampleCount − 1 − p</code>, and the order of bases is reversed, so
+          <code>newPeakPos[i] = (sampleCount − 1) − oldPeakPos[len − 1 − i]</code>. Hit
+          testing, tooltips, and the sequence panel all stay in sync.
+        </li>
+        <li>
+          <strong>Base calls reversed and complemented:</strong> each base goes through the
+          IUPAC complement table (A↔T, C↔G, R↔Y, K↔M, B↔V, D↔H, S/W/N stay). Case is
+          preserved.
+        </li>
+        <li>
+          <strong>Qualities reversed</strong> to match the new base order.
+        </li>
+        <li>
+          <strong>Scalar fields unchanged:</strong> <code>format</code>,
+          <code>fileName</code>, <code>sampleCount</code>, <code>metadata</code> are copied
+          as-is.
+        </li>
+      </ul>
+
+      <h2>FASTA export knows the strand</h2>
+      <p>
+        <code>toFasta()</code> gained an optional second parameter <code>isRevcomp</code>.
+        When true, the FASTA header becomes
+        <code>&gt;id_revcomp [reverse complement]</code> and the download filename gets a
+        <code>-revcomp</code> suffix. The default is <code>false</code>, so all existing
+        code that calls <code>toFasta(trace)</code> without a second argument continues to
+        work without modification — backward compatible by design.
+      </p>
+
+      <h2>State management on load and toggle</h2>
+      <p>
+        Loading a new file always resets to the forward strand. On toggle, the selected
+        and hovered base indices are cleared, the tooltip is hidden, and
+        <code>fitToScreen()</code> is called to reset the viewport — otherwise you could
+        end up panning into empty space after a horizontal mirror. The toolbar button's
+        <code>aria-pressed</code> attribute tracks the current strand for screen readers and
+        automated tests.
+      </p>
+
+      <h2>Tests that prove it</h2>
+      <p>
+        The Vitest unit suite in <code>tests/core/revcomp.test.ts</code> covers fourteen
+        cases: all fifteen IUPAC complement codes, case-preservation for lowercase bases,
+        passthrough of unknown characters, channel mirroring, peak position mirroring for
+        both symmetric and asymmetric inputs, quality reversal, null-quality handling, and
+        the round-trip property (applying revcomp twice returns the original). That last one
+        is the most satisfying to see go green.
+      </p>
+      <p>
+        The Playwright E2E suite in <code>tests/e2e/strand-toggle.e2e.test.ts</code> runs
+        on both the desktop Chrome and emulated iPad projects. It loads
+        <code>3100.ab1</code> through the file input, then:
+      </p>
+      <ul>
+        <li>Asserts the toggle button starts as <strong>5′→3′</strong> with
+          <code>aria-pressed="false"</code>.</li>
+        <li>Clicks the toggle, waits for the canvas to re-paint, and asserts the pixel ink
+          sum changed.</li>
+        <li>Asserts the button label flips to <strong>3′→5′</strong> and back on a second
+          click.</li>
+        <li>Asserts the sequence panel text content differs after the toggle.</li>
+        <li>Asserts that toggling twice returns to within 1% of the original ink sum.</li>
+        <li>On desktop only: sweeps the mouse to trigger a tooltip and asserts it still
+          contains <em>peak:</em> data.</li>
+        <li>Triggers FASTA export after toggling and asserts the header line and filename
+          both contain <em>revcomp</em>, and that the sequence lines are valid IUPAC
+          characters.</li>
+      </ul>
+
+      <h2>What is in progress and what comes next</h2>
+      <p>
+        CI is green. The full suite — lint, typecheck, 32 Vitest unit tests, all Playwright
+        E2E tests on desktop and tablet — passes without regressions.
+      </p>
+      <p>
+        Next up on the north-star roadmap: PHRED quality trimming (strip low-confidence
+        ends below a configurable threshold), subsequence find with IUPAC ambiguity on both
+        strands, per-base peak amplitude display in the tooltip, multi-trace workspace, and
+        high-resolution vector export. Each one a small PR, each one keeping CI green, each
+        one with its own devlog entry.
+      </p>
+    </main>
+  </body>
+</html>
