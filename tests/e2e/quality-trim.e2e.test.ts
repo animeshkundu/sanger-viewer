@@ -3,7 +3,7 @@
  *
  * Verifies the quality trim controls across desktop Chrome and iPad tablet:
  *   ✓ Trim controls render (slider, Full/Trimmed buttons, summary)
- *   ✓ Default mode is "Trimmed" with threshold 20
+ *   ✓ Default mode is "Full" with threshold 20
  *   ✓ Trim summary appears after loading a trace (e.g. "bp kept · Q̄")
  *   ✓ Canvas ink sum changes when trim overlay is active (shaded regions visible)
  *   ✓ Adjusting threshold slider changes trim summary and canvas
@@ -62,13 +62,13 @@ test('trim controls render after load', async ({ page }) => {
   await expect(page.locator('#trim-summary')).toBeVisible()
 })
 
-test('default mode is Trimmed with threshold 20', async ({ page }) => {
+test('default mode is Full with threshold 20', async ({ page }) => {
   const slider = page.locator('[data-trim="threshold"]')
   await expect(slider).toHaveValue('20')
 
-  const trimmedBtn = page.getByRole('button', { name: 'Trimmed' })
-  await expect(trimmedBtn).toHaveAttribute('aria-pressed', 'true')
-  await expect(page.getByRole('button', { name: 'Full' })).toHaveAttribute('aria-pressed', 'false')
+  const fullBtn = page.getByRole('button', { name: 'Full' })
+  await expect(fullBtn).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('button', { name: 'Trimmed' })).toHaveAttribute('aria-pressed', 'false')
 })
 
 test('trim summary appears after load (shows bp kept)', async ({ page }) => {
@@ -93,6 +93,9 @@ test('adjusting threshold slider changes the trim summary', async ({ page }) => 
 })
 
 test('adjusting threshold changes canvas (trim overlay updates)', async ({ page }) => {
+  await page.getByRole('button', { name: 'Trimmed' }).click()
+  await expect(page.getByRole('button', { name: 'Trimmed' })).toHaveAttribute('aria-pressed', 'true')
+
   const slider = page.locator('[data-trim="threshold"]')
   const inkBefore = await canvasInkSum(page)
 
@@ -115,7 +118,8 @@ test('switching to Full mode updates aria-pressed and sequence shows all bases',
 })
 
 test('Full mode removes trim overlay — ink sum differs from Trimmed mode', async ({ page }) => {
-  // Start in Trimmed (default)
+  await page.getByRole('button', { name: 'Trimmed' }).click()
+  await expect(page.getByRole('button', { name: 'Trimmed' })).toHaveAttribute('aria-pressed', 'true')
   const inkTrimmed = await canvasInkSum(page)
 
   await page.getByRole('button', { name: 'Full' }).click()
@@ -123,7 +127,12 @@ test('Full mode removes trim overlay — ink sum differs from Trimmed mode', asy
 })
 
 test('Trimmed FASTA is shorter than Full FASTA for real fixture', async ({ page }) => {
-  // Download Trimmed FASTA (default mode)
+  await page.getByRole('button', { name: 'Trimmed' }).click()
+  await expect(page.getByRole('button', { name: 'Trimmed' })).toHaveAttribute('aria-pressed', 'true')
+  const slider = page.locator('[data-trim="threshold"]')
+  await slider.fill('20')
+  await slider.dispatchEvent('input')
+
   const trimmedContent = await downloadFastaContent(page)
   const trimmedSeq = trimmedContent
     .split('\n')
@@ -147,6 +156,9 @@ test('Trimmed FASTA is shorter than Full FASTA for real fixture', async ({ page 
 })
 
 test('Trimmed FASTA header includes trim annotation', async ({ page }) => {
+  await page.getByRole('button', { name: 'Trimmed' }).click()
+  await expect(page.getByRole('button', { name: 'Trimmed' })).toHaveAttribute('aria-pressed', 'true')
+
   const content = await downloadFastaContent(page)
   const header = content.split('\n')[0]
   expect(header).toMatch(/trimmed/)
@@ -162,7 +174,10 @@ test('Full FASTA header does NOT include trim annotation', async ({ page }) => {
 })
 
 test('threshold=0 produces longer or equal trimmed sequence than threshold=20', async ({ page }) => {
-  // First get the Q20 trimmed FASTA (default)
+  await page.getByRole('button', { name: 'Trimmed' }).click()
+  await expect(page.getByRole('button', { name: 'Trimmed' })).toHaveAttribute('aria-pressed', 'true')
+
+  // First get the Q20 trimmed FASTA
   const content20 = await downloadFastaContent(page)
   const seq20 = content20
     .split('\n')

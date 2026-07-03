@@ -30,14 +30,14 @@ export function createControls(): HTMLDivElement {
       <div class="trim-mode" role="group" aria-label="Sequence mode">
         <button
           data-trim-mode="full"
-          class="trim-mode-btn"
-          aria-pressed="false"
+          class="trim-mode-btn trim-mode-btn--active"
+          aria-pressed="true"
           title="Show full (untrimmed) sequence"
         >Full</button>
         <button
           data-trim-mode="trimmed"
-          class="trim-mode-btn trim-mode-btn--active"
-          aria-pressed="true"
+          class="trim-mode-btn"
+          aria-pressed="false"
           title="Show trimmed sequence only"
         >Trimmed</button>
       </div>
@@ -98,4 +98,3 @@ export function getTrimThreshold(controls: HTMLDivElement): number {
   const slider = controls.querySelector<HTMLInputElement>('[data-trim="threshold"]')
   return slider ? Number(slider.value) : 20
 }
-

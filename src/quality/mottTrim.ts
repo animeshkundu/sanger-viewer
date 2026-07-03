@@ -46,7 +46,7 @@ export interface TrimSettings {
 
 export const DEFAULT_TRIM_SETTINGS: TrimSettings = {
   threshold: 20,
-  mode: 'trimmed',
+  mode: 'full',
 }
 
 /**

@@ -202,9 +202,9 @@ describe('mottTrim — real fixture files', () => {
     const ab = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength)
     const trace = parseTrace(ab, '3100.ab1')
 
-    if (!trace.qualities) return // skip if no quality data
+    if (!trace.qualities) throw new Error('Expected 3100.ab1 fixture to include PHRED quality scores')
     const r = mottTrim(trace.qualities, trace.baseCalls, 20)
-    if (r.status !== 'ok') return
+    if (r.status !== 'ok') throw new Error(`Expected Q20 trim status "ok", got "${r.status}"`)
     // The real trace should have at least some trimming at Q20
     expect(r.trimmedLength).toBeLessThan(trace.baseCalls.length)
   })
