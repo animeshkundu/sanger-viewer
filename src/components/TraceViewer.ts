@@ -433,6 +433,12 @@ export function createTraceViewer(): HTMLDivElement {
     return slot
   }
 
+  const clearRenderPanels = () => {
+    renderer.clearTrace()
+    readout.textContent = 'Position: -'
+    sequencePanel.textContent = 'Load a trace to inspect sequence'
+  }
+
   const clearDisplayedTrace = () => {
     rawTrace = null
     isRevcomp = false
@@ -444,7 +450,7 @@ export function createTraceViewer(): HTMLDivElement {
     hideTooltip(tooltip)
     setStrandToggleState(controls, false)
     updateMetadataPanel(metadataPanel, null)
-    renderer.clearTrace()
+    clearRenderPanels()
   }
 
   syncWorkspaceBar()
@@ -483,6 +489,7 @@ export function createTraceViewer(): HTMLDivElement {
     } else {
       // Evicted slot — show the file name but indicate it needs reloading.
       updateMetadataPanel(metadataPanel, null)
+      clearRenderPanels()
       setState('error', `${slot.fileName} was evicted from memory — please re-open the file`)
     }
 
@@ -610,11 +617,7 @@ export function createTraceViewer(): HTMLDivElement {
       } else {
         // No slots left → go back to empty state.
         activeSlotId = null
-        rawTrace = null
-        isRevcomp = false
-        trimResult = null
-        searchState = { query: '', matches: [], activeIndex: -1 }
-        updateMetadataPanel(metadataPanel, null)
+        clearDisplayedTrace()
         setState('empty')
         syncWorkspaceBar()
       }

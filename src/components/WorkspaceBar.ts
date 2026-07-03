@@ -17,9 +17,7 @@ const BAR_CLASS = 'workspace-bar'
 export function createWorkspaceBar(): HTMLDivElement {
   const bar = document.createElement('div')
   bar.className = BAR_CLASS
-  bar.setAttribute('role', 'tablist')
-  bar.setAttribute('aria-label', 'Open traces')
-  bar.innerHTML = `<div class="workspace-bar__tabs" role="presentation"></div>`
+  bar.innerHTML = `<div class="workspace-bar__tabs" role="tablist" aria-label="Open traces"></div>`
 
   // "Open another file" button lives outside the tab list.
   const openBtn = document.createElement('button')

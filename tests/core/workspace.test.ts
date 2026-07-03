@@ -77,7 +77,7 @@ describe('TraceWorkspace', () => {
   it('close() of the active slot activates the last remaining slot', () => {
     const ws = new TraceWorkspace()
     const idA = ws.add(makeSlot(fakeTrace('a.ab1')))
-    ws.add(makeSlot(fakeTrace('b.ab1')))
+    const idB = ws.add(makeSlot(fakeTrace('b.ab1')))
     const idC = ws.add(makeSlot(fakeTrace('c.ab1')))
     // idC is now active
     ws.close(idC)
@@ -86,7 +86,7 @@ describe('TraceWorkspace', () => {
     expect(active).not.toBeNull()
     expect(active!.id).not.toBe(idC)
     // Should be idA or idB — whichever is at the end
-    expect([idA, ws.getAll().map((s) => s.id)].flat()).toContain(active!.id)
+    expect([idA, idB]).toContain(active!.id)
   })
 
   it('close() of the only slot results in null active', () => {
@@ -124,12 +124,13 @@ describe('TraceWorkspace', () => {
 
     it('keeps the evicted slot shell with rawTrace === null', () => {
       const ws = new TraceWorkspace(2)
-      ws.add(makeSlot(fakeTrace('a.ab1')))
+      const idA = ws.add(makeSlot(fakeTrace('a.ab1')))
       ws.add(makeSlot(fakeTrace('b.ab1')))
+      expect(residentCount(ws)).toBe(2)
       // Adding c evicts a (LRU)
       ws.add(makeSlot(fakeTrace('c.ab1')))
       expect(ws.getAll()).toHaveLength(3)
-      const evicted = ws.getAll().find((slot) => slot.fileName === 'a.ab1')
+      const evicted = ws.getAll().find((slot) => slot.id === idA)
       expect(evicted).toBeDefined()
       expect(evicted?.rawTrace).toBeNull()
       expect(residentCount(ws)).toBe(2)

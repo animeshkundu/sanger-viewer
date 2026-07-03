@@ -174,4 +174,28 @@ test.describe('Multi-trace workspace', () => {
     // Two tabs now visible.
     await expect(page.locator('.workspace-bar__tab')).toHaveCount(2)
   })
+
+  test('switching to an evicted tab clears rendered UI and shows reload state', async ({ page }) => {
+    await page.goto('')
+
+    const files = [FIXTURE_A, FIXTURE_B, FIXTURE_A, FIXTURE_B, FIXTURE_A, FIXTURE_B]
+    await page.setInputFiles('#file-input', files[0])
+    await expect(page.locator('#status')).toContainText('Loaded')
+    for (const file of files.slice(1)) {
+      await page.setInputFiles('#file-input-extra', file)
+      await expect(page.locator('#status')).toContainText('Loaded')
+    }
+
+    await expect(page.locator('.workspace-bar__tab-label', { hasText: '(evicted)' })).toHaveCount(1)
+    await page.locator('.workspace-bar__tab', {
+      has: page.locator('.workspace-bar__tab-label', { hasText: '(evicted)' }),
+    }).click()
+
+    await expect(page.locator('#error-banner')).toBeVisible()
+    await expect(page.locator('#status')).toContainText('was evicted from memory')
+    await expect(page.locator('.sequence-panel')).toHaveText('Load a trace to inspect sequence')
+    await expect(page.locator('.position-readout')).toHaveText('Position: -')
+    await expect(page.locator('[data-testid="chromatogram-canvas"]')).not.toHaveAttribute('data-viewport-start', /.+/)
+    await expect.poll(() => canvasInkSum(page)).toBeLessThan(INK_THRESHOLD)
+  })
 })
