@@ -16,6 +16,7 @@ import { createSequencePanel, renderSequence } from './SequencePanel'
 import { createPositionReadout, updatePositionReadout } from './PositionReadout'
 import { createMetadataPanel, updateMetadataPanel } from './MetadataPanel'
 import { createWorkspaceBar, renderWorkspaceBar } from './WorkspaceBar'
+import { createAnnotationTrack } from './AnnotationTrack'
 import { downloadBlob } from '../export/png'
 import { toFasta } from '../export/fasta'
 import { exportSvg } from '../export/svg'
@@ -29,6 +30,8 @@ import {
   type SubsequenceMatch
 } from '../search/findSubsequence'
 import { TraceWorkspace, makeSlot } from '../workspace/TraceWorkspace'
+import { buildAnnotationFeatures, filterAnnotationFeaturesByRange, type AnnotationFeature } from '../annotations'
+import { mapSampleViewportToBaseRange } from '../render/viewport'
 import type { TrimResult, TrimSettings } from '../quality/mottTrim'
 import type { TraceData } from '../types/trace'
 
@@ -150,6 +153,12 @@ export function createTraceViewer(): HTMLDivElement {
   const tooltip = createTooltip()
   const metadataPanel = createMetadataPanel()
   const workspaceBar = createWorkspaceBar()
+  const annotationTrack = createAnnotationTrack((feature) => {
+    renderer.focusBaseRange(feature.start, feature.end)
+    refreshReadout()
+  })
+  const canvasWrap = root.querySelector<HTMLElement>('.canvas-wrap')!
+  root.insertBefore(annotationTrack.element, canvasWrap)
   root.append(controls, workspaceBar, readout, sequencePanel, metadataPanel, tooltip)
 
   const fileInput = root.querySelector<HTMLInputElement>('#file-input')!
@@ -196,6 +205,7 @@ export function createTraceViewer(): HTMLDivElement {
   let trimRaf = 0
   let viewerState: ViewerState = 'empty'
   let searchState: SearchState = { query: '', matches: [], activeIndex: -1 }
+  let annotationFeatures: AnnotationFeature[] = []
   const workspace = new TraceWorkspace(5)
   let activeSlotId: string | null = null
   setMixedThresholdDisplay(controls, mixedBaseThreshold)
@@ -288,6 +298,7 @@ export function createTraceViewer(): HTMLDivElement {
   const buildDisplayTrace = (): TraceData | null => {
     if (!rawTrace) return null
     const strandTrace = isRevcomp ? reverseComplementTrace(rawTrace) : rawTrace
+    annotationFeatures = buildAnnotationFeatures(strandTrace.sequence)
     mixedBaseResult = callMixedBases(strandTrace, mixedBaseThreshold)
     setMixedSummary(controls, mixedBaseResult.ambiguousCount)
     return {
@@ -381,6 +392,27 @@ export function createTraceViewer(): HTMLDivElement {
   const refreshReadout = () => {
     const vp = renderer.getViewportInfo()
     updatePositionReadout(readout, vp.start, vp.end)
+    refreshAnnotationTrack()
+  }
+
+  const refreshAnnotationTrack = () => {
+    const trace = renderer.getCurrentTrace()
+    if (!trace) {
+      annotationTrack.clear()
+      return
+    }
+    const viewportState = renderer.getViewportState()
+    const viewportEndSample = viewportState.startSample + Math.max(1, canvas.clientWidth || 1) * viewportState.samplesPerPixel
+    const visibleRange = mapSampleViewportToBaseRange(trace.peakPositions, {
+      startSample: viewportState.startSample,
+      endSample: viewportEndSample,
+    }, 12)
+    const visibleFeatures = filterAnnotationFeaturesByRange(annotationFeatures, visibleRange, 6)
+    annotationTrack.render({
+      visibleFeatures,
+      visibleRange,
+      totalCount: annotationFeatures.length,
+    })
   }
 
   // rAF-throttled variant — use this in high-frequency event handlers (wheel,
@@ -478,6 +510,8 @@ export function createTraceViewer(): HTMLDivElement {
 
   const clearRenderPanels = () => {
     renderer.clearTrace()
+    annotationFeatures = []
+    annotationTrack.clear()
     readout.textContent = 'Position: -'
     sequencePanel.textContent = 'Load a trace to inspect sequence'
   }

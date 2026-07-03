@@ -74,6 +74,15 @@
   --color-ambiguous-canvas-stroke: rgba(79, 70, 229, 0.8);
   --color-tooltip-bg:       #0f172a;
   --color-tooltip-fg:       #f8fafc;
+  --color-annotation-row-bg: #f8fafc;
+  --color-annotation-row-border: #cbd5e1;
+  --color-annotation-chip-bg: #ffffff;
+  --color-annotation-chip-border: #94a3b8;
+  --color-annotation-chip-fg: #1e293b;
+  --color-annotation-chip-orf-bg: #eef2ff;
+  --color-annotation-chip-orf-border: #818cf8;
+  --color-annotation-chip-restriction-bg: #ecfeff;
+  --color-annotation-chip-restriction-border: #22d3ee;
 }
 
 /* ── Dark palette ── */
@@ -119,6 +128,15 @@
     --color-ambiguous-canvas-stroke: rgba(165, 180, 252, 0.85);
     --color-tooltip-bg:       #1e293b;
     --color-tooltip-fg:       #f1f5f9;
+    --color-annotation-row-bg: #0f172a;
+    --color-annotation-row-border: #334155;
+    --color-annotation-chip-bg: #1e293b;
+    --color-annotation-chip-border: #64748b;
+    --color-annotation-chip-fg: #e2e8f0;
+    --color-annotation-chip-orf-bg: #312e81;
+    --color-annotation-chip-orf-border: #818cf8;
+    --color-annotation-chip-restriction-bg: #164e63;
+    --color-annotation-chip-restriction-border: #22d3ee;
   }
 }
 
@@ -430,6 +448,80 @@ a {
 }
 
 /* ─── Canvas ─────────────────────────────────────────────────────── */
+.annotation-track {
+  margin-top: 0.75rem;
+  border: 1px solid var(--color-annotation-row-border);
+  border-radius: var(--radius-md);
+  background: var(--color-annotation-row-bg);
+  padding: var(--space-2);
+}
+
+.annotation-track__rows {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.annotation-row {
+  display: grid;
+  grid-template-columns: 5.5rem 1fr;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 2rem;
+}
+
+.annotation-row__label {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.annotation-row__chips {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  gap: var(--space-2);
+  min-height: 1.75rem;
+  overflow-x: auto;
+  align-items: center;
+}
+
+.annotation-chip-item {
+  margin: 0;
+}
+
+.annotation-chip {
+  border: 1px solid var(--color-annotation-chip-border);
+  border-radius: var(--radius-full);
+  background: var(--color-annotation-chip-bg);
+  color: var(--color-annotation-chip-fg);
+  font-size: var(--text-xs);
+  line-height: 1.2;
+  padding: 0.22rem 0.58rem;
+  white-space: nowrap;
+  cursor: pointer;
+  font-family: var(--font-mono);
+}
+
+.annotation-chip:hover {
+  border-color: var(--color-brand);
+}
+
+.annotation-chip:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 1px;
+}
+
+.annotation-chip--orf {
+  background: var(--color-annotation-chip-orf-bg);
+  border-color: var(--color-annotation-chip-orf-border);
+}
+
+.annotation-chip--restriction {
+  background: var(--color-annotation-chip-restriction-bg);
+  border-color: var(--color-annotation-chip-restriction-border);
+}
+
 .canvas-wrap {
   margin-top: 0.75rem;
   border: 1px solid var(--color-border);

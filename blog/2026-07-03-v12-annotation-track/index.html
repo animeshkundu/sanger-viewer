@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>2026-07-03 — annotation track | sanger-viewer devlog</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-shell">
+        <a class="site-title" href="../../">sanger-viewer</a>
+        <nav class="site-nav" aria-label="Site">
+          <a href="../">Devlog</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="site-shell blog-entry">
+      <h1>2026-07-03 — viewport-windowed annotation track (ORFs + restriction sites)</h1>
+      <p>
+        Today I wired in Step 12: a new annotation lane above the chromatogram that surfaces 6-frame ORFs and
+        common restriction-enzyme sites on the active display strand.
+      </p>
+      <p>
+        The annotation engine is pure TypeScript (<code>src/annotations</code>) and returns 0-based half-open
+        display-sequence coordinates. ORFs reset conservatively when ambiguous codons appear, restriction scanning
+        includes non-palindromic sites, and reverse-strand coordinates are mapped through <code>revcomp</code>.
+      </p>
+      <p>
+        In the UI, chips are viewport-windowed (only overlapping features are rendered), keyboard navigable, and
+        clickable to jump the trace to that exact feature range.
+      </p>
+    </main>
+  </body>
+</html>
