@@ -18,6 +18,23 @@ const FIXTURE = path.resolve(process.cwd(), 'fixtures/ab1/3100.ab1')
 
 const INK_THRESHOLD = 1000
 
+/** Full IUPAC complement table (case-preserving), mirroring src/revcomp.ts */
+const COMPLEMENT: Record<string, string> = {
+  A: 'T', T: 'A', C: 'G', G: 'C',
+  R: 'Y', Y: 'R', S: 'S', W: 'W',
+  K: 'M', M: 'K', B: 'V', V: 'B',
+  D: 'H', H: 'D', N: 'N',
+  a: 't', t: 'a', c: 'g', g: 'c',
+  r: 'y', y: 'r', s: 's', w: 'w',
+  k: 'm', m: 'k', b: 'v', v: 'b',
+  d: 'h', h: 'd', n: 'n',
+}
+
+/** Compute the reverse complement of a full IUPAC sequence string. */
+function reverseComplement(seq: string): string {
+  return seq.split('').reverse().map((b) => COMPLEMENT[b] ?? b).join('')
+}
+
 async function canvasInkSum(page: Page): Promise<number> {
   return page.locator('[data-testid="chromatogram-canvas"]').evaluate((el) => {
     const canvas = el as HTMLCanvasElement
@@ -33,6 +50,24 @@ async function canvasInkSum(page: Page): Promise<number> {
 
 async function getSequenceText(page: Page): Promise<string> {
   return page.locator('.sequence-panel').textContent().then((t) => t ?? '')
+}
+
+/**
+ * Click "Export FASTA", wait for the download, and return the full sequence
+ * string (all non-header lines joined, whitespace stripped).
+ */
+async function downloadFastaSequence(page: Page): Promise<string> {
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Export FASTA' }).click(),
+  ])
+  const tmpPath = await download.path()
+  if (!tmpPath) throw new Error('FASTA download path unavailable')
+  const content = await fs.readFile(tmpPath, 'utf-8')
+  return content
+    .split('\n')
+    .filter((line) => !line.startsWith('>') && line.trim().length > 0)
+    .join('')
 }
 
 test.beforeEach(async ({ page }) => {
@@ -52,16 +87,20 @@ test('strand toggle button has correct initial label', async ({ page }) => {
 test('toggling strand changes canvas content', async ({ page }) => {
   const inkBefore = await canvasInkSum(page)
   const seqBefore = await getSequenceText(page)
+  // Download the full forward sequence via FASTA for the definitive correctness check below.
+  // (The sequence panel only renders a ±120-base window, so panel text alone cannot be used
+  //  for reverseComplement(before) === after on a 795-base trace.)
+  const forwardFastaSeq = await downloadFastaSequence(page)
 
   await page.getByRole('button', { name: /5′→3′/ }).click()
-  // Wait for the sequence panel to reflect the revcomp (unambiguous non-pixel check)
+  // Wait for the sequence panel to reflect the revcomp (unambiguous non-pixel change check)
   await expect.poll(() => getSequenceText(page), { timeout: 5000 }).not.toBe(seqBefore)
   // Also wait for the canvas ink sum to change from pre-toggle (not merely be non-zero)
   await expect.poll(() => canvasInkSum(page), { timeout: 5000 }).not.toBe(inkBefore)
-  const inkAfter = await canvasInkSum(page)
 
-  // The reverse-complement renders different channel assignments so pixel content changes
-  expect(inkAfter).not.toBe(inkBefore)
+  // Definitive correctness check: the exported RC sequence === reverseComplement(forward sequence)
+  const rcFastaSeq = await downloadFastaSequence(page)
+  expect(rcFastaSeq).toBe(reverseComplement(forwardFastaSeq))
 })
 
 test('toggle button label flips to 3′→5′ when active and back on re-click', async ({ page }) => {
@@ -165,8 +204,10 @@ test('strand toggle button is keyboard-accessible and aria-pressed updates corre
 })
 
 test('FASTA export header contains revcomp when strand is toggled', async ({ page }) => {
+  const inkBefore = await canvasInkSum(page)
   await page.getByRole('button', { name: /5′→3′/ }).click()
-  await expect.poll(() => canvasInkSum(page), { timeout: 5000 }).toBeGreaterThan(INK_THRESHOLD)
+  // Wait for the revcomp repaint before triggering the download
+  await expect.poll(() => canvasInkSum(page), { timeout: 5000 }).not.toBe(inkBefore)
 
   const [download] = await Promise.all([
     page.waitForEvent('download'),
