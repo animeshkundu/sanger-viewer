@@ -66,6 +66,24 @@ describe('decimateSamples', () => {
     expect(result[0].max).toBe(42)
   })
 
+  it('returns empty array when pixelWidth is 0', () => {
+    const data = makeData([1, 2, 3])
+    const result = decimateSamples(data, 0, 2, 0, 0, 2)
+    expect(result).toEqual([])
+  })
+
+  it('returns empty array when pixelWidth is negative', () => {
+    const data = makeData([1, 2, 3])
+    const result = decimateSamples(data, 0, 2, -10, 0, 2)
+    expect(result).toEqual([])
+  })
+
+  it('returns empty array when pixelWidth is NaN', () => {
+    const data = makeData([1, 2, 3])
+    const result = decimateSamples(data, 0, 2, NaN, 0, 2)
+    expect(result).toEqual([])
+  })
+
   it('caps path complexity at pixelWidth for a very long trace', () => {
     const n = 100_000
     const data = Float32Array.from({ length: n }, () => Math.random() * 1000)

@@ -153,17 +153,25 @@ export class ChromatogramCanvas {
       this.ctx.beginPath()
       const data = channels[base]
       const points = decimateSamples(data, vp.startSample, vp.endSample, width, vp.startSample, vp.samplesPerPixel)
-      let started = false
-      for (const { pixel, min, max } of points) {
-        const yMax = height * 0.85 - (max / maxY) * height * 0.7
-        if (!started) {
-          this.ctx.moveTo(pixel, yMax)
-          started = true
-        } else if (max - min > 0.5) {
+      if (vp.samplesPerPixel <= 1) {
+        // Zoomed in — continuous polyline; decimation returns one point per sample (min === max).
+        let started = false
+        for (const { pixel, max } of points) {
+          const y = height * 0.85 - (max / maxY) * height * 0.7
+          if (!started) {
+            this.ctx.moveTo(pixel, y)
+            started = true
+          } else {
+            this.ctx.lineTo(pixel, y)
+          }
+        }
+      } else {
+        // Zoomed out — draw each pixel column as a discrete vertical segment so adjacent
+        // columns are not connected by diagonal lines that don't correspond to the signal.
+        for (const { pixel, min, max } of points) {
+          const yMax = height * 0.85 - (max / maxY) * height * 0.7
           const yMin = height * 0.85 - (min / maxY) * height * 0.7
-          this.ctx.lineTo(pixel, yMax)
-          this.ctx.lineTo(pixel, yMin)
-        } else {
+          this.ctx.moveTo(pixel, yMin)
           this.ctx.lineTo(pixel, yMax)
         }
       }

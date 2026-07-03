@@ -57,7 +57,8 @@ export function decimateSamples(
   }
 
   // Zoomed out — one min/max bucket per pixel column.
-  const cols = Math.max(1, Math.ceil(pixelWidth))
+  if (!Number.isFinite(pixelWidth) || pixelWidth <= 0) return []
+  const cols = Math.floor(pixelWidth)
   const result: DecimatedPoint[] = []
 
   for (let col = 0; col < cols; col += 1) {

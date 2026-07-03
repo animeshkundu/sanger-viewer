@@ -1,3 +1,4 @@
+/// <reference lib="webworker" />
 /**
  * Web Worker: parse a trace file off the main thread.
  *
@@ -25,11 +26,9 @@ self.onmessage = (event: MessageEvent<{ buffer: ArrayBuffer; fileName: string }>
       trace.channels.G.buffer,
       trace.channels.T.buffer
     ]
-    // postMessage is a global in DedicatedWorkerGlobalScope; the cast avoids
-    // the missing WebWorker lib type while keeping strict mode happy.
-    ;(self as any).postMessage({ ok: true, trace }, transferables)
+    self.postMessage({ ok: true, trace }, transferables)
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Parse error'
-    ;(self as any).postMessage({ ok: false, error: message })
+    self.postMessage({ ok: false, error: message })
   }
 }
