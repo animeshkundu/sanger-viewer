@@ -72,6 +72,9 @@
   --color-ambiguous-base-fg: #1e3a8a;
   --color-ambiguous-canvas-fill: rgba(99, 102, 241, 0.2);
   --color-ambiguous-canvas-stroke: rgba(79, 70, 229, 0.8);
+  --color-edited-base-bg: #fef9c3;
+  --color-edited-base-fg: #713f12;
+  --color-edited-base-border: #eab308;
   --color-tooltip-bg:       #0f172a;
   --color-tooltip-fg:       #f8fafc;
   --color-annotation-row-bg: #f8fafc;
@@ -126,6 +129,9 @@
     --color-ambiguous-base-fg: #e0e7ff;
     --color-ambiguous-canvas-fill: rgba(129, 140, 248, 0.25);
     --color-ambiguous-canvas-stroke: rgba(165, 180, 252, 0.85);
+    --color-edited-base-bg: #422006;
+    --color-edited-base-fg: #fef08a;
+    --color-edited-base-border: #ca8a04;
     --color-tooltip-bg:       #1e293b;
     --color-tooltip-fg:       #f1f5f9;
     --color-annotation-row-bg: #0f172a;
@@ -611,6 +617,32 @@ canvas {
   background: var(--color-ambiguous-base-bg);
   color: var(--color-ambiguous-base-fg);
   border-radius: 2px;
+}
+
+.edited-base {
+  background: var(--color-edited-base-bg);
+  color: var(--color-edited-base-fg);
+  border-radius: 2px;
+  outline: 1px solid var(--color-edited-base-border);
+  outline-offset: -1px;
+  cursor: pointer;
+}
+
+.sequence-panel span[tabindex] {
+  cursor: pointer;
+}
+
+.sequence-panel span[tabindex]:focus {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 1px;
+  border-radius: 2px;
+}
+
+.sequence-panel span.editing {
+  outline: 2px solid var(--color-edited-base-border);
+  outline-offset: 1px;
+  border-radius: 2px;
+  background: var(--color-edited-base-bg);
 }
 
 /* ─── Tooltip ────────────────────────────────────────────────────── */

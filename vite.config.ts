@@ -18,7 +18,8 @@ export default defineConfig(({ command }) => ({
         blogMetadataEntry: fileURLToPath(new URL('./blog/2026-07-03-v9-metadata/index.html', import.meta.url)),
         blogMultiTraceEntry: fileURLToPath(new URL('./blog/2026-07-03-v10-multi-trace/index.html', import.meta.url)),
         blogMixedBaseEntry: fileURLToPath(new URL('./blog/2026-07-03-v11-mixed-base/index.html', import.meta.url)),
-        blogAnnotationTrackEntry: fileURLToPath(new URL('./blog/2026-07-03-v12-annotation-track/index.html', import.meta.url))
+        blogAnnotationTrackEntry: fileURLToPath(new URL('./blog/2026-07-03-v12-annotation-track/index.html', import.meta.url)),
+        blogEditableBasesEntry: fileURLToPath(new URL('./blog/2026-07-03-v13-editable-bases/index.html', import.meta.url))
       }
     }
   },

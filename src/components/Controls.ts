@@ -16,6 +16,10 @@ export function createControls(): HTMLDivElement {
     <button data-action="export-png">Export PNG</button>
     <button data-action="export-svg">Export SVG</button>
     <button data-action="export-fasta">Export FASTA</button>
+    <button data-action="export-fastq">Export FASTQ</button>
+    <button data-action="export-qual">Export QUAL</button>
+    <button data-action="undo" aria-label="Undo base edit (Ctrl+Z)" title="Undo (Ctrl+Z)" disabled>↩ Undo</button>
+    <button data-action="redo" aria-label="Redo base edit (Ctrl+Shift+Z)" title="Redo (Ctrl+Shift+Z)" disabled>↪ Redo</button>
     <div class="search-controls" role="group" aria-label="Sequence search">
       <label class="search-label" for="search-input">
         <span class="search-label__text">Find:</span>
@@ -97,6 +101,10 @@ export function setStrandToggleState(controls: HTMLDivElement, isRevcomp: boolea
 
 export function setControlsDisabled(controls: HTMLDivElement, disabled: boolean): void {
   controls.querySelectorAll('button').forEach((btn) => {
+    const action = (btn as HTMLButtonElement).getAttribute('data-action')
+    // Undo/redo have their own enabled-state managed by setUndoRedoState;
+    // only force-disable them during loading, never auto-enable on re-enable.
+    if (!disabled && (action === 'undo' || action === 'redo')) return
     ;(btn as HTMLButtonElement).disabled = disabled
   })
   const slider = controls.querySelector<HTMLInputElement>('[data-trim="threshold"]')
@@ -175,4 +183,12 @@ export function setMixedSummary(controls: HTMLDivElement, ambiguousCount: number
   const summary = controls.querySelector<HTMLElement>('#mixed-summary')
   if (!summary) return
   summary.textContent = `${ambiguousCount} ambiguous base${ambiguousCount === 1 ? '' : 's'}`
+}
+
+/** Update disabled state of the undo and redo toolbar buttons. */
+export function setUndoRedoState(controls: HTMLDivElement, canUndo: boolean, canRedo: boolean): void {
+  const undoBtn = controls.querySelector<HTMLButtonElement>('[data-action="undo"]')
+  const redoBtn = controls.querySelector<HTMLButtonElement>('[data-action="redo"]')
+  if (undoBtn) undoBtn.disabled = !canUndo
+  if (redoBtn) redoBtn.disabled = !canRedo
 }
