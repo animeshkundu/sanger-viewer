@@ -66,6 +66,10 @@ test.describe('Multi-trace workspace', () => {
     await expect(page.locator('.workspace-bar')).not.toHaveClass(/workspace-bar--hidden/)
     const tabs = page.locator('.workspace-bar__tab')
     await expect(tabs).toHaveCount(2)
+    const tablist = page.getByRole('tablist', { name: 'Open traces' })
+    await expect(tablist.getByRole('tab')).toHaveCount(2)
+    await expect(tablist.getByRole('button')).toHaveCount(0)
+    await expect(tablist.getByRole('button', { name: 'Open another trace' })).toHaveCount(0)
   })
 
   test('switching between tabs restores state', async ({ page }) => {
@@ -117,7 +121,7 @@ test.describe('Multi-trace workspace', () => {
     await expect(page.locator('.workspace-bar__tab')).toHaveCount(2)
 
     // Close the first tab.
-    const closeBtn = page.locator('.workspace-bar__tab-shell').first().locator('.workspace-bar__tab-close')
+    const closeBtn = page.locator('.workspace-bar__tab').first().locator('.workspace-bar__tab-close')
     await closeBtn.click()
 
     // Should be back to one tab, while the open-another affordance stays visible.

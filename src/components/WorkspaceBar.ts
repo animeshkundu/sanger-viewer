@@ -42,9 +42,6 @@ export function renderWorkspaceBar(bar: HTMLDivElement, slots: readonly TraceSlo
   tabsContainer.innerHTML = ''
 
   for (const slot of slots) {
-    const shell = document.createElement('div')
-    shell.className = 'workspace-bar__tab-shell'
-
     const tab = document.createElement('button')
     tab.className = 'workspace-bar__tab'
     tab.setAttribute('role', 'tab')
@@ -65,18 +62,18 @@ export function renderWorkspaceBar(bar: HTMLDivElement, slots: readonly TraceSlo
       tab.setAttribute('aria-label', slot.fileName)
     }
 
-    const closeBtn = document.createElement('button')
+    const closeBtn = document.createElement('span')
     closeBtn.className = 'workspace-bar__tab-close'
-    closeBtn.setAttribute('aria-label', `Close ${slot.fileName}`)
-    closeBtn.tabIndex = slots.length <= 1 ? -1 : 0
+    closeBtn.setAttribute('aria-hidden', 'true')
     closeBtn.textContent = '×'
-    closeBtn.addEventListener('click', (e) => {
-      e.stopPropagation()
-      bar.dispatchEvent(new CustomEvent('workspace-close', { bubbles: true, detail: { id: slot.id } }))
-    })
     tab.appendChild(label)
+    tab.appendChild(closeBtn)
 
-    tab.addEventListener('click', () => {
+    tab.addEventListener('click', (event) => {
+      if ((event.target as HTMLElement).closest('.workspace-bar__tab-close')) {
+        bar.dispatchEvent(new CustomEvent('workspace-close', { bubbles: true, detail: { id: slot.id } }))
+        return
+      }
       if (slot.id !== activeId) {
         bar.dispatchEvent(new CustomEvent('workspace-switch', { bubbles: true, detail: { id: slot.id } }))
       }
@@ -88,8 +85,7 @@ export function renderWorkspaceBar(bar: HTMLDivElement, slots: readonly TraceSlo
       }
     })
 
-    shell.append(tab, closeBtn)
-    tabsContainer.appendChild(shell)
+    tabsContainer.appendChild(tab)
   }
 
   bar.classList.toggle('workspace-bar--hidden', slots.length === 0)
