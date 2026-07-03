@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Annotation track with ORFs + restriction sites | sanger-viewer devlog</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-shell">
+        <a class="site-title" href="../../">sanger-viewer</a>
+        <nav class="site-nav" aria-label="Site">
+          <a href="../">Devlog</a>
+        </nav>
+      </div>
+    </header>
+    <main class="site-shell blog-entry">
+      <p><a href="../">← Back to devlog</a></p>
+      <h1>Annotations come to life: 6-frame ORFs and restriction sites</h1>
+      <p><time datetime="2026-07-03">July 3, 2026</time></p>
+
+      <p>
+        This step adds an annotation lane above the chromatogram so the sequence now carries biological context,
+        not just signal shape. The viewer computes six-frame ORFs and common restriction-enzyme sites from the
+        active strand, then shows them as keyboard-accessible chips grouped into ORF +/− frame rows and a
+        restriction row.
+      </p>
+
+      <h2>What shipped</h2>
+      <ul>
+        <li>Pure TypeScript annotation engine for 6-frame ORF calling and enzyme-site scanning.</li>
+        <li>Support for common enzymes including EcoRI and non-palindromic BsaI with explicit cut offsets.</li>
+        <li>A viewport-windowed DOM track above the trace: only overlapping/nearby chips render.</li>
+        <li>Clickable + keyboard-accessible annotation chips that navigate the chromatogram to the selected range.</li>
+        <li>Cohesive light/dark styling using design tokens and focus-visible states.</li>
+      </ul>
+
+      <h2>Verification</h2>
+      <p>
+        Vitest now asserts exact ORF and restriction-site coordinates (including reverse-strand mapping and
+        non-palindromic cut math). Playwright E2E verifies real annotation rendering, viewport-aware windowing,
+        and non-pixel click/keyboard navigation behavior.
+      </p>
+
+      <p>
+        This keeps the v0–v11 foundation intact while moving the app closer to professional Sanger-viewer parity.
+      </p>
+    </main>
+  </body>
+</html>

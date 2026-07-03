@@ -72,6 +72,15 @@
   --color-ambiguous-base-fg: #1e3a8a;
   --color-ambiguous-canvas-fill: rgba(99, 102, 241, 0.2);
   --color-ambiguous-canvas-stroke: rgba(79, 70, 229, 0.8);
+  --color-annotation-row-bg: #f8fafc;
+  --color-annotation-chip-bg: #e2e8f0;
+  --color-annotation-chip-fg: #0f172a;
+  --color-annotation-chip-border: #cbd5e1;
+  --color-annotation-chip-focus: #2563eb;
+  --color-annotation-chip-orf-bg: #dbeafe;
+  --color-annotation-chip-orf-border: #93c5fd;
+  --color-annotation-chip-restriction-bg: #dcfce7;
+  --color-annotation-chip-restriction-border: #86efac;
   --color-tooltip-bg:       #0f172a;
   --color-tooltip-fg:       #f8fafc;
 }
@@ -117,6 +126,15 @@
     --color-ambiguous-base-fg: #e0e7ff;
     --color-ambiguous-canvas-fill: rgba(129, 140, 248, 0.25);
     --color-ambiguous-canvas-stroke: rgba(165, 180, 252, 0.85);
+    --color-annotation-row-bg: #0f172a;
+    --color-annotation-chip-bg: #1e293b;
+    --color-annotation-chip-fg: #f1f5f9;
+    --color-annotation-chip-border: #334155;
+    --color-annotation-chip-focus: #60a5fa;
+    --color-annotation-chip-orf-bg: #1e3a8a;
+    --color-annotation-chip-orf-border: #3b82f6;
+    --color-annotation-chip-restriction-bg: #14532d;
+    --color-annotation-chip-restriction-border: #22c55e;
     --color-tooltip-bg:       #1e293b;
     --color-tooltip-fg:       #f1f5f9;
   }
@@ -430,6 +448,80 @@ a {
 }
 
 /* ─── Canvas ─────────────────────────────────────────────────────── */
+.annotation-track {
+  margin-top: 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  padding: var(--space-2);
+  display: grid;
+  gap: var(--space-1);
+}
+
+.annotation-track__row {
+  display: grid;
+  grid-template-columns: 6.5rem 1fr;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.annotation-track__row-label {
+  font-size: var(--text-xs);
+  font-family: var(--font-mono);
+  color: var(--color-text-muted);
+}
+
+.annotation-track__lane {
+  min-height: 30px;
+  padding: 3px;
+  border-radius: var(--radius-sm);
+  background: var(--color-annotation-row-bg);
+  border: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+}
+
+.annotation-track__empty {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  padding-inline: var(--space-1);
+}
+
+.annotation-chip {
+  border: 1px solid var(--color-annotation-chip-border);
+  border-radius: var(--radius-full);
+  min-height: 24px;
+  padding: 0 10px;
+  background: var(--color-annotation-chip-bg);
+  color: var(--color-annotation-chip-fg);
+  font-size: var(--text-xs);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.annotation-chip:hover {
+  border-color: var(--color-border-strong);
+}
+
+.annotation-chip:focus-visible {
+  outline: 2px solid var(--color-annotation-chip-focus);
+  outline-offset: 1px;
+}
+
+.annotation-chip--orf {
+  background: var(--color-annotation-chip-orf-bg);
+  border-color: var(--color-annotation-chip-orf-border);
+}
+
+.annotation-chip--restriction {
+  background: var(--color-annotation-chip-restriction-bg);
+  border-color: var(--color-annotation-chip-restriction-border);
+}
+
 .canvas-wrap {
   margin-top: 0.75rem;
   border: 1px solid var(--color-border);
@@ -753,6 +845,14 @@ canvas {
 
   .controls button {
     flex: 1 1 calc(33.333% - 0.625rem);
+  }
+
+  .annotation-track__row {
+    grid-template-columns: 1fr;
+  }
+
+  .annotation-track__lane {
+    min-height: 34px;
   }
 }
 

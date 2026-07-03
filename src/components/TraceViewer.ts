@@ -16,6 +16,7 @@ import { createSequencePanel, renderSequence } from './SequencePanel'
 import { createPositionReadout, updatePositionReadout } from './PositionReadout'
 import { createMetadataPanel, updateMetadataPanel } from './MetadataPanel'
 import { createWorkspaceBar, renderWorkspaceBar } from './WorkspaceBar'
+import { createAnnotationTrack } from './AnnotationTrack'
 import { downloadBlob } from '../export/png'
 import { toFasta } from '../export/fasta'
 import { exportSvg } from '../export/svg'
@@ -28,6 +29,8 @@ import {
   normalizeSearchQuery,
   type SubsequenceMatch
 } from '../search/findSubsequence'
+import { buildAnnotationFeatures, filterAnnotationFeaturesByRange, type AnnotationFeature } from '../annotations'
+import { mapSampleViewportToBaseRange } from '../render/viewport'
 import { TraceWorkspace, makeSlot } from '../workspace/TraceWorkspace'
 import type { TrimResult, TrimSettings } from '../quality/mottTrim'
 import type { TraceData } from '../types/trace'
@@ -170,8 +173,18 @@ export function createTraceViewer(): HTMLDivElement {
   canvas.style.touchAction = 'none'
 
   const renderer = new ChromatogramCanvas(canvas)
+  let resizeListener: (() => void) | null = null
+  const annotationTrack = createAnnotationTrack((feature) => {
+    renderer.focusBaseRange(feature.start, feature.end)
+    refreshReadout()
+  })
+  const canvasWrap = root.querySelector<HTMLElement>('.canvas-wrap')
+  if (canvasWrap) root.insertBefore(annotationTrack.root, canvasWrap)
   const rootDisconnectObserver = new MutationObserver(() => {
     if (!root.isConnected) {
+      if (resizeListener && typeof window !== 'undefined') {
+        window.removeEventListener('resize', resizeListener)
+      }
       renderer.destroy()
       rootDisconnectObserver.disconnect()
     }
@@ -193,6 +206,7 @@ export function createTraceViewer(): HTMLDivElement {
   let trimResult: TrimResult | null = null
   let mixedBaseThreshold = DEFAULT_MIXED_BASE_THRESHOLD
   let mixedBaseResult: MixedBaseResult | null = null
+  let annotationFeatures: AnnotationFeature[] = []
   let trimRaf = 0
   let viewerState: ViewerState = 'empty'
   let searchState: SearchState = { query: '', matches: [], activeIndex: -1 }
@@ -303,6 +317,7 @@ export function createTraceViewer(): HTMLDivElement {
     if (!displayTrace) return
     const previousViewport = preserveViewport ? renderer.getViewportState() : null
     renderer.setTrace(displayTrace)
+    annotationFeatures = buildAnnotationFeatures(displayTrace.sequence)
     renderer.setAmbiguousIndices(mixedBaseResult?.ambiguousIndices ?? [])
     if (previousViewport) renderer.setViewportState(previousViewport.startSample, previousViewport.samplesPerPixel)
     applyTrim(displayTrace)
@@ -381,6 +396,21 @@ export function createTraceViewer(): HTMLDivElement {
   const refreshReadout = () => {
     const vp = renderer.getViewportInfo()
     updatePositionReadout(readout, vp.start, vp.end)
+    const trace = renderer.getCurrentTrace()
+    if (!trace) {
+      annotationTrack.clear()
+      return
+    }
+    const visibleRange = mapSampleViewportToBaseRange(trace.peakPositions, {
+      startSample: vp.start,
+      endSample: vp.end,
+    }, 12)
+    const visibleFeatures = filterAnnotationFeaturesByRange(annotationFeatures, visibleRange, 6)
+    annotationTrack.render({
+      visibleFeatures,
+      visibleRange,
+      totalCount: annotationFeatures.length,
+    })
   }
 
   // rAF-throttled variant — use this in high-frequency event handlers (wheel,
@@ -392,6 +422,10 @@ export function createTraceViewer(): HTMLDivElement {
       readoutRaf = 0
       refreshReadout()
     })
+  }
+  if (typeof window !== 'undefined') {
+    resizeListener = scheduleReadout
+    window.addEventListener('resize', resizeListener)
   }
 
   const refreshSequence = () => {
@@ -478,6 +512,7 @@ export function createTraceViewer(): HTMLDivElement {
 
   const clearRenderPanels = () => {
     renderer.clearTrace()
+    annotationTrack.clear()
     readout.textContent = 'Position: -'
     sequencePanel.textContent = 'Load a trace to inspect sequence'
   }
@@ -490,6 +525,7 @@ export function createTraceViewer(): HTMLDivElement {
     trimResult = null
     mixedBaseThreshold = DEFAULT_MIXED_BASE_THRESHOLD
     mixedBaseResult = null
+    annotationFeatures = []
     searchState = { query: '', matches: [], activeIndex: -1 }
     selectedBaseIndex = null
     hoveredBaseIndex = null
@@ -498,6 +534,7 @@ export function createTraceViewer(): HTMLDivElement {
     setMixedThresholdDisplay(controls, mixedBaseThreshold)
     setMixedSummary(controls, 0)
     updateMetadataPanel(metadataPanel, null)
+    annotationTrack.clear()
     clearRenderPanels()
   }
 
@@ -541,6 +578,7 @@ export function createTraceViewer(): HTMLDivElement {
       setState('loaded', msg)
     } else {
       // Evicted slot — show the file name but indicate it needs reloading.
+      annotationFeatures = []
       updateMetadataPanel(metadataPanel, null)
       clearRenderPanels()
       setState('error', `${slot.fileName} was evicted from memory — please re-open the file`)
