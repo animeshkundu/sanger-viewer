@@ -66,6 +66,8 @@
   --color-search-match-bg:  rgba(59, 130, 246, 0.18);
   --color-search-active-bg: #fbbf24;
   --color-search-active-fg: #1f2937;
+  --color-search-canvas-active-fill:   rgba(245, 158, 11, 0.30);
+  --color-search-canvas-active-stroke: rgba(245, 158, 11, 0.85);
   --color-tooltip-bg:       #0f172a;
   --color-tooltip-fg:       #f8fafc;
 }
@@ -105,6 +107,8 @@
     --color-search-match-bg:  rgba(96, 165, 250, 0.24);
     --color-search-active-bg: #d97706;
     --color-search-active-fg: #f8fafc;
+    --color-search-canvas-active-fill:   rgba(217, 119, 6, 0.35);
+    --color-search-canvas-active-stroke: rgba(217, 119, 6, 0.85);
     --color-tooltip-bg:       #1e293b;
     --color-tooltip-fg:       #f1f5f9;
   }

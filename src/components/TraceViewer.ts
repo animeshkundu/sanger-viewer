@@ -533,7 +533,7 @@ export function createTraceViewer(): HTMLDivElement {
     if (target !== searchInput) return
     if (event.key === 'Enter') {
       event.preventDefault()
-      moveActiveMatch(1)
+      moveActiveMatch(event.shiftKey ? -1 : 1)
     }
     if (event.key === 'Escape') {
       event.preventDefault()

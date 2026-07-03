@@ -321,6 +321,11 @@ export class ChromatogramCanvas {
     const sampleToX = (sample: number) => (sample - vp.startSample) / vp.samplesPerPixel
     let visibleCount = 0
 
+    const cssVars = getComputedStyle(document.documentElement)
+    const matchColor = cssVars.getPropertyValue('--color-search-match-bg').trim()
+    const activeFill = cssVars.getPropertyValue('--color-search-canvas-active-fill').trim()
+    const activeStroke = cssVars.getPropertyValue('--color-search-canvas-active-stroke').trim()
+
     for (const match of this.searchMatches) {
       if (match.start >= peaks.length || match.end <= 0) continue
       const firstPeak = peaks[match.start]
@@ -333,11 +338,11 @@ export class ChromatogramCanvas {
 
       visibleCount += 1
       const isActive = activeMatch === match
-      this.ctx.fillStyle = isActive ? 'rgba(245, 158, 11, 0.30)' : 'rgba(59, 130, 246, 0.18)'
+      this.ctx.fillStyle = isActive ? activeFill : matchColor
       this.ctx.fillRect(Math.max(0, xStart), 0, Math.max(3, Math.min(width, xEnd) - Math.max(0, xStart)), height)
       if (isActive) {
         this.ctx.save()
-        this.ctx.strokeStyle = 'rgba(245, 158, 11, 0.85)'
+        this.ctx.strokeStyle = activeStroke
         this.ctx.lineWidth = 2
         this.ctx.strokeRect(Math.max(0, xStart), 1, Math.max(3, Math.min(width, xEnd) - Math.max(0, xStart)), Math.max(0, height - 2))
         this.ctx.restore()

@@ -50,3 +50,26 @@ test('searches a real fixture, highlights hits, navigates, and shows no-match st
   await expect(page.locator('#search-summary')).toBeEmpty()
   await expect(page.locator('#search-empty-state')).toBeHidden()
 })
+
+test('Shift+Enter navigates to the previous match', async ({ page }) => {
+  await loadFixture(page)
+
+  const searchInput = page.locator('#search-input')
+  await searchInput.fill('ACGT')
+
+  // Start at hit 1 of 2; capture initial canvas range
+  await expect(page.locator('#search-summary')).toHaveText('2 matches · 1 of 2')
+  const rangeAtHit1 = await getCanvasActiveRange(page)
+
+  // Advance to hit 2 with Enter, wait for canvas to update to hit 2
+  await searchInput.focus()
+  await page.keyboard.press('Enter')
+  await expect(page.locator('#search-summary')).toHaveText('2 matches · 2 of 2')
+  await expect.poll(() => getCanvasActiveRange(page)).not.toBe(rangeAtHit1)
+  const rangeAtHit2 = await getCanvasActiveRange(page)
+
+  // Go back to hit 1 with Shift+Enter — summary decrements and canvas moves back
+  await page.keyboard.press('Shift+Enter')
+  await expect(page.locator('#search-summary')).toHaveText('2 matches · 1 of 2')
+  await expect.poll(() => getCanvasActiveRange(page)).not.toBe(rangeAtHit2)
+})

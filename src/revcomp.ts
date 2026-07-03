@@ -56,7 +56,7 @@ export function reverseComplementTrace(trace: TraceData): TraceData {
     peakPositions[i] = n - 1 - trace.peakPositions[len - 1 - i]
   }
 
-  const baseCalls = reverseComplementSequence(trace.baseCalls.join('')).split('')
+  const baseCalls = trace.baseCalls.slice().reverse().map(iupacComplement)
   const qualities = trace.qualities ? trace.qualities.slice().reverse() : null
   const sequence = baseCalls.join('')
 
