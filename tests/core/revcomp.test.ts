@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { iupacComplement, reverseComplementTrace } from '../../src/revcomp'
+import { iupacComplement, reverseComplementSequence, reverseComplementTrace } from '../../src/revcomp'
 import type { TraceData } from '../../src/types/trace'
 
 // ---------------------------------------------------------------------------
@@ -187,5 +187,15 @@ describe('reverseComplementTrace', () => {
     const rc = reverseComplementTrace(iupacTrace)
     // Reversed: ['N','K','S','Y','R'] → complemented: ['N','M','S','R','Y']
     expect(rc.baseCalls).toEqual(['N', 'M', 'S', 'R', 'Y'])
+  })
+})
+
+describe('reverseComplementSequence', () => {
+  it('reverse complements mixed IUPAC sequence strings', () => {
+    expect(reverseComplementSequence('AAGCRYN')).toBe('NRYGCTT')
+  })
+
+  it('leaves unknown characters in place while reversing', () => {
+    expect(reverseComplementSequence('AX-')).toBe('-XT')
   })
 })

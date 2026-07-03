@@ -63,6 +63,8 @@
   --color-header-fg: #f8fafc;
 
   --color-selected-base-bg: #fde68a;
+  --color-search-match-bg:   rgba(59, 130, 246, 0.18);
+  --color-search-active-bg:  rgba(249, 115, 22, 0.28);
   --color-tooltip-bg:       #0f172a;
   --color-tooltip-fg:       #f8fafc;
 }
@@ -99,6 +101,8 @@
     --color-header-fg: #f1f5f9;
 
     --color-selected-base-bg: #854d0e;
+    --color-search-match-bg:   rgba(96, 165, 250, 0.24);
+    --color-search-active-bg:  rgba(251, 146, 60, 0.36);
     --color-tooltip-bg:       #1e293b;
     --color-tooltip-fg:       #f1f5f9;
   }
@@ -486,6 +490,16 @@ canvas {
   border-radius: 2px;
 }
 
+.search-match {
+  background: var(--color-search-match-bg);
+  border-radius: 2px;
+}
+
+.search-match-active {
+  background: var(--color-search-active-bg);
+  box-shadow: inset 0 -1px 0 rgba(234, 88, 12, 0.8);
+}
+
 /* ─── Tooltip ────────────────────────────────────────────────────── */
 .tooltip {
   position: fixed;
@@ -585,6 +599,53 @@ canvas {
   white-space: nowrap;
 }
 
+/* ─── Search controls ─────────────────────────────────────────────── */
+.search-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.search-label {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.search-input {
+  flex: 1 1 14rem;
+  min-width: 12rem;
+  min-height: 44px;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+}
+
+.search-input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.search-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.search-summary {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  flex: 1 1 100%;
+}
+
 /* Trimmed bases in the sequence panel (full mode only) */
 .trimmed-base {
   opacity: 0.35;
@@ -612,10 +673,26 @@ canvas {
   .controls button {
     flex: 1 1 calc(33.333% - 0.625rem);
   }
+
+  .search-actions {
+    width: 100%;
+  }
+
+  .search-actions button {
+    flex: 1 1 calc(33.333% - 0.625rem);
+  }
 }
 
 @media (max-width: 768px) {
   .controls button {
+    flex: 1 1 calc(50% - 0.625rem);
+  }
+
+  .search-input {
+    min-width: 100%;
+  }
+
+  .search-actions button {
     flex: 1 1 calc(50% - 0.625rem);
   }
 }

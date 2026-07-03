@@ -1,7 +1,7 @@
 import path from 'node:path'
 import { test, expect, type Page } from '@playwright/test'
 
-const MAX_TABS_TO_FILE_INPUT = 15
+const MAX_TABS_TO_FILE_INPUT = 25
 
 async function tabToFileInput(page: Page) {
   for (let i = 0; i < MAX_TABS_TO_FILE_INPUT; i++) {

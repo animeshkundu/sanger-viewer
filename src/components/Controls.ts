@@ -1,4 +1,13 @@
 import type { TrimResult } from '../quality/mottTrim'
+import type { SearchStrand } from '../search/findSubsequence'
+
+interface SearchUiState {
+  hasTrace: boolean
+  query: string
+  hitCount: number
+  activeHitIndex: number
+  activeStrand: SearchStrand | null
+}
 
 export function createControls(): HTMLDivElement {
   const root = document.createElement('div')
@@ -43,6 +52,28 @@ export function createControls(): HTMLDivElement {
       </div>
       <span id="trim-summary" class="trim-summary" aria-live="polite" aria-atomic="true"></span>
     </div>
+    <div class="search-controls" role="group" aria-label="Subsequence search">
+      <label class="search-label" for="search-query">Find:</label>
+      <input
+        id="search-query"
+        data-search="query"
+        class="search-input"
+        type="text"
+        inputmode="text"
+        autocomplete="off"
+        autocapitalize="characters"
+        spellcheck="false"
+        placeholder="IUPAC motif"
+        aria-describedby="search-summary"
+      />
+      <div class="search-actions">
+        <button data-search-action="previous" type="button">Previous</button>
+        <button data-search-action="next" type="button">Next</button>
+        <button data-search-action="clear" type="button">Clear</button>
+      </div>
+      <span id="search-summary" class="search-summary">Load a trace to search</span>
+      <span id="search-live" class="sr-only" aria-live="polite" aria-atomic="true"></span>
+    </div>
   `
   return root
 }
@@ -62,6 +93,8 @@ export function setControlsDisabled(controls: HTMLDivElement, disabled: boolean)
   })
   const slider = controls.querySelector<HTMLInputElement>('[data-trim="threshold"]')
   if (slider) slider.disabled = disabled
+  const searchInput = controls.querySelector<HTMLInputElement>('[data-search="query"]')
+  if (searchInput) searchInput.disabled = disabled
 }
 
 /** Update the trim summary display after a trim recompute. */
@@ -97,4 +130,38 @@ export function setTrimMode(controls: HTMLDivElement, mode: 'full' | 'trimmed'):
 export function getTrimThreshold(controls: HTMLDivElement): number {
   const slider = controls.querySelector<HTMLInputElement>('[data-trim="threshold"]')
   return slider ? Number(slider.value) : 20
+}
+
+export function setSearchState(controls: HTMLDivElement, state: SearchUiState): void {
+  const summary = controls.querySelector<HTMLElement>('#search-summary')
+  const live = controls.querySelector<HTMLElement>('#search-live')
+  const previousButton = controls.querySelector<HTMLButtonElement>('[data-search-action="previous"]')
+  const nextButton = controls.querySelector<HTMLButtonElement>('[data-search-action="next"]')
+  const clearButton = controls.querySelector<HTMLButtonElement>('[data-search-action="clear"]')
+
+  let summaryText = 'Enter a motif to search'
+  let liveText = summaryText
+  if (!state.hasTrace) {
+    summaryText = 'Load a trace to search'
+    liveText = summaryText
+  } else if (!state.query) {
+    summaryText = 'Enter a motif to search'
+    liveText = summaryText
+  } else if (state.hitCount === 0) {
+    summaryText = `No matches for “${state.query}”`
+    liveText = summaryText
+  } else if (state.activeHitIndex >= 0) {
+    const strandLabel = state.activeStrand === 'both' ? 'both strands' : `${state.activeStrand ?? 'forward'} strand`
+    summaryText = `${state.hitCount} matches · hit ${state.activeHitIndex + 1} of ${state.hitCount}`
+    liveText = `${summaryText} on ${strandLabel}`
+  } else {
+    summaryText = `${state.hitCount} matches`
+    liveText = summaryText
+  }
+
+  if (summary) summary.textContent = summaryText
+  if (live) live.textContent = liveText
+  if (previousButton) previousButton.disabled = state.hitCount === 0
+  if (nextButton) nextButton.disabled = state.hitCount === 0
+  if (clearButton) clearButton.disabled = state.query.length === 0
 }

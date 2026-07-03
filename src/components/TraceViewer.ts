@@ -1,14 +1,16 @@
 import { ChromatogramCanvas } from '../render/ChromatogramCanvas'
-import { createControls, setControlsDisabled, setStrandToggleState, setTrimSummary, setTrimMode } from './Controls'
+import { createControls, setControlsDisabled, setSearchState, setStrandToggleState, setTrimSummary, setTrimMode } from './Controls'
 import { createTooltip, hideTooltip, showTooltip } from './Tooltip'
 import { createSequencePanel, renderSequence } from './SequencePanel'
 import { createPositionReadout, updatePositionReadout } from './PositionReadout'
 import { downloadBlob } from '../export/png'
 import { toFasta } from '../export/fasta'
 import { reverseComplementTrace } from '../revcomp'
+import { findSubsequenceMatches, mapCanonicalRangeToDisplay, normalizeSearchQuery } from '../search/findSubsequence'
 import { mottTrim, DEFAULT_TRIM_SETTINGS } from '../quality/mottTrim'
 import type { TrimResult, TrimSettings } from '../quality/mottTrim'
 import type { TraceData } from '../types/trace'
+import type { DisplayRange, SubsequenceHit } from '../search/findSubsequence'
 
 // Lazily-loaded worker module (Vite ?worker import, only in browser bundles).
 type WorkerConstructor = new () => Worker
@@ -149,13 +151,19 @@ export function createTraceViewer(): HTMLDivElement {
   let trimSettings: TrimSettings = { ...DEFAULT_TRIM_SETTINGS }
   let trimResult: TrimResult | null = null
   let trimRaf = 0
+  let searchQuery = ''
+  let searchHits: SubsequenceHit[] = []
+  let activeSearchHitIndex = -1
+
+  const searchInput = controls.querySelector<HTMLInputElement>('[data-search="query"]')!
 
   /** Apply (or re-apply) the current strand to the renderer. */
-  const applyDisplayTrace = () => {
+  const applyDisplayTrace = (recenterSearch = false) => {
     if (!rawTrace) return
     const displayTrace = isRevcomp ? reverseComplementTrace(rawTrace) : rawTrace
     renderer.setTrace(displayTrace)
     applyTrim(displayTrace)
+    syncSearchUi(recenterSearch)
     refreshReadout()
   }
 
@@ -171,7 +179,7 @@ export function createTraceViewer(): HTMLDivElement {
     // Update controls summary
     setTrimSummary(controls, result)
     // Re-render sequence panel with new trim info
-    renderSequence(sequencePanel, displayTrace, hoveredBaseIndex ?? selectedBaseIndex ?? -1, result, trimSettings.mode)
+    refreshSequence()
   }
 
   /** rAF-throttled trim recompute (for slider drag). */
@@ -228,7 +236,80 @@ export function createTraceViewer(): HTMLDivElement {
   const refreshSequence = () => {
     const trace = renderer.getCurrentTrace()
     if (!trace) return
-    renderSequence(sequencePanel, trace, hoveredBaseIndex ?? selectedBaseIndex ?? -1, trimResult, trimSettings.mode)
+    const inspectedIndex = hoveredBaseIndex ?? selectedBaseIndex ?? -1
+    const activeSearchHit = getDisplayActiveSearchHit()
+    const focusIndex = inspectedIndex >= 0
+      ? inspectedIndex
+      : activeSearchHit
+        ? Math.floor((activeSearchHit.start + activeSearchHit.end - 1) / 2)
+        : -1
+    renderSequence(sequencePanel, trace, {
+      selectedIndex: inspectedIndex,
+      focusIndex,
+      trim: trimResult,
+      mode: trimSettings.mode,
+      searchHits: getDisplaySearchHits(),
+      activeSearchHit,
+    })
+  }
+
+  const getDisplaySearchHits = (): DisplayRange[] => {
+    const trace = rawTrace
+    if (!trace) return []
+    return searchHits.map((hit) => mapCanonicalRangeToDisplay(hit.start, hit.end, trace.baseCalls.length, isRevcomp))
+  }
+
+  const getDisplayActiveSearchHit = (): DisplayRange | null => {
+    if (!rawTrace || activeSearchHitIndex < 0) return null
+    const hit = searchHits[activeSearchHitIndex]
+    return hit ? mapCanonicalRangeToDisplay(hit.start, hit.end, rawTrace.baseCalls.length, isRevcomp) : null
+  }
+
+  const syncSearchUi = (recenter = false) => {
+    const activeHit = activeSearchHitIndex >= 0 ? searchHits[activeSearchHitIndex] ?? null : null
+    const displayHits = getDisplaySearchHits().map((hit, index) => ({ ...hit, active: index === activeSearchHitIndex }))
+    renderer.setSearchHighlights(displayHits)
+    setSearchState(controls, {
+      hasTrace: rawTrace !== null,
+      query: searchQuery,
+      hitCount: searchHits.length,
+      activeHitIndex: activeSearchHitIndex,
+      activeStrand: activeHit?.strand ?? null,
+    })
+
+    const activeDisplayHit = getDisplayActiveSearchHit()
+    if (recenter && activeDisplayHit) renderer.centerOnBaseRange(activeDisplayHit.start, activeDisplayHit.end)
+    refreshSequence()
+  }
+
+  const recomputeSearch = (recenter = false) => {
+    const normalizedQuery = normalizeSearchQuery(searchQuery)
+    searchHits = rawTrace && normalizedQuery
+      ? findSubsequenceMatches(rawTrace.baseCalls.join(''), normalizedQuery)
+      : []
+    if (searchHits.length === 0) activeSearchHitIndex = -1
+    else if (activeSearchHitIndex >= searchHits.length) activeSearchHitIndex = 0
+    syncSearchUi(recenter)
+  }
+
+  const clearSearch = (focusInput = false) => {
+    searchQuery = ''
+    searchHits = []
+    activeSearchHitIndex = -1
+    searchInput.value = ''
+    syncSearchUi(false)
+    if (focusInput) searchInput.focus()
+  }
+
+  const navigateSearch = (direction: 1 | -1) => {
+    if (searchHits.length === 0) return
+    if (activeSearchHitIndex < 0) {
+      activeSearchHitIndex = direction > 0 ? 0 : searchHits.length - 1
+    } else {
+      activeSearchHitIndex = (activeSearchHitIndex + direction + searchHits.length) % searchHits.length
+    }
+    syncSearchUi(true)
+    refreshReadout()
   }
 
   const inspectBase = (clientX: number, clientY: number, select = false) => {
@@ -269,6 +350,7 @@ export function createTraceViewer(): HTMLDivElement {
   const load = async (file: File) => {
     try {
       setState('loading', `Loading ${file.name}…`)
+      clearSearch()
       const buffer = await file.arrayBuffer()
       const trace = await parseInWorker(buffer, file.name)
       selectedBaseIndex = null
@@ -289,6 +371,7 @@ export function createTraceViewer(): HTMLDivElement {
   const loadSample = async () => {
     try {
       setState('loading', 'Loading sample trace…')
+      clearSearch()
       const sampleBaseUrl = (import.meta.env.BASE_URL as string).replace(/\/?$/, '/')
       const sampleUrl = `${sampleBaseUrl}sample.ab1`
       const response = await fetch(sampleUrl)
@@ -336,8 +419,10 @@ export function createTraceViewer(): HTMLDivElement {
 
   controls.addEventListener('click', async (event) => {
     const target = event.target as HTMLElement
-    const action = target.getAttribute('data-action')
-    const trimMode = target.getAttribute('data-trim-mode') as 'full' | 'trimmed' | null
+    const button = target.closest<HTMLButtonElement>('[data-action], [data-search-action], [data-trim-mode]')
+    const action = button?.getAttribute('data-action') ?? null
+    const searchAction = button?.getAttribute('data-search-action')
+    const trimMode = button?.getAttribute('data-trim-mode') as 'full' | 'trimmed' | null
     const trace = renderer.getCurrentTrace()
 
     if (action === 'zoom-in') renderer.zoom(0.75)
@@ -356,8 +441,8 @@ export function createTraceViewer(): HTMLDivElement {
       hoveredBaseIndex = null
       hideTooltip(tooltip)
       setStrandToggleState(controls, isRevcomp)
-      applyDisplayTrace()
-      renderer.fitToScreen()
+      applyDisplayTrace(activeSearchHitIndex >= 0)
+      if (activeSearchHitIndex < 0) renderer.fitToScreen()
     }
 
     if (action === 'export-fasta' && trace) {
@@ -374,19 +459,42 @@ export function createTraceViewer(): HTMLDivElement {
       if (currentTrace) applyTrim(currentTrace)
     }
 
+    if (searchAction === 'next') navigateSearch(1)
+    if (searchAction === 'previous') navigateSearch(-1)
+    if (searchAction === 'clear') clearSearch(true)
+
     refreshReadout()
   })
 
   // Threshold slider — rAF-throttled for smoothness on large fixtures.
   controls.addEventListener('input', (event) => {
     const target = event.target as HTMLInputElement
-    if (target.getAttribute('data-trim') !== 'threshold') return
-    const value = Number(target.value)
-    trimSettings = { ...trimSettings, threshold: value }
-    // Update numeric display next to slider
-    const display = controls.querySelector<HTMLOutputElement>('#trim-threshold-display')
-    if (display) display.value = String(value)
-    scheduleTrim()
+    if (target.getAttribute('data-trim') === 'threshold') {
+      const value = Number(target.value)
+      trimSettings = { ...trimSettings, threshold: value }
+      // Update numeric display next to slider
+      const display = controls.querySelector<HTMLOutputElement>('#trim-threshold-display')
+      if (display) display.value = String(value)
+      scheduleTrim()
+      return
+    }
+
+    if (target.getAttribute('data-search') === 'query') {
+      searchQuery = target.value.toUpperCase()
+      activeSearchHitIndex = -1
+      recomputeSearch(false)
+    }
+  })
+
+  searchInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      navigateSearch(event.shiftKey ? -1 : 1)
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      clearSearch(true)
+    }
   })
 
   canvas.addEventListener('wheel', (event) => {

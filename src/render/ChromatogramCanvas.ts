@@ -2,6 +2,11 @@ import { TRACE_COLORS } from './colors'
 import { clampViewport } from './viewport'
 import { decimateSamples } from './decimation'
 import type { BaseHoverInfo, TrimBoundaries, TraceData } from '../types/trace'
+import type { DisplayRange } from '../search/findSubsequence'
+
+interface SearchHighlight extends DisplayRange {
+  active: boolean
+}
 
 export class ChromatogramCanvas {
   private ctx: CanvasRenderingContext2D
@@ -10,6 +15,7 @@ export class ChromatogramCanvas {
   private samplesPerPixel = 5
   private raf = 0
   private trimBoundaries: TrimBoundaries | null = null
+  private searchHighlights: SearchHighlight[] = []
 
   constructor(private canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext('2d')
@@ -54,6 +60,36 @@ export class ChromatogramCanvas {
 
   getCurrentTrace(): TraceData | null {
     return this.trace
+  }
+
+  setSearchHighlights(highlights: SearchHighlight[]): void {
+    this.searchHighlights = highlights
+    this.canvas.setAttribute('data-search-count', String(highlights.length))
+    const active = highlights.find((highlight) => highlight.active)
+    this.canvas.setAttribute('data-search-active', active ? `${active.start}-${active.end}` : '')
+    this.requestDraw()
+  }
+
+  centerOnBaseRange(startIndex: number, endIndex: number): void {
+    if (!this.trace) return
+    const peaks = this.trace.peakPositions
+    const clampedStart = Math.max(0, Math.min(startIndex, peaks.length - 1))
+    const clampedEnd = Math.max(clampedStart, Math.min(endIndex - 1, peaks.length - 1))
+    const contextStart = Math.max(0, clampedStart - 60)
+    const contextEnd = Math.min(peaks.length - 1, clampedEnd + 60)
+    const startPeak = peaks[clampedStart]
+    const endPeak = peaks[clampedEnd]
+    const contextStartPeak = peaks[contextStart]
+    const contextEndPeak = peaks[contextEnd]
+    if (startPeak === undefined || endPeak === undefined) return
+    if (contextStartPeak !== undefined && contextEndPeak !== undefined && contextEndPeak > contextStartPeak) {
+      const desiredSpan = contextEndPeak - contextStartPeak
+      const targetSamplesPerPixel = Math.max(0.5, desiredSpan / Math.max(1, this.canvas.clientWidth * 0.7))
+      this.samplesPerPixel = Math.min(this.samplesPerPixel, targetSamplesPerPixel)
+    }
+    const centerSample = (startPeak + endPeak) / 2
+    this.startSample = centerSample - (this.canvas.clientWidth * this.samplesPerPixel) / 2
+    this.requestDraw()
   }
 
   /** Accept new trim boundaries and schedule a repaint. null clears any existing overlay. */
@@ -155,6 +191,7 @@ export class ChromatogramCanvas {
 
     // ── Trim region overlays (rendered before traces so signal shows through) ──
     this.drawTrimOverlays(vp, width, height)
+    this.drawSearchHighlights(vp, width, height)
 
     for (let i = 0; i < this.trace.peakPositions.length; i += 1) {
       const peak = this.trace.peakPositions[i]
@@ -273,6 +310,37 @@ export class ChromatogramCanvas {
           this.ctx.stroke()
           this.ctx.restore()
         }
+      }
+    }
+  }
+
+  private drawSearchHighlights(
+    vp: { startSample: number; endSample: number; samplesPerPixel: number },
+    width: number,
+    height: number,
+  ): void {
+    if (!this.trace || this.searchHighlights.length === 0) return
+    const peaks = this.trace.peakPositions
+    const sampleToX = (sample: number) => (sample - vp.startSample) / vp.samplesPerPixel
+
+    for (const highlight of this.searchHighlights) {
+      const startPeak = peaks[highlight.start]
+      const endPeak = peaks[Math.max(highlight.start, highlight.end - 1)]
+      if (startPeak === undefined || endPeak === undefined) continue
+      if (endPeak < vp.startSample || startPeak > vp.endSample) continue
+
+      const startX = Math.max(0, Math.min(width, sampleToX(startPeak) - 4))
+      const endX = Math.max(startX + 2, Math.min(width, sampleToX(endPeak) + 4))
+
+      this.ctx.fillStyle = highlight.active ? 'rgba(249, 115, 22, 0.22)' : 'rgba(59, 130, 246, 0.12)'
+      this.ctx.fillRect(startX, 0, endX - startX, height)
+
+      if (highlight.active) {
+        this.ctx.save()
+        this.ctx.strokeStyle = 'rgba(234, 88, 12, 0.9)'
+        this.ctx.lineWidth = 1.5
+        this.ctx.strokeRect(startX, 0.75, Math.max(1, endX - startX), height - 1.5)
+        this.ctx.restore()
       }
     }
   }

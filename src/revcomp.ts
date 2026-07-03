@@ -17,6 +17,11 @@ export function iupacComplement(base: string): string {
   return COMPLEMENT[base] ?? base
 }
 
+/** Compute the reverse complement of a sequence string, preserving any unknown characters. */
+export function reverseComplementSequence(sequence: string): string {
+  return sequence.split('').reverse().map(iupacComplement).join('')
+}
+
 /**
  * Produce a new TraceData that represents the reverse complement of the input.
  *
@@ -51,7 +56,7 @@ export function reverseComplementTrace(trace: TraceData): TraceData {
     peakPositions[i] = n - 1 - trace.peakPositions[len - 1 - i]
   }
 
-  const baseCalls = trace.baseCalls.slice().reverse().map(iupacComplement)
+  const baseCalls = reverseComplementSequence(trace.baseCalls.join('')).split('')
   const qualities = trace.qualities ? trace.qualities.slice().reverse() : null
   const sequence = baseCalls.join('')
 

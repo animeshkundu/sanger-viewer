@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Find / search ships | sanger-viewer devlog</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-shell">
+        <a class="site-title" href="../../">sanger-viewer</a>
+        <nav class="site-nav" aria-label="Site">
+          <a href="../">Devlog</a>
+        </nav>
+      </div>
+    </header>
+    <main class="site-shell blog-entry">
+      <p><a href="../">← Back to devlog</a></p>
+      <h1>Finally: real subsequence find, not just eyeballing peaks</h1>
+      <p><time datetime="2026-07-03">July 3, 2026</time></p>
+      <p>
+        One of the most ordinary, most important jobs in a trace viewer is also one of the
+        easiest to miss until you need it: “find me this motif.” Not approximately. Not
+        after you squint at 800 bases and scroll back and forth. Just find it, count it,
+        and take me there. Step 8 brings that into sanger-viewer with proper ambiguity-code
+        support and both-strand matching.
+      </p>
+
+      <h2>What shipped</h2>
+      <p>
+        The new search box lives in the control area and searches the canonical forward
+        base-call sequence, regardless of which strand is currently displayed. That matters
+        because it keeps the data model stable: when you flip to reverse-complement view,
+        the search results do not get recomputed against a different string and mysteriously
+        reshuffle. We keep the hit list in canonical coordinates, then map those ranges onto
+        the visible strand whenever the viewer redraws.
+      </p>
+      <p>
+        The matcher understands full IUPAC ambiguity codes on both sides. A query like
+        <code>RYS</code> behaves like a real degenerate motif, not a literal string. It
+        also searches both strands by reverse-complementing the query and matching that
+        against the same canonical sequence. If the same interval is found from both
+        directions — for example with a palindromic site — it is counted once, not twice.
+      </p>
+
+      <h2>What the UI does now</h2>
+      <p>
+        Search results are highlighted in two places at once: across the chromatogram and in
+        the sequence panel. All matches get a cool blue highlight; the active hit gets a
+        stronger orange treatment so it is obvious where you are. The summary line shows the
+        match count, and the Previous / Next buttons (plus Enter and Shift+Enter in the
+        input) step through the hits.
+      </p>
+      <p>
+        Navigation is intentionally not just a text change. When you move to a hit, the
+        viewport recenters on a local window around that motif so you land somewhere useful
+        instead of staying fully zoomed out with the whole trace still visible. Escape or
+        Clear resets the search state cleanly.
+      </p>
+
+      <h2>Tests</h2>
+      <p>
+        The matching logic lives in a pure TypeScript module with Vitest coverage for the
+        cases that tend to go wrong: ambiguity-code matching, overlapping hits, reverse
+        strand discovery, palindromic-site deduplication, and coordinate mapping from
+        canonical forward indices into reverse-complement display space.
+      </p>
+      <p>
+        The Playwright side uses a real committed AB1 fixture, types a real motif into the
+        UI, verifies that the canvas redraws with search highlights, checks that the visible
+        match count appears, and then walks next/previous through hits while asserting that
+        the active highlight and viewport move. No fake traces, no mocked parser, no claims
+        without executable proof.
+      </p>
+
+      <h2>What is still ahead</h2>
+      <p>
+        This moves the viewer another notch closer to the “professional desktop tool, but in
+        the browser” bar. The remaining north-star items are the richer metadata/peak
+        inspection pass, multi-trace workspace, and high-resolution/vector export. Same
+        pattern as before: keep each PR small, keep CI green, and keep writing down what was
+        actually learned instead of pretending the hard parts are already solved.
+      </p>
+    </main>
+  </body>
+</html>

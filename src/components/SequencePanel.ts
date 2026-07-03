@@ -1,5 +1,15 @@
 import type { TraceData } from '../types/trace'
 import type { TrimResult } from '../quality/mottTrim'
+import type { DisplayRange } from '../search/findSubsequence'
+
+interface SequenceRenderOptions {
+  selectedIndex?: number
+  focusIndex?: number
+  trim?: TrimResult | null
+  mode?: 'full' | 'trimmed'
+  searchHits?: DisplayRange[]
+  activeSearchHit?: DisplayRange | null
+}
 
 export function createSequencePanel(): HTMLDivElement {
   const panel = document.createElement('div')
@@ -24,12 +34,22 @@ export function createSequencePanel(): HTMLDivElement {
 export function renderSequence(
   panel: HTMLElement,
   trace: TraceData,
-  selected = -1,
-  trim: TrimResult | null = null,
-  mode: 'full' | 'trimmed' = 'full',
+  options: SequenceRenderOptions = {},
 ): void {
+  const {
+    selectedIndex = -1,
+    focusIndex = selectedIndex,
+    trim = null,
+    mode = 'full',
+    searchHits = [],
+    activeSearchHit = null,
+  } = options
   panel.innerHTML = ''
   const fragment = document.createDocumentFragment()
+  const searchHitSet = new Set<number>()
+  for (const hit of searchHits) {
+    for (let index = hit.start; index < hit.end; index += 1) searchHitSet.add(index)
+  }
 
   const inTrimmedMode = mode === 'trimmed' && trim !== null && trim.status === 'ok'
   const allTrimmedInTrimmedMode = mode === 'trimmed' && trim !== null && trim.status === 'all-trimmed'
@@ -49,29 +69,35 @@ export function renderSequence(
     // When no base is selected, anchor at trimStart and cap at trimStart+240 to avoid
     // rendering thousands of spans for long reads (same ~240-base budget as full mode).
     const { trimStart, trimEnd } = trim
-    const windowStart = selected >= 0 ? Math.max(trimStart, selected - 120) : trimStart
-    const windowEnd = selected >= 0 ? Math.min(trimEnd, selected + 120) : Math.min(trimEnd, trimStart + 240)
+    const windowStart = focusIndex >= 0 ? Math.max(trimStart, focusIndex - 120) : trimStart
+    const windowEnd = focusIndex >= 0 ? Math.min(trimEnd, focusIndex + 120) : Math.min(trimEnd, trimStart + 240)
 
     trace.baseCalls.slice(windowStart, windowEnd).forEach((base, idx) => {
       const span = document.createElement('span')
       const absolute = windowStart + idx
       span.textContent = base
-      if (absolute === selected) span.className = 'selected-base'
+      const classes: string[] = []
+      if (absolute === selectedIndex) classes.push('selected-base')
+      if (searchHitSet.has(absolute)) classes.push('search-match')
+      if (activeSearchHit && absolute >= activeSearchHit.start && absolute < activeSearchHit.end) classes.push('search-match-active')
+      if (classes.length) span.className = classes.join(' ')
       fragment.appendChild(span)
     })
   } else {
     // Full mode: ±120 around selected, but mark trimmed bases.
-    const start = Math.max(0, selected - 120)
-    const end = Math.min(trace.baseCalls.length, selected + 120)
+    const start = Math.max(0, focusIndex - 120)
+    const end = Math.min(trace.baseCalls.length, focusIndex + 120)
     trace.baseCalls.slice(start, end).forEach((base, idx) => {
       const span = document.createElement('span')
       const absolute = start + idx
       span.textContent = base
       const classes: string[] = []
-      if (absolute === selected) classes.push('selected-base')
+      if (absolute === selectedIndex) classes.push('selected-base')
       if (trim && trim.status === 'ok') {
         if (absolute < trim.trimStart || absolute >= trim.trimEnd) classes.push('trimmed-base')
       }
+      if (searchHitSet.has(absolute)) classes.push('search-match')
+      if (activeSearchHit && absolute >= activeSearchHit.start && absolute < activeSearchHit.end) classes.push('search-match-active')
       if (classes.length) span.className = classes.join(' ')
       fragment.appendChild(span)
     })
