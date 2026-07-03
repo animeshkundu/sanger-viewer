@@ -38,8 +38,8 @@ npm run build
 ## GitHub Pages
 
 The app is configured with project base path `/sanger-viewer/` for production builds and deployed by `.github/workflows/deploy-pages.yml` on pushes to `main`.
+A static devlog is published at `/sanger-viewer/blog/`.
 
 ## Fixtures
 
 Fixture files are in `fixtures/` with provenance in `fixtures/PROVENANCE.md`.
-

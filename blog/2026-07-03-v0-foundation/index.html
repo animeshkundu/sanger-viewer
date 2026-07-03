@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>v0 foundation shipped | sanger-viewer devlog</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-shell">
+        <a class="site-title" href="../../">sanger-viewer</a>
+        <nav class="site-nav" aria-label="Site">
+          <a href="../">Devlog</a>
+        </nav>
+      </div>
+    </header>
+    <main class="site-shell blog-entry">
+      <p><a href="../">← Back to devlog</a></p>
+      <h1>v0 foundation shipped, and now the real polishing starts</h1>
+      <p><time datetime="2026-07-03">July 3, 2026</time></p>
+      <p>
+        Today felt good: the v0 foundation is in place and stable. We can open real AB1 and SCF traces,
+        parse channels/base calls/peaks, and render them on canvas with zoom, pan, hover tooltip, and
+        exports (PNG + FASTA). The fixture-backed parser tests, performance smoke test, and end-to-end
+        interaction checks are all in the loop, so this baseline is not just "it works on my machine".
+      </p>
+      <p>
+        This entry is also the start of a running devlog that ships with the app on GitHub Pages. From
+        here, the roadmap is straightforward and user-driven: make tablet/touch interactions feel native,
+        remove friction in loading/error states with better accessibility, harden performance for large
+        traces, and close with truly user-like E2E validation across desktop and touch.
+      </p>
+      <p>
+        Next up: tablet and touch support first. We want pinch-to-zoom, drag-to-pan, and tap inspection
+        to feel just as solid as mouse + keyboard.
+      </p>
+    </main>
+  </body>
+</html>

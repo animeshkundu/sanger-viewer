@@ -8,10 +8,66 @@ body {
   margin: 0;
 }
 
+a {
+  color: inherit;
+}
+
+.site-header {
+  background: #111827;
+  color: #f9fafb;
+}
+
+.site-shell {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0.75rem 1rem;
+}
+
+.site-header .site-shell {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.site-title {
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.site-nav {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.site-nav a {
+  color: #e5e7eb;
+  text-decoration: none;
+}
+
+.site-nav a[aria-current='page'] {
+  color: #ffffff;
+  font-weight: 600;
+}
+
 #app {
   max-width: 1200px;
   margin: 0 auto;
   padding: 1rem;
+}
+
+.blog-index,
+.blog-entry {
+  line-height: 1.55;
+}
+
+.blog-index h1,
+.blog-entry h1 {
+  margin-top: 0;
+}
+
+.blog-index ol {
+  padding-left: 1.2rem;
 }
 
 .viewer h1 {
