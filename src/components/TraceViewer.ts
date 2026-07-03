@@ -164,7 +164,10 @@ export function createTraceViewer(): HTMLDivElement {
       rootDisconnectObserver.disconnect()
     }
   })
-  rootDisconnectObserver.observe(document.body, { childList: true, subtree: true })
+  queueMicrotask(() => {
+    const parent = root.parentElement
+    if (parent) rootDisconnectObserver.observe(parent, { childList: true })
+  })
   const tapMoveThreshold = 8
   const activePointers = new Map<number, { clientX: number; clientY: number; startX: number; startY: number; moved: boolean }>()
   let lastPinchDistance = 0

@@ -195,7 +195,7 @@ export class ChromatogramCanvas {
   }
 
   private handleThemeMutations = (mutations: MutationRecord[]): void => {
-    if (mutations.some((mutation) => mutation.attributeName)) {
+    if (mutations.length > 0) {
       this.handleThemeChange()
     }
   }
