@@ -16,6 +16,7 @@ import { createSequencePanel, renderSequence } from './SequencePanel'
 import { createPositionReadout, updatePositionReadout } from './PositionReadout'
 import { createMetadataPanel, updateMetadataPanel } from './MetadataPanel'
 import { createWorkspaceBar, renderWorkspaceBar } from './WorkspaceBar'
+import { createAnnotationTrack } from './AnnotationTrack'
 import { downloadBlob } from '../export/png'
 import { toFasta } from '../export/fasta'
 import { exportSvg } from '../export/svg'
@@ -29,6 +30,8 @@ import {
   type SubsequenceMatch
 } from '../search/findSubsequence'
 import { TraceWorkspace, makeSlot } from '../workspace/TraceWorkspace'
+import { buildAnnotationFeatures, filterAnnotationFeaturesByRange, type AnnotationFeature } from '../annotations'
+import { mapSampleViewportToBaseRange } from '../render/viewport'
 import type { TrimResult, TrimSettings } from '../quality/mottTrim'
 import type { TraceData } from '../types/trace'
 
@@ -72,6 +75,9 @@ type SearchState = {
   matches: SubsequenceMatch[]
   activeIndex: number
 }
+
+const ANNOTATION_VIEWPORT_EXTRA_BASES = 12
+const ANNOTATION_FEATURE_PADDING_BASES = 6
 
 export function createTraceViewer(): HTMLDivElement {
   const root = document.createElement('div')
@@ -150,6 +156,12 @@ export function createTraceViewer(): HTMLDivElement {
   const tooltip = createTooltip()
   const metadataPanel = createMetadataPanel()
   const workspaceBar = createWorkspaceBar()
+  const annotationTrack = createAnnotationTrack((feature) => {
+    renderer.focusBaseRange(feature.start, feature.end)
+    refreshReadout()
+  })
+  const canvasWrap = root.querySelector<HTMLElement>('.canvas-wrap')!
+  root.insertBefore(annotationTrack.element, canvasWrap)
   root.append(controls, workspaceBar, readout, sequencePanel, metadataPanel, tooltip)
 
   const fileInput = root.querySelector<HTMLInputElement>('#file-input')!
@@ -196,6 +208,7 @@ export function createTraceViewer(): HTMLDivElement {
   let trimRaf = 0
   let viewerState: ViewerState = 'empty'
   let searchState: SearchState = { query: '', matches: [], activeIndex: -1 }
+  let annotationFeatures: AnnotationFeature[] = []
   const workspace = new TraceWorkspace(5)
   let activeSlotId: string | null = null
   setMixedThresholdDisplay(controls, mixedBaseThreshold)
@@ -290,6 +303,7 @@ export function createTraceViewer(): HTMLDivElement {
     const strandTrace = isRevcomp ? reverseComplementTrace(rawTrace) : rawTrace
     mixedBaseResult = callMixedBases(strandTrace, mixedBaseThreshold)
     setMixedSummary(controls, mixedBaseResult.ambiguousCount)
+    annotationFeatures = buildAnnotationFeatures(mixedBaseResult.sequence)
     return {
       ...strandTrace,
       baseCalls: mixedBaseResult.baseCalls,
@@ -381,6 +395,30 @@ export function createTraceViewer(): HTMLDivElement {
   const refreshReadout = () => {
     const vp = renderer.getViewportInfo()
     updatePositionReadout(readout, vp.start, vp.end)
+    refreshAnnotationTrack()
+  }
+
+  const refreshAnnotationTrack = () => {
+    const trace = renderer.getCurrentTrace()
+    if (!trace) {
+      annotationTrack.clear()
+      return
+    }
+    const viewportSamples = renderer.getViewportInfo()
+    const visibleRange = mapSampleViewportToBaseRange(trace.peakPositions, {
+      startSample: viewportSamples.start,
+      endSample: viewportSamples.end,
+    }, ANNOTATION_VIEWPORT_EXTRA_BASES)
+    const visibleFeatures = filterAnnotationFeaturesByRange(
+      annotationFeatures,
+      visibleRange,
+      ANNOTATION_FEATURE_PADDING_BASES,
+    )
+    annotationTrack.render({
+      visibleFeatures,
+      visibleRange,
+      totalCount: annotationFeatures.length,
+    })
   }
 
   // rAF-throttled variant — use this in high-frequency event handlers (wheel,
@@ -478,6 +516,8 @@ export function createTraceViewer(): HTMLDivElement {
 
   const clearRenderPanels = () => {
     renderer.clearTrace()
+    annotationFeatures = []
+    annotationTrack.clear()
     readout.textContent = 'Position: -'
     sequencePanel.textContent = 'Load a trace to inspect sequence'
   }
