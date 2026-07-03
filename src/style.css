@@ -68,6 +68,10 @@
   --color-search-active-fg: #1f2937;
   --color-search-canvas-active-fill:   rgba(245, 158, 11, 0.30);
   --color-search-canvas-active-stroke: rgba(245, 158, 11, 0.85);
+  --color-ambiguous-base-bg: #dbeafe;
+  --color-ambiguous-base-fg: #1e3a8a;
+  --color-ambiguous-canvas-fill: rgba(99, 102, 241, 0.2);
+  --color-ambiguous-canvas-stroke: rgba(79, 70, 229, 0.8);
   --color-tooltip-bg:       #0f172a;
   --color-tooltip-fg:       #f8fafc;
 }
@@ -109,6 +113,10 @@
     --color-search-active-fg: #f8fafc;
     --color-search-canvas-active-fill:   rgba(217, 119, 6, 0.35);
     --color-search-canvas-active-stroke: rgba(217, 119, 6, 0.85);
+    --color-ambiguous-base-bg: #312e81;
+    --color-ambiguous-base-fg: #e0e7ff;
+    --color-ambiguous-canvas-fill: rgba(129, 140, 248, 0.25);
+    --color-ambiguous-canvas-stroke: rgba(165, 180, 252, 0.85);
     --color-tooltip-bg:       #1e293b;
     --color-tooltip-fg:       #f1f5f9;
   }
@@ -507,6 +515,12 @@ canvas {
   border-radius: 2px;
 }
 
+.ambiguous-base {
+  background: var(--color-ambiguous-base-bg);
+  color: var(--color-ambiguous-base-fg);
+  border-radius: 2px;
+}
+
 /* ─── Tooltip ────────────────────────────────────────────────────── */
 .tooltip {
   position: fixed;
@@ -658,6 +672,55 @@ canvas {
 }
 
 .trim-summary {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.mixed-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  margin-top: var(--space-1);
+}
+
+.mixed-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.mixed-label__text {
+  font-weight: 500;
+  color: var(--color-text);
+  white-space: nowrap;
+}
+
+.mixed-slider {
+  width: 160px;
+  height: 4px;
+  accent-color: var(--color-brand);
+  cursor: pointer;
+}
+
+.mixed-value {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  min-width: 4ch;
+  text-align: right;
+  color: var(--color-text);
+}
+
+.mixed-summary {
   font-size: var(--text-xs);
   color: var(--color-text-muted);
   margin-left: auto;

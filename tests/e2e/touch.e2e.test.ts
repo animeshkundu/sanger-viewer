@@ -87,5 +87,5 @@ test('supports pinch zoom, pan, and tap selection on tablet', async ({ page, bro
   await expect(page.locator('.tooltip')).toContainText('peak:')
   const selectedBase = page.locator('.sequence-panel .selected-base')
   await expect(selectedBase).toHaveCount(1)
-  await expect(selectedBase).toHaveText(/^[ACGTN]$/)
+  await expect(selectedBase).toHaveText(/^[ACGTNRYSWKMBDHV]$/)
 })

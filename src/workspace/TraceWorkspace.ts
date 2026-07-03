@@ -12,6 +12,8 @@ import type { TraceData } from '../types/trace'
 import type { TrimResult, TrimSettings } from '../quality/mottTrim'
 import { DEFAULT_TRIM_SETTINGS } from '../quality/mottTrim'
 import type { SubsequenceMatch } from '../search/findSubsequence'
+import type { MixedBaseResult } from '../calling/mixedBase'
+import { DEFAULT_MIXED_BASE_THRESHOLD } from '../calling/mixedBase'
 
 export interface WorkspaceSearchState {
   query: string
@@ -37,6 +39,10 @@ export interface TraceSlot {
   trimResult: TrimResult | null
   /** Subsequence-search state. */
   searchState: WorkspaceSearchState
+  /** Mixed-base ratio threshold. */
+  mixedBaseThreshold: number
+  /** Last computed mixed-base calls for displayed strand. */
+  mixedBaseResult: MixedBaseResult | null
   /** Chromatogram viewport state. */
   viewport: { startSample: number; samplesPerPixel: number }
 }
@@ -139,6 +145,7 @@ export class TraceWorkspace {
       if (idx === -1) break  // all remaining resident slots are active — shouldn't happen
       this.slots[idx].rawTrace = null
       this.slots[idx].trimResult = null
+      this.slots[idx].mixedBaseResult = null
     }
   }
 }
@@ -152,6 +159,8 @@ export function makeSlot(trace: TraceData): Omit<TraceSlot, 'id'> {
     trimSettings: { ...DEFAULT_TRIM_SETTINGS },
     trimResult: null,
     searchState: { query: '', matches: [], activeIndex: -1 },
+    mixedBaseThreshold: DEFAULT_MIXED_BASE_THRESHOLD,
+    mixedBaseResult: null,
     viewport: { startSample: 0, samplesPerPixel: Math.max(1, trace.sampleCount / 300) },
   }
 }

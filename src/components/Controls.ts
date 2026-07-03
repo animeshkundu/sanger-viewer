@@ -1,4 +1,5 @@
 import type { TrimResult } from '../quality/mottTrim'
+import { DEFAULT_MIXED_BASE_THRESHOLD } from '../calling/mixedBase'
 
 export function createControls(): HTMLDivElement {
   const root = document.createElement('div')
@@ -66,6 +67,21 @@ export function createControls(): HTMLDivElement {
       </div>
       <span id="trim-summary" class="trim-summary" aria-live="polite" aria-atomic="true"></span>
     </div>
+    <div class="mixed-controls" role="group" aria-label="Mixed-base calling">
+      <label class="mixed-label" for="mixed-threshold">
+        <span class="mixed-label__text">Mixed-base ratio:</span>
+        <input
+          type="range"
+          id="mixed-threshold"
+          data-mixed="threshold"
+          min="0" max="1" step="0.01" value="${DEFAULT_MIXED_BASE_THRESHOLD.toFixed(2)}"
+          aria-label="Mixed-base secondary to primary peak ratio threshold"
+          class="mixed-slider"
+        />
+        <output id="mixed-threshold-display" for="mixed-threshold" class="mixed-value">${DEFAULT_MIXED_BASE_THRESHOLD.toFixed(2)}</output>
+      </label>
+      <span id="mixed-summary" class="mixed-summary" aria-live="polite" aria-atomic="true">0 ambiguous bases</span>
+    </div>
   `
   return root
 }
@@ -85,6 +101,8 @@ export function setControlsDisabled(controls: HTMLDivElement, disabled: boolean)
   })
   const slider = controls.querySelector<HTMLInputElement>('[data-trim="threshold"]')
   if (slider) slider.disabled = disabled
+  const mixedSlider = controls.querySelector<HTMLInputElement>('[data-mixed="threshold"]')
+  if (mixedSlider) mixedSlider.disabled = disabled
   const searchInput = controls.querySelector<HTMLInputElement>('#search-input')
   if (searchInput) searchInput.disabled = disabled
 }
@@ -144,4 +162,17 @@ export function setSearchNavigationState(
   if (prev) prev.disabled = !options.canNavigate
   if (next) next.disabled = !options.canNavigate
   if (clear) clear.disabled = !options.canClear
+}
+
+export function setMixedThresholdDisplay(controls: HTMLDivElement, threshold: number): void {
+  const slider = controls.querySelector<HTMLInputElement>('[data-mixed="threshold"]')
+  if (slider) slider.value = threshold.toFixed(2)
+  const output = controls.querySelector<HTMLOutputElement>('#mixed-threshold-display')
+  if (output) output.value = threshold.toFixed(2)
+}
+
+export function setMixedSummary(controls: HTMLDivElement, ambiguousCount: number): void {
+  const summary = controls.querySelector<HTMLElement>('#mixed-summary')
+  if (!summary) return
+  summary.textContent = `${ambiguousCount} ambiguous base${ambiguousCount === 1 ? '' : 's'}`
 }

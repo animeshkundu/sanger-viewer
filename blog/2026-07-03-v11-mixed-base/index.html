@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mixed-base / heterozygote calling | sanger-viewer devlog</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-shell">
+        <a class="site-title" href="../../">sanger-viewer</a>
+        <nav class="site-nav" aria-label="Site">
+          <a href="../">Devlog</a>
+        </nav>
+      </div>
+    </header>
+    <main class="site-shell blog-entry">
+      <p><a href="../">← Back to devlog</a></p>
+      <h1>Step 11: mixed-base / heterozygote calling</h1>
+      <p><time datetime="2026-07-03">July 3, 2026</time></p>
+
+      <p>
+        This step adds practical mixed-base calling so the viewer can surface likely heterozygous
+        positions instead of only showing single-letter primary calls.
+      </p>
+
+      <h2>What changed</h2>
+      <p>
+        I added a pure calling engine in <code>src/calling/mixedBase.ts</code>. For each called base,
+        it samples A/C/G/T amplitudes at the peak position, ranks primary vs secondary peaks, computes
+        the secondary/primary ratio, and emits a two-base IUPAC code when the ratio meets the threshold.
+        Calls with invalid peaks or degenerate signal are preserved as-is.
+      </p>
+      <p>
+        The TraceViewer now keeps a per-slot mixed-base threshold, recomputes calls on load/strand
+        switch/slot restore/threshold changes, and uses the computed sequence everywhere the user
+        sees or exports sequence text (panel + FASTA export).
+      </p>
+
+      <h2>UI and accessibility</h2>
+      <p>
+        Controls now include a dedicated mixed-base ratio slider with an explicit accessible label,
+        numeric output, and a polite live region that reports the ambiguous-base count. Ambiguous
+        positions are highlighted in both the sequence panel and chromatogram, and exposed through
+        data attributes so E2E assertions can verify real behavior changes without pixel-only checks.
+      </p>
+
+      <h2>Verification</h2>
+      <p>
+        Vitest now includes exact mixed-base assertions on a synthetic planted-double-peak trace and
+        exact IUPAC calls at known indices on the real <code>3100.ab1</code> fixture. Playwright adds
+        threshold-driven E2E checks that confirm ambiguity counts/highlights change and FASTA output
+        includes ambiguity characters at permissive settings.
+      </p>
+    </main>
+  </body>
+</html>
