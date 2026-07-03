@@ -14,8 +14,14 @@ export class ChromatogramCanvas {
     const ctx = canvas.getContext('2d')
     if (!ctx) throw new Error('Canvas 2D unavailable')
     this.ctx = ctx
-    this.resize()
-    window.addEventListener('resize', () => this.resize())
+    // ResizeObserver fires after the element has been laid out in the DOM
+    // (and on every subsequent size change), so canvas.clientWidth/Height are
+    // valid when resize() runs. Calling resize() directly in the constructor
+    // runs before the element is appended to the document — clientWidth would
+    // be 0, leaving the physical backing buffer at the Math.max(1,…) minimum
+    // of 1×1 px and making every getImageData call return only 1 pixel.
+    const ro = new ResizeObserver(() => this.resize())
+    ro.observe(canvas)
   }
 
   setTrace(trace: TraceData): void {
