@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>frictionless UX + a11y | sanger-viewer devlog</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-shell">
+        <a class="site-title" href="../../">sanger-viewer</a>
+        <nav class="site-nav" aria-label="Site">
+          <a href="../">Devlog</a>
+        </nav>
+      </div>
+    </header>
+    <main class="site-shell blog-entry">
+      <p><a href="../">← Back to devlog</a></p>
+      <h1>Making the viewer actually easy to use</h1>
+      <p><time datetime="2026-07-03">July 3, 2026</time></p>
+      <p>
+        The last two passes gave us a working viewer and solid tablet interaction. What they
+        didn't give us was a good first impression. Open the page for the first time and you
+        were staring at a plain dashed box with an unstyled file input, no hint of what the
+        tool can do, and no real feedback when something went wrong. That ends today.
+      </p>
+      <h2>A first screen worth looking at</h2>
+      <p>
+        The biggest change is the empty state. Instead of a blank box, new visitors now see a
+        proper onboarding panel — a DNA glyph, a short sentence about what kind of file to
+        bring, a prominent "Choose file" button, and right next to it a "Load sample" button
+        that fetches a real AB1 trace from the server with a single click. No hunting for a
+        fixture, no reading docs. You can be looking at actual chromatogram data in under two
+        seconds from a cold start.
+      </p>
+      <p>
+        The sample load path uses <code>import.meta.env.BASE_URL</code> so it resolves to
+        the right URL whether you're running in dev or served from the GitHub Pages subpath.
+        That tripped me up on the first try — the file was 200 in dev but 404 on Pages
+        because I had a bare <code>/sample.ab1</code> path. Fixed by making it relative to
+        the base.
+      </p>
+      <h2>Knowing what's happening</h2>
+      <p>
+        Previously, loading a file showed a plain text status string in-place and error
+        messages were equally unstyled. Now there are three distinct banners:
+      </p>
+      <ul>
+        <li>A spinner + muted text while parsing is in progress.</li>
+        <li>A green success banner once the trace is loaded, showing the file name and base count.</li>
+        <li>A red error banner with the exact parser message if something goes wrong — invalid
+            format, corrupted data, unsupported file. No silent failures, no crashes, just a
+            clear explanation.</li>
+      </ul>
+      <p>
+        Controls are also disabled while a file is loading, so you can't accidentally trigger
+        an export or a zoom action against a half-loaded trace.
+      </p>
+      <h2>Keyboard and screen reader support</h2>
+      <p>
+        Every button now carries an <code>aria-label</code>. The status banners use
+        <code>aria-live</code> so screen readers announce transitions without the user having
+        to manually navigate there. The hidden <code>#status</code> span kept its update path
+        for automation tests that rely on it — the ARIA live approach is layered on top,
+        not a replacement.
+      </p>
+      <p>
+        Focus rings are now visible on every interactive element, which sounds like a tiny
+        thing but makes a meaningful difference if you actually tab through the UI. The whole
+        site now uses a proper token system for colours, spacing, and radius, so dark mode
+        support came almost for free once the tokens were in place — every surface just maps
+        to a different variable value.
+      </p>
+      <h2>Design system foundation</h2>
+      <p>
+        The CSS got a full rewrite from scattered raw hex values into a token-first system.
+        Light and dark palettes live in <code>:root</code> and a
+        <code>prefers-color-scheme: dark</code> block respectively. Type scale, spacing grid,
+        border radii, and transitions are all named and consistent. The dragging state on the
+        dropzone now pulses with a proper focus ring rather than just changing border colour.
+      </p>
+      <p>
+        None of this required a component library. It's plain CSS custom properties, which
+        the browser handles natively and which Vite passes through without transformation.
+      </p>
+      <h2>What's left</h2>
+      <p>
+        Performance is still wide open — the large fixture works but draws every base at
+        every zoom level, which gets choppy as you zoom out. The next pass will add viewport
+        windowing and rAF-throttled pan/zoom, and move heavy parsing off the main thread into
+        a Web Worker. After that, true end-to-end Playwright coverage that exercises real
+        fixtures through the UI, asserts the canvas is non-blank via pixel sampling, and
+        verifies every interaction path we've built so far.
+      </p>
+    </main>
+  </body>
+</html>

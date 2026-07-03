@@ -1,24 +1,80 @@
 import { parseTrace } from '../parsers'
 import { ChromatogramCanvas } from '../render/ChromatogramCanvas'
-import { createControls } from './Controls'
+import { createControls, setControlsDisabled } from './Controls'
 import { createTooltip, hideTooltip, showTooltip } from './Tooltip'
 import { createSequencePanel, renderSequence } from './SequencePanel'
 import { createPositionReadout, updatePositionReadout } from './PositionReadout'
 import { downloadBlob } from '../export/png'
 import { toFasta } from '../export/fasta'
 
+type ViewerState = 'empty' | 'loading' | 'loaded' | 'error'
+
 export function createTraceViewer(): HTMLDivElement {
   const root = document.createElement('div')
   root.className = 'viewer'
   root.innerHTML = `
     <h1>Sanger Viewer</h1>
-    <div class="dropzone" data-testid="dropzone">
-      <input type="file" id="file-input" accept=".ab1,.scf" />
-      <p>Pick a .ab1/.scf file or drag-and-drop it here.</p>
-      <p id="status">No trace loaded.</p>
+
+    <!-- Hidden status span kept for test/automation compatibility -->
+    <span id="status" class="sr-only" aria-live="polite" aria-atomic="true">No trace loaded.</span>
+
+    <div class="dropzone" data-testid="dropzone" role="region" aria-label="File upload area">
+
+      <!-- File input always at dropzone level so setInputFiles works in any state -->
+      <input type="file" id="file-input" accept=".ab1,.scf" class="sr-only" />
+
+      <!-- Empty state (shown when no trace is loaded) -->
+      <div id="empty-state" class="empty-state">
+        <div class="empty-state__icon" aria-hidden="true">🧬</div>
+        <h2 class="empty-state__title">Load a Sanger trace</h2>
+        <p class="empty-state__body">
+          Open an <strong>.ab1</strong> or <strong>.scf</strong> file from your sequencing run,
+          or try the built-in sample trace to explore the viewer.
+        </p>
+        <div class="empty-state__actions">
+          <label class="empty-state__file-label" for="file-input">
+            📂 Choose file
+          </label>
+          <button id="sample-load-btn" class="empty-state__sample-btn">
+            ✨ Load sample
+          </button>
+        </div>
+        <p class="empty-state__hint">or drag &amp; drop a file anywhere in this area</p>
+      </div>
+
+      <!-- Compact header (shown after a trace is loaded) -->
+      <div id="dropzone-header" class="dropzone-header hidden">
+        <label class="dropzone-header__label" for="file-input">
+          📂 Change file
+        </label>
+        <span class="dropzone-drag-hint" aria-hidden="true">or drag &amp; drop</span>
+      </div>
+
+      <!-- Loading banner -->
+      <div id="loading-banner" class="status-banner status-banner--loading hidden"
+        role="status" aria-live="polite" aria-atomic="true">
+        <span class="spinner" aria-hidden="true"></span>
+        <span id="loading-text">Loading…</span>
+      </div>
+
+      <!-- Error banner -->
+      <div id="error-banner" class="status-banner status-banner--error hidden"
+        role="alert" aria-live="assertive" aria-atomic="true">
+        <span aria-hidden="true">⚠️</span>
+        <span id="error-text"></span>
+      </div>
+
+      <!-- Success banner (compact, shown below compact header when loaded) -->
+      <div id="success-banner" class="status-banner status-banner--success hidden"
+        role="status" aria-live="polite" aria-atomic="true">
+        <span aria-hidden="true">✓</span>
+        <span id="success-text"></span>
+      </div>
+
     </div>
+
     <div class="canvas-wrap">
-      <canvas data-testid="chromatogram-canvas"></canvas>
+      <canvas data-testid="chromatogram-canvas" aria-label="Chromatogram trace canvas"></canvas>
     </div>
   `
 
@@ -31,6 +87,15 @@ export function createTraceViewer(): HTMLDivElement {
   const fileInput = root.querySelector<HTMLInputElement>('#file-input')!
   const status = root.querySelector<HTMLElement>('#status')!
   const dropzone = root.querySelector<HTMLElement>('.dropzone')!
+  const emptyStateEl = root.querySelector<HTMLElement>('#empty-state')!
+  const dropzoneHeader = root.querySelector<HTMLElement>('#dropzone-header')!
+  const loadingBanner = root.querySelector<HTMLElement>('#loading-banner')!
+  const loadingText = root.querySelector<HTMLElement>('#loading-text')!
+  const errorBanner = root.querySelector<HTMLElement>('#error-banner')!
+  const errorText = root.querySelector<HTMLElement>('#error-text')!
+  const successBanner = root.querySelector<HTMLElement>('#success-banner')!
+  const successText = root.querySelector<HTMLElement>('#success-text')!
+  const sampleBtn = root.querySelector<HTMLButtonElement>('#sample-load-btn')!
   const canvas = root.querySelector<HTMLCanvasElement>('canvas')!
   canvas.style.touchAction = 'none'
 
@@ -42,6 +107,31 @@ export function createTraceViewer(): HTMLDivElement {
   let hadMultiTouchGesture = false
   let selectedBaseIndex: number | null = null
   let hoveredBaseIndex: number | null = null
+
+  const setState = (state: ViewerState, message = '') => {
+    emptyStateEl.classList.toggle('hidden', state !== 'empty')
+    dropzoneHeader.classList.toggle('hidden', state === 'empty')
+    loadingBanner.classList.toggle('hidden', state !== 'loading')
+    errorBanner.classList.toggle('hidden', state !== 'error')
+    successBanner.classList.toggle('hidden', state !== 'loaded')
+
+    if (state === 'loading') {
+      loadingText.textContent = message || 'Loading…'
+      status.textContent = message || 'Loading…'
+      setControlsDisabled(controls, true)
+    } else if (state === 'error') {
+      errorText.textContent = message
+      status.textContent = message
+      setControlsDisabled(controls, false)
+    } else if (state === 'loaded') {
+      successText.textContent = message
+      status.textContent = message
+      setControlsDisabled(controls, false)
+    } else {
+      status.textContent = 'No trace loaded.'
+      setControlsDisabled(controls, false)
+    }
+  }
 
   const refreshReadout = () => {
     const vp = renderer.getViewportInfo()
@@ -91,7 +181,7 @@ export function createTraceViewer(): HTMLDivElement {
 
   const load = async (file: File) => {
     try {
-      status.textContent = `Loading ${file.name}...`
+      setState('loading', `Loading ${file.name}…`)
       const buffer = await file.arrayBuffer()
       const trace = parseTrace(buffer, file.name)
       selectedBaseIndex = null
@@ -100,9 +190,33 @@ export function createTraceViewer(): HTMLDivElement {
       renderer.setTrace(trace)
       renderSequence(sequencePanel, trace)
       refreshReadout()
-      status.textContent = `Loaded ${trace.fileName} (${trace.baseCalls.length} bases)`
+      const msg = `Loaded ${trace.fileName} (${trace.baseCalls.length} bases)`
+      setState('loaded', msg)
     } catch (error) {
-      status.textContent = error instanceof Error ? error.message : 'Failed to parse file'
+      const msg = error instanceof Error ? error.message : 'Failed to parse file'
+      setState('error', msg)
+    }
+  }
+
+  const loadSample = async () => {
+    try {
+      setState('loading', 'Loading sample trace…')
+      const sampleUrl = new URL('sample.ab1', import.meta.env.BASE_URL as string).href
+      const response = await fetch(sampleUrl)
+      if (!response.ok) throw new Error(`Could not fetch sample (${response.status})`)
+      const buffer = await response.arrayBuffer()
+      const trace = parseTrace(buffer, 'sample.ab1')
+      selectedBaseIndex = null
+      hoveredBaseIndex = null
+      hideTooltip(tooltip)
+      renderer.setTrace(trace)
+      renderSequence(sequencePanel, trace)
+      refreshReadout()
+      const msg = `Loaded ${trace.fileName} (${trace.baseCalls.length} bases)`
+      setState('loaded', msg)
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Failed to load sample'
+      setState('error', msg)
     }
   }
 
@@ -111,11 +225,18 @@ export function createTraceViewer(): HTMLDivElement {
     if (file) void load(file)
   })
 
+  sampleBtn.addEventListener('click', () => void loadSample())
+
   dropzone.addEventListener('dragover', (event) => {
     event.preventDefault()
     dropzone.classList.add('dragging')
   })
-  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragging'))
+  dropzone.addEventListener('dragleave', (event) => {
+    // Only remove if leaving the dropzone entirely (not moving between children)
+    if (!dropzone.contains(event.relatedTarget as Node | null)) {
+      dropzone.classList.remove('dragging')
+    }
+  })
   dropzone.addEventListener('drop', (event) => {
     event.preventDefault()
     dropzone.classList.remove('dragging')
