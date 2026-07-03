@@ -98,6 +98,7 @@ canvas {
   width: 100%;
   height: 100%;
   display: block;
+  touch-action: none;
 }
 
 .controls {
@@ -110,9 +111,12 @@ canvas {
 .controls button {
   border: 1px solid #cbd5e1;
   border-radius: 0.375rem;
-  padding: 0.4rem 0.75rem;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0.5rem 1rem;
   background: #fff;
   cursor: pointer;
+  touch-action: manipulation;
 }
 
 .position-readout {
@@ -149,4 +153,28 @@ canvas {
 
 .hidden {
   display: none;
+}
+
+@media (max-width: 900px) {
+  #app {
+    padding: 0.75rem;
+  }
+
+  .controls {
+    gap: 0.75rem;
+  }
+}
+
+@media (max-width: 600px) {
+  .site-header .site-shell {
+    flex-wrap: wrap;
+  }
+
+  #app {
+    padding: 0.5rem;
+  }
+
+  .canvas-wrap {
+    height: clamp(220px, 45vh, 380px);
+  }
 }

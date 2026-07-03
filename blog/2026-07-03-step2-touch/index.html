@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>tablet and touch pass | sanger-viewer devlog</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-shell">
+        <a class="site-title" href="../../">sanger-viewer</a>
+        <nav class="site-nav" aria-label="Site">
+          <a href="../">Devlog</a>
+        </nav>
+      </div>
+    </header>
+    <main class="site-shell blog-entry">
+      <p><a href="../">← Back to devlog</a></p>
+      <h1>tablet and touch pass: pinch, pan, tap, and a saner layout</h1>
+      <p><time datetime="2026-07-03">July 3, 2026</time></p>
+      <p>
+        This was the first "make it feel like a real app on glass" pass, and it changed the personality of
+        the viewer more than I expected. The big win is that the chromatogram now listens to pointer events
+        instead of a mouse-only path, which means one-finger drag pans the trace, two-finger pinch-to-zoom
+        works, and a clean tap can inspect a base instead of leaving touch users out in the cold.
+      </p>
+      <p>
+        I kept the implementation intentionally boring: reuse the existing canvas zoom/pan primitives, keep
+        the viewport readout as the source of truth in tests, and let Playwright exercise the gestures on an
+        emulated iPad project. That gave us a nice side benefit too: the existing fixture-driven E2E flow now
+        runs on both desktop and tablet form factors instead of pretending desktop coverage was enough.
+      </p>
+      <p>
+        On the layout side, this step is mostly about not fighting the screen. Buttons are now touch-sized,
+        the control row has more breathing room when it wraps, and the shell padding scales down on narrower
+        widths so the canvas keeps the attention instead of the margins. The viewport meta tag was already
+        correct, so I left that alone rather than churn a file for no reason.
+      </p>
+      <p>
+        Next up is the friction pass: clearer empty states, sample-file loading, better drag-and-drop affordance,
+        visible loading/error handling, and accessibility polish so the app feels calm and obvious before we push
+        harder on performance and pro-grade feature parity.
+      </p>
+    </main>
+  </body>
+</html>
