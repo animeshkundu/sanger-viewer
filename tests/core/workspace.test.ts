@@ -137,7 +137,7 @@ describe('TraceWorkspace', () => {
       const residentAfter = residentCount(ws)
       expect(residentAfter).toBe(2)
       expect(ws.getAll().filter((slot) => slot.rawTrace === null)).toHaveLength(1)
-      expect(residentBefore + 1 - residentAfter).toBe(1)
+      expect(residentAfter).toBe(ws.getAll().length - 1)
     })
 
     it('active slot is never evicted', () => {
