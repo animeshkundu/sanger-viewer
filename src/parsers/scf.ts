@@ -1,4 +1,4 @@
-import type { TraceData } from '../types/trace'
+import type { TraceData, TraceMetadata } from '../types/trace'
 
 function decodeDelta(values: Float32Array): Float32Array {
   for (let pass = 0; pass < 2; pass += 1) {
@@ -73,6 +73,8 @@ export function parseScf(buffer: ArrayBuffer, fileName: string): TraceData {
     qualities.push(probs[base as keyof typeof probs] ?? 0)
   }
 
+  const metadata: TraceMetadata = { version: Number.isFinite(version) ? version : 0 }
+
   return {
     format: 'scf',
     fileName,
@@ -82,6 +84,6 @@ export function parseScf(buffer: ArrayBuffer, fileName: string): TraceData {
     peakPositions,
     qualities,
     sequence: baseCalls.join(''),
-    metadata: { version: Number.isFinite(version) ? version : 0 }
+    metadata,
   }
 }

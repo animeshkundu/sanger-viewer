@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Trace metadata + peak amplitudes | sanger-viewer devlog</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-shell">
+        <a class="site-title" href="../../">sanger-viewer</a>
+        <nav class="site-nav" aria-label="Site">
+          <a href="../">Devlog</a>
+        </nav>
+      </div>
+    </header>
+    <main class="site-shell blog-entry">
+      <p><a href="../">← Back to devlog</a></p>
+      <h1>Inside the file: surfacing trace metadata and peak amplitudes</h1>
+      <p><time datetime="2026-07-03">July 3, 2026</time></p>
+
+      <p>
+        An <code>.ab1</code> file is not just a stream of peak heights and base calls. Buried
+        inside every ABIF container is a directory of tagged records — instrument model, sample
+        name, dye set, base-calling mobility file, run timestamp, lane number, operator comments.
+        Professional viewers like Chromas have always surfaced these in a properties panel. Until
+        today, sanger-viewer threw them away.
+      </p>
+
+      <h2>What shipped in Step 9</h2>
+      <p>
+        The ABIF parser now walks the full tag directory and extracts eight metadata fields
+        wherever they are present in the file:
+      </p>
+      <ul>
+        <li><strong>Sample name</strong> — <code>SMPL1</code>, the label the technician typed into the run software</li>
+        <li><strong>Instrument</strong> — <code>MCHN1</code>, e.g. "ABI PRISM 310" or "3730xl"</li>
+        <li><strong>Model</strong> — <code>MODL1</code>, a short 4-character model code</li>
+        <li><strong>Run date</strong> — <code>BCTS1</code>, the base-calling timestamp string</li>
+        <li><strong>Dye set</strong> — <code>DyeN1</code>–<code>DyeN4</code> joined with "/", e.g. "Joe/Fam/Tamra/Rox"</li>
+        <li><strong>Base caller</strong> — <code>PDMF1</code>, the mobility/base-calling file name</li>
+        <li><strong>Comment</strong> — <code>CMNT1</code>, any free-text annotation</li>
+        <li><strong>Lane</strong> — <code>LANE1</code>, the capillary or gel lane number</li>
+      </ul>
+      <p>
+        Every field is guarded: if the tag is absent the field is simply <code>undefined</code>
+        and silently omitted from the panel. The viewer never crashes on missing fields. SCF files,
+        which carry no ABIF tags, still work fine — they get a <code>version</code> field from the
+        SCF header and nothing else.
+      </p>
+      <p>
+        The old loose <code>Record&lt;string, string | number&gt;</code> metadata type has been
+        replaced with a typed <code>TraceMetadata</code> interface whose fields are all optional.
+        This caught an existing bug: the old parser fell back to reading <code>PBAS</code> data
+        instead of returning <code>undefined</code> when <code>MCHN1</code> was absent.
+      </p>
+
+      <h2>Per-base peak amplitudes in the tooltip</h2>
+      <p>
+        The hover tooltip now shows the raw channel values at the selected peak position — all
+        four of them, for every base. Before, you saw something like:
+      </p>
+      <pre>#47 A peak:3221 q:58</pre>
+      <p>Now you see:</p>
+      <pre>#47 A peak:3221 q:58 A:1842 C:104 G:219 T:87</pre>
+      <p>
+        Those four numbers are the signal intensities of the A, C, G, and T channels at the
+        exact sample position of the base call. In a clean trace the called base's channel is
+        the dominant one — exactly as you'd expect. When the numbers look off (say the called
+        base has a much lower amplitude than a neighbour channel) that's a useful diagnostic
+        hint that the base call may be wrong.
+      </p>
+      <p>
+        Implementing this was a small extension to <code>hitTest</code>: once we have the best
+        matching base index, we know its peak position in sample space, and we can simply index
+        into each of the four <code>Float32Array</code> channels at that position. The values
+        are rounded to integers for display.
+      </p>
+
+      <h2>The metadata panel</h2>
+      <p>
+        A compact panel appears below the sequence panel whenever a trace is loaded and carries
+        at least one piece of metadata. It renders as a two-column grid: label on the left in
+        muted type, value on the right in monospace. If the file carries nothing useful — an
+        SCF with no ABIF tags, or an AB1 that was written without optional fields — the panel
+        stays hidden rather than showing an empty box.
+      </p>
+      <p>
+        The CSS uses <code>display: grid; grid-template-columns: max-content 1fr</code> on the
+        row container, with each row using <code>display: contents</code> to participate in the
+        parent grid. This means label and value columns align cleanly without a table, and long
+        values wrap gracefully into the right column only.
+      </p>
+
+      <h2>Typing and testing</h2>
+      <p>
+        The new <code>TraceMetadata</code> interface propagates through the whole stack —
+        parser return types, <code>TraceData.metadata</code>, the revcomp passthrough, and the
+        structured-clone transfer to the Web Worker. TypeScript catches any site that tries to
+        access the old <code>machine</code> key (now <code>instrument</code>).
+      </p>
+      <p>
+        Seven new Vitest unit tests assert that the 310.ab1 fixture yields a sample name and an
+        instrument string, that the SCF fixture yields a version and no ABIF fields, and that
+        absent optional fields are <code>undefined</code> rather than throwing. Four new
+        Playwright tests confirm the panel is hidden before load, visible (with at least one row)
+        after loading an AB1, stable after loading an SCF, and that the tooltip text matches the
+        amplitude pattern <code>A:\d+ C:\d+ G:\d+ T:\d+</code>.
+      </p>
+
+      <h2>What's next</h2>
+      <p>
+        The metadata panel is intentionally minimal right now — plain text, no icons, no
+        copy-to-clipboard. The next passes will add reverse-complement and strand view
+        improvements, PHRED quality display enhancements, and multi-trace workspace support.
+        Each will land as its own small PR, green CI, updated devlog.
+      </p>
+    </main>
+  </body>
+</html>

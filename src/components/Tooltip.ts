@@ -10,7 +10,8 @@ export function showTooltip(el: HTMLElement, info: BaseHoverInfo, x: number, y: 
   el.classList.remove('hidden')
   el.style.left = `${x + 10}px`
   el.style.top = `${y + 10}px`
-  el.textContent = `#${info.index + 1} ${info.base} peak:${info.samplePosition} q:${info.quality ?? 'n/a'}`
+  const { A, C, G, T } = info.amplitudes
+  el.textContent = `#${info.index + 1} ${info.base} peak:${info.samplePosition} q:${info.quality ?? 'n/a'} A:${A} C:${C} G:${G} T:${T}`
 }
 
 export function hideTooltip(el: HTMLElement): void {

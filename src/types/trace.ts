@@ -1,5 +1,17 @@
 export type Nucleotide = 'A' | 'C' | 'G' | 'T'
 
+export interface TraceMetadata {
+  sampleName?: string
+  instrument?: string
+  model?: string
+  runDate?: string
+  dyeSet?: string
+  baseCaller?: string
+  comment?: string
+  lane?: number
+  version?: number
+}
+
 export interface TraceData {
   format: 'ab1' | 'scf'
   fileName: string
@@ -9,7 +21,7 @@ export interface TraceData {
   peakPositions: number[]
   qualities: number[] | null
   sequence: string
-  metadata: Record<string, string | number>
+  metadata: TraceMetadata
 }
 
 export interface BaseHoverInfo {
@@ -17,6 +29,7 @@ export interface BaseHoverInfo {
   base: string
   samplePosition: number
   quality: number | null
+  amplitudes: { A: number; C: number; G: number; T: number }
 }
 
 /**
