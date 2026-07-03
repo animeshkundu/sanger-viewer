@@ -122,6 +122,36 @@ test('hover tooltip still shows peak data after strand toggle (desktop only)', a
   await expect(page.locator('.tooltip')).toContainText('peak:')
 })
 
+test('strand toggle button is keyboard-accessible and aria-pressed updates correctly', { tag: ['@desktop'] }, async ({ page, isMobile }) => {
+  test.skip(isMobile, 'keyboard navigation testing is desktop only')
+
+  // Tab until we land on the strand toggle button
+  let found = false
+  for (let i = 0; i < 20; i++) {
+    await page.keyboard.press('Tab')
+    const actionAttr = await page.evaluate(() => (document.activeElement as HTMLElement | null)?.getAttribute('data-action') ?? '')
+    if (actionAttr === 'toggle-strand') {
+      found = true
+      break
+    }
+  }
+  expect(found).toBeTruthy()
+
+  // Initially aria-pressed should be false
+  const btn = page.locator('[data-action="toggle-strand"]')
+  await expect(btn).toHaveAttribute('aria-pressed', 'false')
+
+  // Activate with Space key
+  await page.keyboard.press('Space')
+  await expect.poll(() => canvasInkSum(page), { timeout: 5000 }).toBeGreaterThan(INK_THRESHOLD)
+  await expect(btn).toHaveAttribute('aria-pressed', 'true')
+
+  // Activate again with Enter key to revert
+  await page.keyboard.press('Enter')
+  await expect.poll(() => canvasInkSum(page), { timeout: 5000 }).toBeGreaterThan(INK_THRESHOLD)
+  await expect(btn).toHaveAttribute('aria-pressed', 'false')
+})
+
 test('FASTA export header contains revcomp when strand is toggled', async ({ page }) => {
   await page.getByRole('button', { name: /5′→3′/ }).click()
   await expect.poll(() => canvasInkSum(page), { timeout: 5000 }).toBeGreaterThan(INK_THRESHOLD)

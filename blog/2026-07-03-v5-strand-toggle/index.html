@@ -129,7 +129,16 @@
         <li>Triggers FASTA export after toggling and asserts the header line and filename
           both contain <em>revcomp</em>, and that the sequence lines are valid IUPAC
           characters.</li>
+        <li>On desktop only: verifies the strand toggle button is reachable via keyboard
+          Tab navigation, and that activating it with <kbd>Space</kbd> / <kbd>Enter</kbd>
+          correctly flips <code>aria-pressed</code> and re-paints the canvas — confirming
+          full keyboard accessibility.</li>
       </ul>
+      <p>
+        The existing <code>ux-a11y.e2e</code> keyboard-focus helper now loops up to
+        fifteen Tab presses (up from eight) to find <code>#file-input</code>, making the
+        test robust against future control additions without needing another bump.
+      </p>
 
       <h2>What is in progress and what comes next</h2>
       <p>
