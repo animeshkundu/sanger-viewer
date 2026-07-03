@@ -14,6 +14,28 @@ export function createControls(): HTMLDivElement {
     <button data-action="toggle-strand" aria-pressed="false" title="Toggle reverse complement strand">5′→3′</button>
     <button data-action="export-png">Export PNG</button>
     <button data-action="export-fasta">Export FASTA</button>
+    <div class="search-controls" role="group" aria-label="Sequence search">
+      <label class="search-label" for="search-input">
+        <span class="search-label__text">Find:</span>
+        <input
+          id="search-input"
+          class="search-input"
+          type="text"
+          spellcheck="false"
+          autocomplete="off"
+          autocapitalize="characters"
+          placeholder="IUPAC motif"
+          aria-describedby="search-summary search-empty-state"
+        />
+      </label>
+      <div class="search-actions">
+        <button type="button" data-action="search-prev" aria-label="Previous match">Prev</button>
+        <button type="button" data-action="search-next" aria-label="Next match">Next</button>
+        <button type="button" data-action="search-clear" aria-label="Clear search">Clear</button>
+      </div>
+      <span id="search-summary" class="search-summary" aria-live="polite" aria-atomic="true"></span>
+      <span id="search-empty-state" class="search-empty-state hidden" role="status">No matches found.</span>
+    </div>
     <div class="trim-controls" role="group" aria-label="Quality trimming">
       <label class="trim-label" for="trim-threshold">
         <span class="trim-label__text">Q-trim:</span>
@@ -62,6 +84,8 @@ export function setControlsDisabled(controls: HTMLDivElement, disabled: boolean)
   })
   const slider = controls.querySelector<HTMLInputElement>('[data-trim="threshold"]')
   if (slider) slider.disabled = disabled
+  const searchInput = controls.querySelector<HTMLInputElement>('#search-input')
+  if (searchInput) searchInput.disabled = disabled
 }
 
 /** Update the trim summary display after a trim recompute. */
@@ -97,4 +121,26 @@ export function setTrimMode(controls: HTMLDivElement, mode: 'full' | 'trimmed'):
 export function getTrimThreshold(controls: HTMLDivElement): number {
   const slider = controls.querySelector<HTMLInputElement>('[data-trim="threshold"]')
   return slider ? Number(slider.value) : 20
+}
+
+export function setSearchSummary(controls: HTMLDivElement, summary: string): void {
+  const el = controls.querySelector<HTMLElement>('#search-summary')
+  if (el) el.textContent = summary
+}
+
+export function setSearchEmptyState(controls: HTMLDivElement, visible: boolean): void {
+  const el = controls.querySelector<HTMLElement>('#search-empty-state')
+  if (el) el.classList.toggle('hidden', !visible)
+}
+
+export function setSearchNavigationState(
+  controls: HTMLDivElement,
+  options: { canNavigate: boolean; canClear: boolean },
+): void {
+  const prev = controls.querySelector<HTMLButtonElement>('[data-action="search-prev"]')
+  const next = controls.querySelector<HTMLButtonElement>('[data-action="search-next"]')
+  const clear = controls.querySelector<HTMLButtonElement>('[data-action="search-clear"]')
+  if (prev) prev.disabled = !options.canNavigate
+  if (next) next.disabled = !options.canNavigate
+  if (clear) clear.disabled = !options.canClear
 }

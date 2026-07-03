@@ -2,11 +2,11 @@ import type { TraceData } from './types/trace'
 
 /** Full IUPAC complement table (case-preserving). */
 const COMPLEMENT: Record<string, string> = {
-  A: 'T', T: 'A', C: 'G', G: 'C',
+  A: 'T', T: 'A', U: 'A', C: 'G', G: 'C',
   R: 'Y', Y: 'R', S: 'S', W: 'W',
   K: 'M', M: 'K', B: 'V', V: 'B',
   D: 'H', H: 'D', N: 'N',
-  a: 't', t: 'a', c: 'g', g: 'c',
+  a: 't', t: 'a', u: 'a', c: 'g', g: 'c',
   r: 'y', y: 'r', s: 's', w: 'w',
   k: 'm', m: 'k', b: 'v', v: 'b',
   d: 'h', h: 'd', n: 'n',
@@ -15,6 +15,11 @@ const COMPLEMENT: Record<string, string> = {
 /** Return the IUPAC complement of a single base character.  Unknown characters are returned unchanged. */
 export function iupacComplement(base: string): string {
   return COMPLEMENT[base] ?? base
+}
+
+/** Reverse-complement a sequence string using the full IUPAC table. */
+export function reverseComplementSequence(sequence: string): string {
+  return sequence.split('').reverse().map(iupacComplement).join('')
 }
 
 /**

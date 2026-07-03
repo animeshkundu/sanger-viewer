@@ -1,5 +1,15 @@
 import type { TraceData } from '../types/trace'
 import type { TrimResult } from '../quality/mottTrim'
+import type { SubsequenceMatch } from '../search/findSubsequence'
+
+interface RenderSequenceOptions {
+  selectedIndex?: number
+  anchorIndex?: number
+  trim?: TrimResult | null
+  mode?: 'full' | 'trimmed'
+  matches?: SubsequenceMatch[]
+  activeMatchIndex?: number
+}
 
 export function createSequencePanel(): HTMLDivElement {
   const panel = document.createElement('div')
@@ -24,9 +34,14 @@ export function createSequencePanel(): HTMLDivElement {
 export function renderSequence(
   panel: HTMLElement,
   trace: TraceData,
-  selected = -1,
-  trim: TrimResult | null = null,
-  mode: 'full' | 'trimmed' = 'full',
+  {
+    selectedIndex = -1,
+    anchorIndex = -1,
+    trim = null,
+    mode = 'full',
+    matches = [],
+    activeMatchIndex = -1,
+  }: RenderSequenceOptions = {},
 ): void {
   panel.innerHTML = ''
   const fragment = document.createDocumentFragment()
@@ -44,35 +59,59 @@ export function renderSequence(
     return
   }
 
+  const anchor = anchorIndex >= 0 ? anchorIndex : selectedIndex
+  const activeMatch = activeMatchIndex >= 0 ? matches[activeMatchIndex] ?? null : null
+  const getWindowMatches = (start: number, end: number) => matches.filter((match) => match.end > start && match.start < end)
+  const applySpanClasses = (span: HTMLSpanElement, absolute: number, visibleMatches: SubsequenceMatch[]) => {
+    const classes: string[] = []
+    let hasPassiveMatch = false
+    let hasActiveMatch = false
+    for (const match of visibleMatches) {
+      if (absolute < match.start || absolute >= match.end) continue
+      hasPassiveMatch = true
+      if (activeMatch && match === activeMatch) hasActiveMatch = true
+    }
+    if (absolute === selectedIndex) classes.push('selected-base')
+    if (hasPassiveMatch) {
+      classes.push('search-match')
+      span.dataset.searchMatch = 'true'
+    }
+    if (hasActiveMatch) {
+      classes.push('search-match--active')
+      span.dataset.searchActive = 'true'
+    }
+    if (trim && trim.status === 'ok' && mode === 'full') {
+      if (absolute < trim.trimStart || absolute >= trim.trimEnd) classes.push('trimmed-base')
+    }
+    if (classes.length) span.className = classes.join(' ')
+  }
+
   if (inTrimmedMode) {
     // Show only the kept window; centre selection within it.
     // When no base is selected, anchor at trimStart and cap at trimStart+240 to avoid
     // rendering thousands of spans for long reads (same ~240-base budget as full mode).
     const { trimStart, trimEnd } = trim
-    const windowStart = selected >= 0 ? Math.max(trimStart, selected - 120) : trimStart
-    const windowEnd = selected >= 0 ? Math.min(trimEnd, selected + 120) : Math.min(trimEnd, trimStart + 240)
+    const windowStart = anchor >= 0 ? Math.max(trimStart, anchor - 120) : trimStart
+    const windowEnd = anchor >= 0 ? Math.min(trimEnd, anchor + 120) : Math.min(trimEnd, trimStart + 240)
+    const visibleMatches = getWindowMatches(windowStart, windowEnd)
 
     trace.baseCalls.slice(windowStart, windowEnd).forEach((base, idx) => {
       const span = document.createElement('span')
       const absolute = windowStart + idx
       span.textContent = base
-      if (absolute === selected) span.className = 'selected-base'
+      applySpanClasses(span, absolute, visibleMatches)
       fragment.appendChild(span)
     })
   } else {
     // Full mode: ±120 around selected, but mark trimmed bases.
-    const start = Math.max(0, selected - 120)
-    const end = Math.min(trace.baseCalls.length, selected + 120)
+    const start = anchor >= 0 ? Math.max(0, anchor - 120) : 0
+    const end = anchor >= 0 ? Math.min(trace.baseCalls.length, anchor + 120) : Math.min(trace.baseCalls.length, 240)
+    const visibleMatches = getWindowMatches(start, end)
     trace.baseCalls.slice(start, end).forEach((base, idx) => {
       const span = document.createElement('span')
       const absolute = start + idx
       span.textContent = base
-      const classes: string[] = []
-      if (absolute === selected) classes.push('selected-base')
-      if (trim && trim.status === 'ok') {
-        if (absolute < trim.trimStart || absolute >= trim.trimEnd) classes.push('trimmed-base')
-      }
-      if (classes.length) span.className = classes.join(' ')
+      applySpanClasses(span, absolute, visibleMatches)
       fragment.appendChild(span)
     })
   }

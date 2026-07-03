@@ -63,6 +63,11 @@
   --color-header-fg: #f8fafc;
 
   --color-selected-base-bg: #fde68a;
+  --color-search-match-bg:  rgba(59, 130, 246, 0.18);
+  --color-search-active-bg: #fbbf24;
+  --color-search-active-fg: #1f2937;
+  --color-search-canvas-active-fill:   rgba(245, 158, 11, 0.30);
+  --color-search-canvas-active-stroke: rgba(245, 158, 11, 0.85);
   --color-tooltip-bg:       #0f172a;
   --color-tooltip-fg:       #f8fafc;
 }
@@ -99,6 +104,11 @@
     --color-header-fg: #f1f5f9;
 
     --color-selected-base-bg: #854d0e;
+    --color-search-match-bg:  rgba(96, 165, 250, 0.24);
+    --color-search-active-bg: #d97706;
+    --color-search-active-fg: #f8fafc;
+    --color-search-canvas-active-fill:   rgba(217, 119, 6, 0.35);
+    --color-search-canvas-active-stroke: rgba(217, 119, 6, 0.85);
     --color-tooltip-bg:       #1e293b;
     --color-tooltip-fg:       #f1f5f9;
   }
@@ -486,6 +496,17 @@ canvas {
   border-radius: 2px;
 }
 
+.search-match {
+  background: var(--color-search-match-bg);
+  border-radius: 2px;
+}
+
+.search-match--active {
+  background: var(--color-search-active-bg);
+  color: var(--color-search-active-fg);
+  border-radius: 2px;
+}
+
 /* ─── Tooltip ────────────────────────────────────────────────────── */
 .tooltip {
   position: fixed;
@@ -500,6 +521,64 @@ canvas {
 }
 
 /* ─── Trim controls ──────────────────────────────────────────────── */
+.search-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.search-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1 1 16rem;
+  min-width: min(100%, 16rem);
+}
+
+.search-label__text {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-text);
+  white-space: nowrap;
+}
+
+.search-input {
+  width: 100%;
+  min-height: 44px;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+}
+
+.search-input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.search-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.search-summary,
+.search-empty-state {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.search-empty-state {
+  color: var(--color-error-text);
+}
+
 .trim-controls {
   display: flex;
   align-items: center;

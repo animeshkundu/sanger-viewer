@@ -2,6 +2,7 @@ import { TRACE_COLORS } from './colors'
 import { clampViewport } from './viewport'
 import { decimateSamples } from './decimation'
 import type { BaseHoverInfo, TrimBoundaries, TraceData } from '../types/trace'
+import type { SubsequenceMatch } from '../search/findSubsequence'
 
 export class ChromatogramCanvas {
   private ctx: CanvasRenderingContext2D
@@ -10,19 +11,54 @@ export class ChromatogramCanvas {
   private samplesPerPixel = 5
   private raf = 0
   private trimBoundaries: TrimBoundaries | null = null
+  private searchMatches: SubsequenceMatch[] = []
+  private activeSearchMatchIndex = -1
+  private resizeObserver: ResizeObserver | null = null
+  private themeMediaQuery: MediaQueryList | null = null
+  private themeObserver: MutationObserver | null = null
+  private searchHighlightColors = {
+    matchColor: 'rgba(59, 130, 246, 0.18)',
+    activeFill: 'rgba(245, 158, 11, 0.30)',
+    activeStroke: 'rgba(245, 158, 11, 0.85)',
+  }
 
   constructor(private canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext('2d')
     if (!ctx) throw new Error('Canvas 2D unavailable')
     this.ctx = ctx
+    this.refreshSearchHighlightColors()
+    if (typeof window !== 'undefined') {
+      this.themeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+      this.themeMediaQuery.addEventListener('change', this.handleThemeChange)
+    }
+    if (typeof MutationObserver !== 'undefined') {
+      this.themeObserver = new MutationObserver(this.handleThemeMutations)
+      this.themeObserver.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ['class', 'data-theme', 'style'],
+      })
+    }
     // ResizeObserver fires after the element has been laid out in the DOM
     // (and on every subsequent size change), so canvas.clientWidth/Height are
     // valid when resize() runs. Calling resize() directly in the constructor
     // runs before the element is appended to the document — clientWidth would
     // be 0, leaving the physical backing buffer at the Math.max(1,…) minimum
     // of 1×1 px and making every getImageData call return only 1 pixel.
-    const ro = new ResizeObserver(() => this.resize())
-    ro.observe(canvas)
+    this.resizeObserver = new ResizeObserver(() => this.resize())
+    this.resizeObserver.observe(canvas)
+  }
+
+  destroy(): void {
+    if (this.raf) {
+      cancelAnimationFrame(this.raf)
+      this.raf = 0
+    }
+    this.resizeObserver?.disconnect()
+    this.resizeObserver = null
+    this.themeObserver?.disconnect()
+    this.themeObserver = null
+    this.themeMediaQuery?.removeEventListener('change', this.handleThemeChange)
+    this.themeMediaQuery = null
   }
 
   setTrace(trace: TraceData): void {
@@ -62,6 +98,30 @@ export class ChromatogramCanvas {
     // Expose overlay state as a data attribute so E2E tests can assert
     // overlay presence/absence without relying on fragile pixel comparisons.
     this.canvas.setAttribute('data-trim-active', boundaries !== null ? 'true' : 'false')
+    this.requestDraw()
+  }
+
+  setSearchMatches(matches: SubsequenceMatch[], activeIndex: number): void {
+    this.searchMatches = matches
+    this.activeSearchMatchIndex = activeIndex
+    this.canvas.setAttribute('data-search-match-count', String(matches.length))
+    this.requestDraw()
+  }
+
+  focusBaseRange(startIndex: number, endIndex: number): void {
+    if (!this.trace || this.trace.peakPositions.length === 0) return
+    const width = Math.max(1, this.canvas.clientWidth || 1)
+    const lastBaseIndex = this.trace.peakPositions.length - 1
+    const clampedStart = Math.max(0, Math.min(startIndex, lastBaseIndex))
+    const clampedEnd = Math.max(clampedStart, Math.min(Math.max(clampedStart, endIndex - 1), lastBaseIndex))
+    const leftIndex = Math.max(0, clampedStart - 20)
+    const rightIndex = Math.min(lastBaseIndex, clampedEnd + 20)
+    const leftSample = this.trace.peakPositions[leftIndex] ?? 0
+    const rightSample = this.trace.peakPositions[rightIndex] ?? leftSample
+    const visibleSamples = Math.max(160, (rightSample - leftSample) * 1.25)
+    const centerSample = ((this.trace.peakPositions[clampedStart] ?? 0) + (this.trace.peakPositions[clampedEnd] ?? 0)) / 2
+    this.samplesPerPixel = Math.max(0.5, visibleSamples / width)
+    this.startSample = centerSample - (width * this.samplesPerPixel) / 2
     this.requestDraw()
   }
 
@@ -129,6 +189,27 @@ export class ChromatogramCanvas {
     })
   }
 
+  private handleThemeChange = (): void => {
+    this.refreshSearchHighlightColors()
+    this.requestDraw()
+  }
+
+  private handleThemeMutations = (mutations: MutationRecord[]): void => {
+    if (mutations.length > 0) {
+      this.handleThemeChange()
+    }
+  }
+
+  private refreshSearchHighlightColors(): void {
+    if (typeof document === 'undefined') return
+    const cssVars = getComputedStyle(document.documentElement)
+    this.searchHighlightColors = {
+      matchColor: cssVars.getPropertyValue('--color-search-match-bg').trim() || this.searchHighlightColors.matchColor,
+      activeFill: cssVars.getPropertyValue('--color-search-canvas-active-fill').trim() || this.searchHighlightColors.activeFill,
+      activeStroke: cssVars.getPropertyValue('--color-search-canvas-active-stroke').trim() || this.searchHighlightColors.activeStroke,
+    }
+  }
+
   private draw(): void {
     const width = this.canvas.clientWidth
     const height = this.canvas.clientHeight
@@ -155,6 +236,7 @@ export class ChromatogramCanvas {
 
     // ── Trim region overlays (rendered before traces so signal shows through) ──
     this.drawTrimOverlays(vp, width, height)
+    this.drawSearchHighlights(vp, width, height)
 
     for (let i = 0; i < this.trace.peakPositions.length; i += 1) {
       const peak = this.trace.peakPositions[i]
@@ -274,6 +356,53 @@ export class ChromatogramCanvas {
           this.ctx.restore()
         }
       }
+    }
+  }
+
+  private drawSearchHighlights(
+    vp: { startSample: number; endSample: number; samplesPerPixel: number },
+    width: number,
+    height: number,
+  ): void {
+    if (!this.trace || this.searchMatches.length === 0) {
+      this.canvas.setAttribute('data-search-visible-count', '0')
+      this.canvas.removeAttribute('data-search-active-range')
+      return
+    }
+
+    const peaks = this.trace.peakPositions
+    const activeMatch = this.activeSearchMatchIndex >= 0 ? this.searchMatches[this.activeSearchMatchIndex] ?? null : null
+    const sampleToX = (sample: number) => (sample - vp.startSample) / vp.samplesPerPixel
+    let visibleCount = 0
+
+    for (const match of this.searchMatches) {
+      if (match.start >= peaks.length || match.end <= 0) continue
+      const firstPeak = peaks[match.start]
+      const lastPeak = peaks[Math.max(match.start, match.end - 1)]
+      if (firstPeak === undefined || lastPeak === undefined) continue
+
+      const xStart = sampleToX(firstPeak) - 5
+      const xEnd = sampleToX(lastPeak) + 5
+      if (xEnd < 0 || xStart > width) continue
+
+      visibleCount += 1
+      const isActive = activeMatch === match
+      this.ctx.fillStyle = isActive ? this.searchHighlightColors.activeFill : this.searchHighlightColors.matchColor
+      this.ctx.fillRect(Math.max(0, xStart), 0, Math.max(3, Math.min(width, xEnd) - Math.max(0, xStart)), height)
+      if (isActive) {
+        this.ctx.save()
+        this.ctx.strokeStyle = this.searchHighlightColors.activeStroke
+        this.ctx.lineWidth = 2
+        this.ctx.strokeRect(Math.max(0, xStart), 1, Math.max(3, Math.min(width, xEnd) - Math.max(0, xStart)), Math.max(0, height - 2))
+        this.ctx.restore()
+      }
+    }
+
+    this.canvas.setAttribute('data-search-visible-count', String(visibleCount))
+    if (activeMatch) {
+      this.canvas.setAttribute('data-search-active-range', `${activeMatch.start}:${activeMatch.end}`)
+    } else {
+      this.canvas.removeAttribute('data-search-active-range')
     }
   }
 }
