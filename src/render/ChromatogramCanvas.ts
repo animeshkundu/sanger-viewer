@@ -13,11 +13,26 @@ export class ChromatogramCanvas {
   private trimBoundaries: TrimBoundaries | null = null
   private searchMatches: SubsequenceMatch[] = []
   private activeSearchMatchIndex = -1
+  private searchHighlightColors = {
+    matchColor: 'rgba(59, 130, 246, 0.18)',
+    activeFill: 'rgba(245, 158, 11, 0.30)',
+    activeStroke: 'rgba(245, 158, 11, 0.85)',
+  }
 
   constructor(private canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext('2d')
     if (!ctx) throw new Error('Canvas 2D unavailable')
     this.ctx = ctx
+    this.refreshSearchHighlightColors()
+    if (typeof window !== 'undefined') {
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', this.handleThemeChange)
+    }
+    if (typeof MutationObserver !== 'undefined') {
+      new MutationObserver(this.handleThemeMutations).observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ['class', 'data-theme', 'style'],
+      })
+    }
     // ResizeObserver fires after the element has been laid out in the DOM
     // (and on every subsequent size change), so canvas.clientWidth/Height are
     // valid when resize() runs. Calling resize() directly in the constructor
@@ -154,6 +169,26 @@ export class ChromatogramCanvas {
       this.raf = 0
       this.draw()
     })
+  }
+
+  private handleThemeChange = (): void => {
+    this.refreshSearchHighlightColors()
+    this.requestDraw()
+  }
+
+  private handleThemeMutations = (mutations: MutationRecord[]): void => {
+    if (mutations.some((mutation) => mutation.attributeName)) {
+      this.handleThemeChange()
+    }
+  }
+
+  private refreshSearchHighlightColors(): void {
+    const cssVars = getComputedStyle(document.documentElement)
+    this.searchHighlightColors = {
+      matchColor: cssVars.getPropertyValue('--color-search-match-bg').trim() || this.searchHighlightColors.matchColor,
+      activeFill: cssVars.getPropertyValue('--color-search-canvas-active-fill').trim() || this.searchHighlightColors.activeFill,
+      activeStroke: cssVars.getPropertyValue('--color-search-canvas-active-stroke').trim() || this.searchHighlightColors.activeStroke,
+    }
   }
 
   private draw(): void {
@@ -321,11 +356,6 @@ export class ChromatogramCanvas {
     const sampleToX = (sample: number) => (sample - vp.startSample) / vp.samplesPerPixel
     let visibleCount = 0
 
-    const cssVars = getComputedStyle(document.documentElement)
-    const matchColor = cssVars.getPropertyValue('--color-search-match-bg').trim()
-    const activeFill = cssVars.getPropertyValue('--color-search-canvas-active-fill').trim()
-    const activeStroke = cssVars.getPropertyValue('--color-search-canvas-active-stroke').trim()
-
     for (const match of this.searchMatches) {
       if (match.start >= peaks.length || match.end <= 0) continue
       const firstPeak = peaks[match.start]
@@ -338,11 +368,11 @@ export class ChromatogramCanvas {
 
       visibleCount += 1
       const isActive = activeMatch === match
-      this.ctx.fillStyle = isActive ? activeFill : matchColor
+      this.ctx.fillStyle = isActive ? this.searchHighlightColors.activeFill : this.searchHighlightColors.matchColor
       this.ctx.fillRect(Math.max(0, xStart), 0, Math.max(3, Math.min(width, xEnd) - Math.max(0, xStart)), height)
       if (isActive) {
         this.ctx.save()
-        this.ctx.strokeStyle = activeStroke
+        this.ctx.strokeStyle = this.searchHighlightColors.activeStroke
         this.ctx.lineWidth = 2
         this.ctx.strokeRect(Math.max(0, xStart), 1, Math.max(3, Math.min(width, xEnd) - Math.max(0, xStart)), Math.max(0, height - 2))
         this.ctx.restore()

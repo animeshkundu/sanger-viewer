@@ -20,6 +20,12 @@ describe('findSubsequenceMatches', () => {
     ])
   })
 
+  it('reverse-complements U-containing queries for reverse-strand hits', () => {
+    expect(findSubsequenceMatches('AAG', 'CUU')).toEqual([
+      { start: 0, end: 3, strand: 'reverse' },
+    ])
+  })
+
   it('keeps overlapping hits with explicit indices', () => {
     expect(findSubsequenceMatches('AAAAA', 'AAA')).toEqual([
       { start: 0, end: 3, strand: 'forward' },
