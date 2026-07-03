@@ -10,7 +10,7 @@
  */
 
 import path from 'node:path'
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
 
 function fixturePath(rel: string) {
   return path.resolve(process.cwd(), rel)
@@ -18,6 +18,32 @@ function fixturePath(rel: string) {
 
 const FIXTURE_A = fixturePath('fixtures/ab1/310.ab1')
 const FIXTURE_B = fixturePath('fixtures/scf/abcZ_F.scf')
+const INK_THRESHOLD = 1000
+
+async function canvasInkSum(page: Page): Promise<number> {
+  return page.locator('[data-testid="chromatogram-canvas"]').evaluate((canvas) => {
+    const el = canvas as HTMLCanvasElement
+    const ctx = el.getContext('2d')!
+    const data = ctx.getImageData(0, 0, el.width, el.height).data
+    let sum = 0
+    for (let i = 0; i < data.length; i += 4) {
+      sum += Math.abs(255 - data[i]) + Math.abs(255 - data[i + 1]) + Math.abs(255 - data[i + 2])
+    }
+    return sum
+  })
+}
+
+async function readViewportState(page: Page) {
+  const canvas = page.locator('[data-testid="chromatogram-canvas"]')
+  const [startSample, samplesPerPixel] = await Promise.all([
+    canvas.getAttribute('data-viewport-start'),
+    canvas.getAttribute('data-viewport-spp'),
+  ])
+  if (!startSample || !samplesPerPixel) {
+    throw new Error(`Viewport state unavailable: start=${startSample} spp=${samplesPerPixel}`)
+  }
+  return { startSample, samplesPerPixel }
+}
 
 test.describe('Multi-trace workspace', () => {
   test('opening two fixtures shows two tabs in the workspace bar', async ({ page }) => {
@@ -26,9 +52,11 @@ test.describe('Multi-trace workspace', () => {
     // Load first fixture via primary input.
     await page.setInputFiles('#file-input', FIXTURE_A)
     await expect(page.locator('#status')).toContainText('Loaded')
+    await expect(page.getByRole('button', { name: 'Open another trace' })).toBeVisible()
 
-    // Workspace bar should still be hidden for a single trace.
-    await expect(page.locator('.workspace-bar')).toHaveClass(/workspace-bar--hidden/)
+    // The single open tab remains visible alongside the affordance to open another trace.
+    await expect(page.locator('.workspace-bar')).not.toHaveClass(/workspace-bar--hidden/)
+    await expect(page.locator('.workspace-bar__tab')).toHaveCount(1)
 
     // Load second fixture via the extra input (simulates "Open another").
     await page.setInputFiles('#file-input-extra', FIXTURE_B)
@@ -45,6 +73,16 @@ test.describe('Multi-trace workspace', () => {
 
     await page.setInputFiles('#file-input', FIXTURE_A)
     await expect(page.locator('#status')).toContainText('310.ab1')
+    await expect
+      .poll(async () => await page.locator('[data-testid="chromatogram-canvas"]').getAttribute('data-viewport-start'))
+      .not.toBeNull()
+    const initialViewport = await readViewportState(page)
+    await page.getByRole('button', { name: 'Zoom +' }).click()
+    await page.getByRole('button', { name: 'Pan →' }).click()
+    await expect
+      .poll(async () => await readViewportState(page))
+      .not.toEqual(initialViewport)
+    const expectedViewport = await readViewportState(page)
 
     await page.setInputFiles('#file-input-extra', FIXTURE_B)
     await expect(page.locator('#status')).toContainText('abcZ_F.scf')
@@ -53,19 +91,14 @@ test.describe('Multi-trace workspace', () => {
     const firstTab = page.locator('.workspace-bar__tab').first()
     await firstTab.click()
     await expect(page.locator('#status')).toContainText('310.ab1')
+    await expect
+      .poll(async () => await readViewportState(page))
+      .toEqual(expectedViewport)
 
-    // Canvas should still render (non-blank) after switching back.
-    const nonBlank = await page.locator('[data-testid="chromatogram-canvas"]').evaluate((canvas) => {
-      const el = canvas as HTMLCanvasElement
-      const ctx = el.getContext('2d')!
-      const data = ctx.getImageData(0, 0, el.width, el.height).data
-      let sum = 0
-      for (let i = 0; i < data.length; i += 4) {
-        sum += data[i] + data[i + 1] + data[i + 2]
-      }
-      return sum > 0
-    })
-    expect(nonBlank).toBeTruthy()
+    // Canvas should still render trace-colored pixels after switching back.
+    await expect
+      .poll(() => canvasInkSum(page), { timeout: 5000 })
+      .toBeGreaterThan(INK_THRESHOLD)
   })
 
   test('closing a tab removes it from the workspace bar', async ({ page }) => {
@@ -80,12 +113,12 @@ test.describe('Multi-trace workspace', () => {
     await expect(page.locator('.workspace-bar__tab')).toHaveCount(2)
 
     // Close the first tab.
-    const closeBtn = page.locator('.workspace-bar__tab').first().locator('.workspace-bar__tab-close')
+    const closeBtn = page.locator('.workspace-bar__tab-shell').first().locator('.workspace-bar__tab-close')
     await closeBtn.click()
 
-    // Should be back to one tab; bar becomes hidden.
+    // Should be back to one tab, while the open-another affordance stays visible.
     await expect(page.locator('.workspace-bar__tab')).toHaveCount(1)
-    await expect(page.locator('.workspace-bar')).toHaveClass(/workspace-bar--hidden/)
+    await expect(page.getByRole('button', { name: 'Open another trace' })).toBeVisible()
   })
 
   test('Export SVG downloads a .svg file', async ({ page }) => {
@@ -123,15 +156,15 @@ test.describe('Multi-trace workspace', () => {
     expect(svgContent).toContain('<path ')
   })
 
-  test('workspace-open button ("+") can be triggered and loads a second file', async ({ page }) => {
+  test('workspace-open button ("+") stays visible and loads a second file', async ({ page }) => {
     await page.goto('')
 
     await page.setInputFiles('#file-input', FIXTURE_A)
     await expect(page.locator('#status')).toContainText('Loaded')
 
-    // Click the "+" open-another button in the workspace bar area.
-    // The bar is hidden (single trace), so trigger via fileInputExtra directly.
-    await page.setInputFiles('#file-input-extra', FIXTURE_B)
+    const fileChooser = page.waitForEvent('filechooser')
+    await page.getByRole('button', { name: 'Open another trace' }).click()
+    await (await fileChooser).setFiles(FIXTURE_B)
     await expect(page.locator('#status')).toContainText('Loaded')
 
     // Two tabs now visible.

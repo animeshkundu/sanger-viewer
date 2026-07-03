@@ -427,12 +427,20 @@ export function createTraceViewer(): HTMLDivElement {
     })
   }
 
+  const makeActiveSlot = (trace: TraceData) => {
+    const slot = makeSlot(trace)
+    slot.viewport = renderer.getViewportState()
+    return slot
+  }
+
+  syncWorkspaceBar()
+
   /**
    * Activate a workspace slot: save the current slot, switch to the new one,
    * and restore all per-slot state (trace, strand, trim, search, viewport).
    */
-  const switchToSlot = (id: string) => {
-    saveCurrentSlot()
+  const switchToSlot = (id: string, saveOutgoing = true) => {
+    if (saveOutgoing) saveCurrentSlot()
     workspace.activate(id)
     activeSlotId = id
     const slot = workspace.getActive()
@@ -469,11 +477,12 @@ export function createTraceViewer(): HTMLDivElement {
 
   const load = async (file: File) => {
     try {
-      resetSearchState()
-      updateMetadataPanel(metadataPanel, null)
       setState('loading', `Loading ${file.name}…`)
       const buffer = await file.arrayBuffer()
       const trace = await parseInWorker(buffer, file.name)
+      saveCurrentSlot()
+      resetSearchState()
+      updateMetadataPanel(metadataPanel, null)
       selectedBaseIndex = null
       hoveredBaseIndex = null
       isRevcomp = false
@@ -485,9 +494,7 @@ export function createTraceViewer(): HTMLDivElement {
       hideTooltip(tooltip)
       updateMetadataPanel(metadataPanel, trace.metadata)
       applyDisplayTrace()
-      // Register as a new workspace slot (the slot viewport is initialised by makeSlot;
-      // applyDisplayTrace() has set the renderer, so we read it back for accuracy).
-      const slot = makeSlot(trace)
+      const slot = makeActiveSlot(trace)
       const newId = workspace.add(slot)
       activeSlotId = newId
       syncWorkspaceBar()
@@ -502,8 +509,6 @@ export function createTraceViewer(): HTMLDivElement {
 
   const loadSample = async () => {
     try {
-      resetSearchState()
-      updateMetadataPanel(metadataPanel, null)
       setState('loading', 'Loading sample trace…')
       const sampleBaseUrl = (import.meta.env.BASE_URL as string).replace(/\/?$/, '/')
       const sampleUrl = `${sampleBaseUrl}sample.ab1`
@@ -511,6 +516,9 @@ export function createTraceViewer(): HTMLDivElement {
       if (!response.ok) throw new Error(`Could not fetch sample (${response.status})`)
       const buffer = await response.arrayBuffer()
       const trace = await parseInWorker(buffer, 'sample.ab1')
+      saveCurrentSlot()
+      resetSearchState()
+      updateMetadataPanel(metadataPanel, null)
       selectedBaseIndex = null
       hoveredBaseIndex = null
       isRevcomp = false
@@ -522,7 +530,7 @@ export function createTraceViewer(): HTMLDivElement {
       hideTooltip(tooltip)
       updateMetadataPanel(metadataPanel, trace.metadata)
       applyDisplayTrace()
-      const slot = makeSlot(trace)
+      const slot = makeActiveSlot(trace)
       const newId = workspace.add(slot)
       activeSlotId = newId
       syncWorkspaceBar()
@@ -575,12 +583,12 @@ export function createTraceViewer(): HTMLDivElement {
   root.addEventListener('workspace-close', (event) => {
     const { id } = (event as CustomEvent<{ id: string }>).detail
     const wasActive = id === activeSlotId
+    if (wasActive) saveCurrentSlot()
     workspace.close(id)
     if (wasActive) {
       const next = workspace.getActive()
       if (next) {
-        activeSlotId = next.id
-        switchToSlot(activeSlotId)
+        switchToSlot(next.id, false)
       } else {
         // No slots left → go back to empty state.
         activeSlotId = null

@@ -771,11 +771,18 @@ canvas {
   min-width: 0;
 }
 
+.workspace-bar__tab-shell {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  max-width: 15.5rem;
+}
+
 .workspace-bar__tab {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0.3rem 0.6rem;
+  min-width: 0;
+  padding: 0.3rem 0.45rem 0.3rem 0.6rem;
   border: 1px solid transparent;
   border-radius: var(--radius-sm, 4px);
   background: transparent;

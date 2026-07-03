@@ -235,11 +235,17 @@ export class ChromatogramCanvas {
     this.ctx.clearRect(0, 0, width, height)
     this.ctx.fillStyle = '#fff'
     this.ctx.fillRect(0, 0, width, height)
-    if (!this.trace) return
+    if (!this.trace) {
+      this.canvas.removeAttribute('data-viewport-start')
+      this.canvas.removeAttribute('data-viewport-spp')
+      return
+    }
 
     const vp = clampViewport(this.startSample, this.samplesPerPixel, this.trace.sampleCount, width)
     this.startSample = vp.startSample
     this.samplesPerPixel = vp.samplesPerPixel
+    this.canvas.setAttribute('data-viewport-start', String(this.startSample))
+    this.canvas.setAttribute('data-viewport-spp', String(this.samplesPerPixel))
 
     const channels = this.trace.channels
     // Scan only the visible range for maxY — O(viewport) instead of O(trace).

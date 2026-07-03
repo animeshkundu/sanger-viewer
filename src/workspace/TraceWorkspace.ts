@@ -126,18 +126,19 @@ export class TraceWorkspace {
   }
 
   /**
-   * LRU eviction: while total slot count exceeds cap, null out the rawTrace
-   * of the oldest slot that is not the active one.
+   * LRU eviction: while the number of resident traces exceeds cap, null out the
+   * rawTrace of the oldest slot that is not the active one, but keep the slot
+   * shell in the list so the UI can still show the tab.
    *
    * Invariant: the active slot is NEVER evicted.
    */
   _evict(): void {
-    while (this.slots.length > this.cap) {
-      // Find the first (oldest / LRU) slot that is not active.
-      const idx = this.slots.findIndex((s) => s.id !== this.activeId)
-      if (idx === -1) break  // all remaining slots are active — shouldn't happen
+    while (this.slots.filter((slot) => slot.rawTrace !== null).length > this.cap) {
+      // Find the first (oldest / LRU) resident slot that is not active.
+      const idx = this.slots.findIndex((slot) => slot.id !== this.activeId && slot.rawTrace !== null)
+      if (idx === -1) break  // all remaining resident slots are active — shouldn't happen
       this.slots[idx].rawTrace = null
-      this.slots.splice(idx, 1)
+      this.slots[idx].trimResult = null
     }
   }
 }

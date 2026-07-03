@@ -44,6 +44,9 @@ export function renderWorkspaceBar(bar: HTMLDivElement, slots: readonly TraceSlo
   tabsContainer.innerHTML = ''
 
   for (const slot of slots) {
+    const shell = document.createElement('div')
+    shell.className = 'workspace-bar__tab-shell'
+
     const tab = document.createElement('button')
     tab.className = 'workspace-bar__tab'
     tab.setAttribute('role', 'tab')
@@ -72,9 +75,7 @@ export function renderWorkspaceBar(bar: HTMLDivElement, slots: readonly TraceSlo
       e.stopPropagation()
       bar.dispatchEvent(new CustomEvent('workspace-close', { bubbles: true, detail: { id: slot.id } }))
     })
-
     tab.appendChild(label)
-    tab.appendChild(closeBtn)
 
     tab.addEventListener('click', () => {
       if (slot.id !== activeId) {
@@ -82,9 +83,9 @@ export function renderWorkspaceBar(bar: HTMLDivElement, slots: readonly TraceSlo
       }
     })
 
-    tabsContainer.appendChild(tab)
+    shell.append(tab, closeBtn)
+    tabsContainer.appendChild(shell)
   }
 
-  // Hide the entire bar when there is at most one slot (single-trace mode).
-  bar.classList.toggle('workspace-bar--hidden', slots.length <= 1)
+  bar.classList.toggle('workspace-bar--hidden', slots.length === 0)
 }

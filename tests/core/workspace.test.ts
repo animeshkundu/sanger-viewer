@@ -18,6 +18,10 @@ function fakeTrace(name: string, sampleCount = 500): TraceData {
   }
 }
 
+function residentCount(ws: TraceWorkspace): number {
+  return ws.getAll().filter((slot) => slot.rawTrace !== null).length
+}
+
 describe('TraceWorkspace', () => {
   it('starts empty with no active slot', () => {
     const ws = new TraceWorkspace()
@@ -109,26 +113,26 @@ describe('TraceWorkspace', () => {
   })
 
   describe('LRU eviction (_evict)', () => {
-    it('getAll().length never exceeds cap', () => {
+    it('resident trace count never exceeds cap', () => {
       const ws = new TraceWorkspace(3)
       ws.add(makeSlot(fakeTrace('a.ab1')))
       ws.add(makeSlot(fakeTrace('b.ab1')))
       ws.add(makeSlot(fakeTrace('c.ab1')))
       ws.add(makeSlot(fakeTrace('d.ab1')))
-      expect(ws.getAll()).toHaveLength(3)
+      expect(residentCount(ws)).toBe(3)
     })
 
-    it('evicted slot has rawTrace === null', () => {
+    it('keeps the evicted slot shell with rawTrace === null', () => {
       const ws = new TraceWorkspace(2)
       ws.add(makeSlot(fakeTrace('a.ab1')))
       ws.add(makeSlot(fakeTrace('b.ab1')))
       // Adding c evicts a (LRU)
       ws.add(makeSlot(fakeTrace('c.ab1')))
-      // After eviction the slot shell is removed from the array; length stays at cap.
-      expect(ws.getAll()).toHaveLength(2)
-      // The evicted slot (a) should be gone from the array
-      const ids = ws.getAll().map((s) => s.fileName)
-      expect(ids).not.toContain('a.ab1')
+      expect(ws.getAll()).toHaveLength(3)
+      const evicted = ws.getAll().find((slot) => slot.fileName === 'a.ab1')
+      expect(evicted).toBeDefined()
+      expect(evicted?.rawTrace).toBeNull()
+      expect(residentCount(ws)).toBe(2)
     })
 
     it('active slot is never evicted', () => {
@@ -139,19 +143,21 @@ describe('TraceWorkspace', () => {
       ws.add(makeSlot(fakeTrace('c.ab1')))
       // b should have been evicted (LRU non-active), a should survive.
       const all = ws.getAll()
-      expect(all).toHaveLength(2)
+      expect(all).toHaveLength(3)
       expect(all.some((s) => s.id === idA)).toBe(true)
       // The active slot still has rawTrace
       const activeSlot = all.find((s) => s.id === idA)!
       expect(activeSlot.rawTrace).not.toBeNull()
+      expect(residentCount(ws)).toBe(2)
     })
 
-    it('stays at exactly cap slots after many adds', () => {
+    it('keeps exactly cap resident traces after many adds', () => {
       const ws = new TraceWorkspace(3)
       for (let i = 0; i < 10; i += 1) {
         ws.add(makeSlot(fakeTrace(`trace${i}.ab1`)))
       }
-      expect(ws.getAll()).toHaveLength(3)
+      expect(ws.getAll()).toHaveLength(10)
+      expect(residentCount(ws)).toBe(3)
     })
   })
 })
