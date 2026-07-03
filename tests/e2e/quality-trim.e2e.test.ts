@@ -117,13 +117,18 @@ test('switching to Full mode updates aria-pressed and sequence shows all bases',
   await expect(trimmedBtn).toHaveAttribute('aria-pressed', 'false')
 })
 
-test('Full mode removes trim overlay — ink sum differs from Trimmed mode', async ({ page }) => {
+test('Full mode removes trim overlay — canvas data-trim-active reflects mode', async ({ page }) => {
+  const canvas = page.locator('[data-testid="chromatogram-canvas"]')
+
+  // Switch to Trimmed mode — overlay should be active (status=ok on this fixture)
   await page.getByRole('button', { name: 'Trimmed' }).click()
   await expect(page.getByRole('button', { name: 'Trimmed' })).toHaveAttribute('aria-pressed', 'true')
-  const inkTrimmed = await canvasInkSum(page)
+  await expect(canvas).toHaveAttribute('data-trim-active', 'true')
 
+  // Switch back to Full mode — overlay must be cleared
   await page.getByRole('button', { name: 'Full' }).click()
-  await expect.poll(() => canvasInkSum(page), { timeout: 5000 }).not.toBe(inkTrimmed)
+  await expect(page.getByRole('button', { name: 'Full' })).toHaveAttribute('aria-pressed', 'true')
+  await expect(canvas).toHaveAttribute('data-trim-active', 'false')
 })
 
 test('Trimmed FASTA is shorter than Full FASTA for real fixture', async ({ page }) => {

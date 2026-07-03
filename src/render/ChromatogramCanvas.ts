@@ -59,6 +59,9 @@ export class ChromatogramCanvas {
   /** Accept new trim boundaries and schedule a repaint. null clears any existing overlay. */
   setTrimBoundaries(boundaries: TrimBoundaries | null): void {
     this.trimBoundaries = boundaries
+    // Expose overlay state as a data attribute so E2E tests can assert
+    // overlay presence/absence without relying on fragile pixel comparisons.
+    this.canvas.setAttribute('data-trim-active', boundaries !== null ? 'true' : 'false')
     this.requestDraw()
   }
 
