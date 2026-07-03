@@ -51,10 +51,13 @@ test('strand toggle button has correct initial label', async ({ page }) => {
 
 test('toggling strand changes canvas content', async ({ page }) => {
   const inkBefore = await canvasInkSum(page)
+  const seqBefore = await getSequenceText(page)
 
   await page.getByRole('button', { name: /5′→3′/ }).click()
-  // Wait for canvas to re-paint with reversed trace
-  await expect.poll(() => canvasInkSum(page), { timeout: 5000 }).toBeGreaterThan(INK_THRESHOLD)
+  // Wait for the sequence panel to reflect the revcomp (unambiguous non-pixel check)
+  await expect.poll(() => getSequenceText(page), { timeout: 5000 }).not.toBe(seqBefore)
+  // Also wait for the canvas ink sum to change from pre-toggle (not merely be non-zero)
+  await expect.poll(() => canvasInkSum(page), { timeout: 5000 }).not.toBe(inkBefore)
   const inkAfter = await canvasInkSum(page)
 
   // The reverse-complement renders different channel assignments so pixel content changes
@@ -87,12 +90,19 @@ test('sequence panel content changes after strand toggle', async ({ page }) => {
 
 test('toggling strand twice restores roughly the original canvas', async ({ page }) => {
   const inkOriginal = await canvasInkSum(page)
+  const seqOriginal = await getSequenceText(page)
 
+  // First toggle — wait for ink to actually change from original (proves repaint happened)
   await page.getByRole('button', { name: /5′→3′/ }).click()
-  await expect.poll(() => canvasInkSum(page), { timeout: 5000 }).toBeGreaterThan(INK_THRESHOLD)
+  await expect.poll(() => canvasInkSum(page), { timeout: 5000 }).not.toBe(inkOriginal)
+  const inkAfterFirst = await canvasInkSum(page)
 
+  // Second toggle — wait for ink to change from the toggled state before sampling restored value
   await page.getByRole('button', { name: /3′→5′/ }).click()
-  await expect.poll(() => canvasInkSum(page), { timeout: 5000 }).toBeGreaterThan(INK_THRESHOLD)
+  await expect.poll(() => canvasInkSum(page), { timeout: 5000 }).not.toBe(inkAfterFirst)
+
+  // Sequence panel must return to forward-strand sequence (unambiguous, non-pixel check)
+  await expect.poll(() => getSequenceText(page), { timeout: 5000 }).toBe(seqOriginal)
 
   const inkRestored = await canvasInkSum(page)
   // Allow a small tolerance (≤1% of original) for floating-point / rAF timing differences
@@ -142,13 +152,15 @@ test('strand toggle button is keyboard-accessible and aria-pressed updates corre
   await expect(btn).toHaveAttribute('aria-pressed', 'false')
 
   // Activate with Space key
+  const inkBeforeSpace = await canvasInkSum(page)
   await page.keyboard.press('Space')
-  await expect.poll(() => canvasInkSum(page), { timeout: 5000 }).toBeGreaterThan(INK_THRESHOLD)
+  await expect.poll(() => canvasInkSum(page), { timeout: 5000 }).not.toBe(inkBeforeSpace)
   await expect(btn).toHaveAttribute('aria-pressed', 'true')
 
   // Activate again with Enter key to revert
+  const inkBeforeEnter = await canvasInkSum(page)
   await page.keyboard.press('Enter')
-  await expect.poll(() => canvasInkSum(page), { timeout: 5000 }).toBeGreaterThan(INK_THRESHOLD)
+  await expect.poll(() => canvasInkSum(page), { timeout: 5000 }).not.toBe(inkBeforeEnter)
   await expect(btn).toHaveAttribute('aria-pressed', 'false')
 })
 
