@@ -44,9 +44,7 @@ describe('annotation engine', () => {
     const sequence = 'ATGAGRAAATAA'
     const orfs = detectOrfFeatures(sequence)
 
-    // No ORF should start at 0 and run all the way to 12, because the ambiguous
-    // codon at positions 3–5 must reset the in-progress ORF.
-    expect(orfs.some((f) => f.strand === '+' && f.start === 0 && f.end === 12)).toBe(false)
+    expect(orfs.filter((f) => f.strand === '+' && f.frame === 1)).toEqual([])
   })
 
   it('filters annotation features by a viewport range using half-open intervals', () => {

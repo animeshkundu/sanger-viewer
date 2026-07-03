@@ -63,4 +63,9 @@ test('clicking and pressing Enter on chips navigates the viewport', async ({ pag
   await firstChip.focus()
   await page.keyboard.press('Enter')
   await expect.poll(() => readViewport(page).then((vp) => vp.span), { timeout: 5000 }).toBeLessThan(beforeEnter.span)
+  await expect.poll(() => page.evaluate(() => {
+    const active = document.activeElement as HTMLElement | null
+    const track = document.querySelector('[data-testid="annotation-track"]')
+    return Boolean(active && active.classList.contains('annotation-chip') && track?.contains(active))
+  })).toBe(true)
 })

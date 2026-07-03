@@ -404,11 +404,10 @@ export function createTraceViewer(): HTMLDivElement {
       annotationTrack.clear()
       return
     }
-    const viewportState = renderer.getViewportState()
-    const viewportEndSample = viewportState.startSample + Math.max(1, canvas.clientWidth || 1) * viewportState.samplesPerPixel
+    const viewportSamples = renderer.getViewportInfo()
     const visibleRange = mapSampleViewportToBaseRange(trace.peakPositions, {
-      startSample: viewportState.startSample,
-      endSample: viewportEndSample,
+      startSample: viewportSamples.start,
+      endSample: viewportSamples.end,
     }, ANNOTATION_VIEWPORT_EXTRA_BASES)
     const visibleFeatures = filterAnnotationFeaturesByRange(
       annotationFeatures,

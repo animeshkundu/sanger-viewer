@@ -63,6 +63,7 @@ export function createAnnotationTrack(onActivate: (feature: AnnotationFeature) =
   const rowLists = new Map<string, HTMLUListElement>()
   const featuresById = new Map<string, AnnotationFeature>()
   let rovingFeatureId: string | null = null
+  let pendingFocusFeatureId: string | null = null
 
   for (const row of ROWS) {
     const rowEl = document.createElement('div')
@@ -118,6 +119,7 @@ export function createAnnotationTrack(onActivate: (feature: AnnotationFeature) =
     const feature = featuresById.get(featureId)
     if (!feature) return
     rovingFeatureId = featureId
+    pendingFocusFeatureId = featureId
     syncRovingTabIndex()
     onActivate(feature)
   }
@@ -211,6 +213,14 @@ export function createAnnotationTrack(onActivate: (feature: AnnotationFeature) =
     }
 
     syncRovingTabIndex()
+    const restoreId = pendingFocusFeatureId
+    pendingFocusFeatureId = null
+    if (!restoreId) return
+    const restoredButton = getChipButtons().find((chip) => chip.dataset.featureId === restoreId)
+    if (!restoredButton) return
+    rovingFeatureId = restoreId
+    syncRovingTabIndex()
+    restoredButton.focus()
   }
 
   const clear = () => {
