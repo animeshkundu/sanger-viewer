@@ -56,8 +56,7 @@ export function callMixedBases(trace: TraceData, secondaryPeakRatioThreshold: nu
       .map((base) => ({ base, amplitude: channelAmplitude(trace, base, peak) }))
       .sort((left, right) => right.amplitude - left.amplitude)
 
-    const primary = ranked[0]
-    const secondary = ranked[1]
+    const [primary, secondary] = ranked
     if (!primary || !secondary) continue
     if (primary.amplitude <= 0 || secondary.amplitude <= 0) continue
 

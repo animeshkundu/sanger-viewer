@@ -59,6 +59,8 @@ test.describe('mixed-base calling', () => {
       .filter((line) => !line.startsWith('>') && line.trim().length > 0)
       .join('')
 
+    // Fixture-backed exact check: first six 3100.ab1 calls at threshold 0.35 are stable and
+    // intentionally mirrored from the unit test to ensure export stays in sync with display calls.
     expect(sequence.slice(0, 6)).toBe('SSSKKW')
     expect(sequence).toMatch(/[RYSWKM]/)
   })
