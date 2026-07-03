@@ -50,7 +50,7 @@ export class ChromatogramCanvas {
 
   getViewportInfo(): { start: number; end: number } {
     if (!this.trace) return { start: 0, end: 0 }
-    const vp = clampViewport(this.startSample, this.samplesPerPixel, this.trace.sampleCount, this.canvas.width)
+    const vp = clampViewport(this.startSample, this.samplesPerPixel, this.trace.sampleCount, this.canvas.clientWidth)
     return { start: Math.round(vp.startSample), end: Math.round(vp.endSample) }
   }
 
@@ -58,7 +58,7 @@ export class ChromatogramCanvas {
     if (!this.trace) return null
     const rect = this.canvas.getBoundingClientRect()
     const x = clientX - rect.left
-    const vp = clampViewport(this.startSample, this.samplesPerPixel, this.trace.sampleCount, this.canvas.width)
+    const vp = clampViewport(this.startSample, this.samplesPerPixel, this.trace.sampleCount, this.canvas.clientWidth)
     const sampleAtX = vp.startSample + x * vp.samplesPerPixel
 
     let bestIndex = -1
