@@ -41,13 +41,17 @@ export interface TraceSlot {
   viewport: { startSample: number; samplesPerPixel: number }
 }
 
+let _idCounter = 0
+
 function generateId(): string {
   // Prefer crypto.randomUUID when available (browser + Node 14.17+).
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID()
   }
-  // Simple fallback for test environments without crypto.
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
+  // Collision-safe counter fallback for environments without crypto.randomUUID.
+  // Monotonically increasing counter ensures uniqueness within a session.
+  _idCounter += 1
+  return `id-${_idCounter.toString(36)}-${Date.now().toString(36)}`
 }
 
 export class TraceWorkspace {

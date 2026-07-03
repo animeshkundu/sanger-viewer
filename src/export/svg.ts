@@ -105,12 +105,12 @@ export function exportSvg(trace: TraceData, options: SvgExportOptions = {}): str
     const peak = trace.peakPositions[i]
     if (peak < vp.startSample || peak > vp.endSample) continue
     const x = (peak - vp.startSample) / vp.samplesPerPixel
-    const base = (trace.baseCalls[i] ?? 'N').toUpperCase() as keyof typeof TRACE_COLORS
-    const color = TRACE_COLORS[base] ?? '#444444'
+    const baseChar = (trace.baseCalls[i] ?? 'N').toUpperCase()
+    const color = (TRACE_COLORS as Record<string, string>)[baseChar] ?? '#444444'
     labelParts.push(
       `<text x="${x.toFixed(2)}" y="${(height - 2).toFixed(2)}" ` +
         `text-anchor="middle" dominant-baseline="auto" ` +
-        `font-family="ui-monospace,monospace" font-size="11" fill="${color}">${escapeXml(base)}</text>`
+        `font-family="ui-monospace,monospace" font-size="11" fill="${color}">${escapeXml(baseChar)}</text>`
     )
   }
 

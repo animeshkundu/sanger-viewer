@@ -626,7 +626,10 @@ export function createTraceViewer(): HTMLDivElement {
         width: vWidth * 2,
         height: vHeight * 2,
         startSample: vp.startSample,
-        endSample: vp.startSample + vWidth * vp.samplesPerPixel,
+        endSample: Math.min(
+          vp.startSample + vWidth * vp.samplesPerPixel,
+          displayTrace.sampleCount - 1
+        ),
       })
       const blob = new Blob([svg], { type: 'image/svg+xml' })
       const suffix = isRevcomp ? '-revcomp' : ''

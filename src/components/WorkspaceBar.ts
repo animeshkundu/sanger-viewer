@@ -52,9 +52,17 @@ export function renderWorkspaceBar(bar: HTMLDivElement, slots: readonly TraceSlo
     tab.title = slot.fileName
 
     // Evicted slots show a faded indicator so the user knows they can re-open.
+    const isEvicted = slot.rawTrace === null
     const label = document.createElement('span')
     label.className = 'workspace-bar__tab-label'
-    label.textContent = slot.rawTrace === null ? `${slot.fileName} (evicted)` : slot.fileName
+    label.textContent = isEvicted ? `${slot.fileName} (evicted)` : slot.fileName
+
+    // Provide full context for screen readers on evicted slots.
+    if (isEvicted) {
+      tab.setAttribute('aria-label', `${slot.fileName} — data unloaded, re-open file to restore`)
+    } else {
+      tab.setAttribute('aria-label', slot.fileName)
+    }
 
     const closeBtn = document.createElement('button')
     closeBtn.className = 'workspace-bar__tab-close'
