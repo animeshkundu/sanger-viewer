@@ -92,7 +92,7 @@ export function renderSequence(
     // rendering thousands of spans for long reads (same ~240-base budget as full mode).
     const { trimStart, trimEnd } = trim
     const windowStart = anchor >= 0 ? Math.max(trimStart, anchor - 120) : trimStart
-    const windowEnd = anchor >= 0 ? Math.min(trimEnd, Math.max(anchor + 120, anchor + 1)) : Math.min(trimEnd, trimStart + 240)
+    const windowEnd = anchor >= 0 ? Math.min(trimEnd, anchor + 120) : Math.min(trimEnd, trimStart + 240)
     const visibleMatches = getWindowMatches(windowStart, windowEnd)
 
     trace.baseCalls.slice(windowStart, windowEnd).forEach((base, idx) => {
@@ -105,7 +105,7 @@ export function renderSequence(
   } else {
     // Full mode: ±120 around selected, but mark trimmed bases.
     const start = anchor >= 0 ? Math.max(0, anchor - 120) : 0
-    const end = anchor >= 0 ? Math.min(trace.baseCalls.length, Math.max(anchor + 120, anchor + 1)) : Math.min(trace.baseCalls.length, 240)
+    const end = anchor >= 0 ? Math.min(trace.baseCalls.length, anchor + 120) : Math.min(trace.baseCalls.length, 240)
     const visibleMatches = getWindowMatches(start, end)
     trace.baseCalls.slice(start, end).forEach((base, idx) => {
       const span = document.createElement('span')
