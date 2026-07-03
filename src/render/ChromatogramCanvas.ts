@@ -133,13 +133,31 @@ export class ChromatogramCanvas {
 
   /** Return raw viewport state for persistence (e.g. workspace slot save). */
   getViewportState(): { startSample: number; samplesPerPixel: number } {
-    return { startSample: this.startSample, samplesPerPixel: this.samplesPerPixel }
+    if (!this.trace) {
+      return { startSample: this.startSample, samplesPerPixel: this.samplesPerPixel }
+    }
+    const vp = clampViewport(this.startSample, this.samplesPerPixel, this.trace.sampleCount, this.canvas.clientWidth)
+    return { startSample: vp.startSample, samplesPerPixel: vp.samplesPerPixel }
   }
 
   /** Restore saved viewport state (e.g. when switching workspace slots). */
   setViewportState(startSample: number, samplesPerPixel: number): void {
     this.startSample = startSample
     this.samplesPerPixel = samplesPerPixel
+    this.requestDraw()
+  }
+
+  clearTrace(): void {
+    this.trace = null
+    this.startSample = 0
+    this.samplesPerPixel = 5
+    this.trimBoundaries = null
+    this.searchMatches = []
+    this.activeSearchMatchIndex = -1
+    this.canvas.setAttribute('data-trim-active', 'false')
+    this.canvas.setAttribute('data-search-match-count', '0')
+    this.canvas.setAttribute('data-search-visible-count', '0')
+    this.canvas.removeAttribute('data-search-active-range')
     this.requestDraw()
   }
 

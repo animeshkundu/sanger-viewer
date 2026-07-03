@@ -70,6 +70,7 @@ export function renderWorkspaceBar(bar: HTMLDivElement, slots: readonly TraceSlo
     const closeBtn = document.createElement('button')
     closeBtn.className = 'workspace-bar__tab-close'
     closeBtn.setAttribute('aria-label', `Close ${slot.fileName}`)
+    closeBtn.tabIndex = -1
     closeBtn.textContent = '×'
     closeBtn.addEventListener('click', (e) => {
       e.stopPropagation()
@@ -80,6 +81,12 @@ export function renderWorkspaceBar(bar: HTMLDivElement, slots: readonly TraceSlo
     tab.addEventListener('click', () => {
       if (slot.id !== activeId) {
         bar.dispatchEvent(new CustomEvent('workspace-switch', { bubbles: true, detail: { id: slot.id } }))
+      }
+    })
+    tab.addEventListener('keydown', (event) => {
+      if (event.key === 'Backspace' || event.key === 'Delete') {
+        event.preventDefault()
+        bar.dispatchEvent(new CustomEvent('workspace-close', { bubbles: true, detail: { id: slot.id } }))
       }
     })
 

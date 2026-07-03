@@ -82,9 +82,9 @@ export function createTraceViewer(): HTMLDivElement {
     <div class="dropzone" data-testid="dropzone" role="region" aria-label="File upload area">
 
       <!-- File input always at dropzone level so setInputFiles works in any state -->
-      <input type="file" id="file-input" accept=".ab1,.scf" class="sr-only" />
+      <input type="file" id="file-input" accept=".ab1,.scf" class="sr-only" tabindex="0" />
       <!-- Secondary file input for "Open another" from WorkspaceBar -->
-      <input type="file" id="file-input-extra" accept=".ab1,.scf" class="sr-only" />
+      <input type="file" id="file-input-extra" accept=".ab1,.scf" class="sr-only" tabindex="-1" />
 
       <!-- Empty state (shown when no trace is loaded) -->
       <div id="empty-state" class="empty-state">
@@ -433,6 +433,20 @@ export function createTraceViewer(): HTMLDivElement {
     return slot
   }
 
+  const clearDisplayedTrace = () => {
+    rawTrace = null
+    isRevcomp = false
+    trimSettings = { ...DEFAULT_TRIM_SETTINGS }
+    trimResult = null
+    searchState = { query: '', matches: [], activeIndex: -1 }
+    selectedBaseIndex = null
+    hoveredBaseIndex = null
+    hideTooltip(tooltip)
+    setStrandToggleState(controls, false)
+    updateMetadataPanel(metadataPanel, null)
+    renderer.clearTrace()
+  }
+
   syncWorkspaceBar()
 
   /**
@@ -477,10 +491,10 @@ export function createTraceViewer(): HTMLDivElement {
 
   const load = async (file: File) => {
     try {
+      saveCurrentSlot()
       setState('loading', `Loading ${file.name}…`)
       const buffer = await file.arrayBuffer()
       const trace = await parseInWorker(buffer, file.name)
-      saveCurrentSlot()
       resetSearchState()
       updateMetadataPanel(metadataPanel, null)
       selectedBaseIndex = null
@@ -501,6 +515,9 @@ export function createTraceViewer(): HTMLDivElement {
       const msg = `Loaded ${trace.fileName} (${trace.baseCalls.length} bases)`
       setState('loaded', msg)
     } catch (error) {
+      clearDisplayedTrace()
+      activeSlotId = null
+      syncWorkspaceBar()
       resetSearchState()
       const msg = error instanceof Error ? error.message : 'Failed to parse file'
       setState('error', msg)
@@ -509,6 +526,7 @@ export function createTraceViewer(): HTMLDivElement {
 
   const loadSample = async () => {
     try {
+      saveCurrentSlot()
       setState('loading', 'Loading sample trace…')
       const sampleBaseUrl = (import.meta.env.BASE_URL as string).replace(/\/?$/, '/')
       const sampleUrl = `${sampleBaseUrl}sample.ab1`
@@ -516,7 +534,6 @@ export function createTraceViewer(): HTMLDivElement {
       if (!response.ok) throw new Error(`Could not fetch sample (${response.status})`)
       const buffer = await response.arrayBuffer()
       const trace = await parseInWorker(buffer, 'sample.ab1')
-      saveCurrentSlot()
       resetSearchState()
       updateMetadataPanel(metadataPanel, null)
       selectedBaseIndex = null
@@ -537,6 +554,9 @@ export function createTraceViewer(): HTMLDivElement {
       const msg = `Loaded ${trace.fileName} (${trace.baseCalls.length} bases)`
       setState('loaded', msg)
     } catch (error) {
+      clearDisplayedTrace()
+      activeSlotId = null
+      syncWorkspaceBar()
       resetSearchState()
       const msg = error instanceof Error ? error.message : 'Failed to load sample'
       setState('error', msg)
