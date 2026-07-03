@@ -1,4 +1,4 @@
-import type { Nucleotide, TraceData } from '../types/trace'
+import type { Nucleotide, TraceData, TraceMetadata } from '../types/trace'
 
 type Entry = {
   tag: string
@@ -67,6 +67,12 @@ function readString(buffer: ArrayBuffer, entry: Entry): string {
   return new TextDecoder().decode(bytes.slice(offset)).replace(/\0+$/g, '')
 }
 
+function readOptionalString(buffer: ArrayBuffer, entry: Entry | undefined): string | undefined {
+  if (!entry) return undefined
+  const value = readString(buffer, entry)
+  return value.length > 0 ? value : undefined
+}
+
 export function parseAb1(buffer: ArrayBuffer, fileName: string): TraceData {
   const view = new DataView(buffer)
   if (readAscii(view, 0, 4) !== 'ABIF') {
@@ -105,6 +111,26 @@ export function parseAb1(buffer: ArrayBuffer, fileName: string): TraceData {
   const qualitiesEntry = entries.get('PCON2') ?? entries.get('PCON1')
   const qualities = qualitiesEntry ? readUnsignedArray(buffer, qualitiesEntry) : null
 
+  // Build metadata from available ABIF tags
+  const dyeParts = ['DyeN1', 'DyeN2', 'DyeN3', 'DyeN4']
+    .map((key) => readOptionalString(buffer, entries.get(key)))
+    .filter((s): s is string => s !== undefined)
+  const dyeSet = dyeParts.length > 0 ? dyeParts.join('/') : undefined
+
+  const laneEntry = entries.get('LANE1')
+  const lane = laneEntry ? (readUnsignedArray(buffer, laneEntry)[0] ?? undefined) : undefined
+
+  const metadata: TraceMetadata = {
+    sampleName: readOptionalString(buffer, entries.get('SMPL1')),
+    instrument: readOptionalString(buffer, entries.get('MCHN1')),
+    model: readOptionalString(buffer, entries.get('MODL1'))?.trim(),
+    runDate: readOptionalString(buffer, entries.get('BCTS1')),
+    dyeSet,
+    baseCaller: readOptionalString(buffer, entries.get('PDMF1')),
+    comment: readOptionalString(buffer, entries.get('CMNT1')),
+    lane,
+  }
+
   return {
     format: 'ab1',
     fileName,
@@ -114,9 +140,6 @@ export function parseAb1(buffer: ArrayBuffer, fileName: string): TraceData {
     peakPositions,
     qualities,
     sequence,
-    metadata: {
-      machine: readString(buffer, entries.get('MCHN1') ?? pbas),
-      sampleName: entries.get('SMPL1') ? readString(buffer, entries.get('SMPL1')!) : ''
-    }
+    metadata,
   }
 }

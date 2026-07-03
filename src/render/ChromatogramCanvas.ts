@@ -151,11 +151,18 @@ export class ChromatogramCanvas {
     }
 
     if (bestIndex < 0) return null
+    const peakPos = this.trace.peakPositions[bestIndex] ?? 0
     return {
       index: bestIndex,
       base: this.trace.baseCalls[bestIndex] ?? 'N',
-      samplePosition: this.trace.peakPositions[bestIndex] ?? 0,
-      quality: this.trace.qualities?.[bestIndex] ?? null
+      samplePosition: peakPos,
+      quality: this.trace.qualities?.[bestIndex] ?? null,
+      amplitudes: {
+        A: Math.round(this.trace.channels.A[peakPos] ?? 0),
+        C: Math.round(this.trace.channels.C[peakPos] ?? 0),
+        G: Math.round(this.trace.channels.G[peakPos] ?? 0),
+        T: Math.round(this.trace.channels.T[peakPos] ?? 0),
+      },
     }
   }
 

@@ -12,6 +12,7 @@ import {
 import { createTooltip, hideTooltip, showTooltip } from './Tooltip'
 import { createSequencePanel, renderSequence } from './SequencePanel'
 import { createPositionReadout, updatePositionReadout } from './PositionReadout'
+import { createMetadataPanel, updateMetadataPanel } from './MetadataPanel'
 import { downloadBlob } from '../export/png'
 import { toFasta } from '../export/fasta'
 import { reverseComplementTrace } from '../revcomp'
@@ -139,7 +140,8 @@ export function createTraceViewer(): HTMLDivElement {
   const sequencePanel = createSequencePanel()
   const readout = createPositionReadout()
   const tooltip = createTooltip()
-  root.append(controls, readout, sequencePanel, tooltip)
+  const metadataPanel = createMetadataPanel()
+  root.append(controls, readout, sequencePanel, metadataPanel, tooltip)
 
   const fileInput = root.querySelector<HTMLInputElement>('#file-input')!
   const status = root.querySelector<HTMLElement>('#status')!
@@ -398,6 +400,7 @@ export function createTraceViewer(): HTMLDivElement {
   const load = async (file: File) => {
     try {
       resetSearchState()
+      updateMetadataPanel(metadataPanel, null)
       setState('loading', `Loading ${file.name}…`)
       const buffer = await file.arrayBuffer()
       const trace = await parseInWorker(buffer, file.name)
@@ -407,6 +410,7 @@ export function createTraceViewer(): HTMLDivElement {
       rawTrace = trace
       setStrandToggleState(controls, false)
       hideTooltip(tooltip)
+      updateMetadataPanel(metadataPanel, trace.metadata)
       applyDisplayTrace()
       const msg = `Loaded ${trace.fileName} (${trace.baseCalls.length} bases)`
       setState('loaded', msg)
@@ -420,6 +424,7 @@ export function createTraceViewer(): HTMLDivElement {
   const loadSample = async () => {
     try {
       resetSearchState()
+      updateMetadataPanel(metadataPanel, null)
       setState('loading', 'Loading sample trace…')
       const sampleBaseUrl = (import.meta.env.BASE_URL as string).replace(/\/?$/, '/')
       const sampleUrl = `${sampleBaseUrl}sample.ab1`
@@ -433,6 +438,7 @@ export function createTraceViewer(): HTMLDivElement {
       rawTrace = trace
       setStrandToggleState(controls, false)
       hideTooltip(tooltip)
+      updateMetadataPanel(metadataPanel, trace.metadata)
       applyDisplayTrace()
       const msg = `Loaded ${trace.fileName} (${trace.baseCalls.length} bases)`
       setState('loaded', msg)
