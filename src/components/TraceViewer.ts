@@ -1,11 +1,13 @@
 import { ChromatogramCanvas } from '../render/ChromatogramCanvas'
-import { createControls, setControlsDisabled, setStrandToggleState } from './Controls'
+import { createControls, setControlsDisabled, setStrandToggleState, setTrimSummary, setTrimMode } from './Controls'
 import { createTooltip, hideTooltip, showTooltip } from './Tooltip'
 import { createSequencePanel, renderSequence } from './SequencePanel'
 import { createPositionReadout, updatePositionReadout } from './PositionReadout'
 import { downloadBlob } from '../export/png'
 import { toFasta } from '../export/fasta'
 import { reverseComplementTrace } from '../revcomp'
+import { mottTrim, DEFAULT_TRIM_SETTINGS } from '../quality/mottTrim'
+import type { TrimResult, TrimSettings } from '../quality/mottTrim'
 import type { TraceData } from '../types/trace'
 
 // Lazily-loaded worker module (Vite ?worker import, only in browser bundles).
@@ -144,14 +146,42 @@ export function createTraceViewer(): HTMLDivElement {
   let hoveredBaseIndex: number | null = null
   let isRevcomp = false
   let rawTrace: TraceData | null = null
+  let trimSettings: TrimSettings = { ...DEFAULT_TRIM_SETTINGS }
+  let trimResult: TrimResult | null = null
+  let trimRaf = 0
 
   /** Apply (or re-apply) the current strand to the renderer. */
   const applyDisplayTrace = () => {
     if (!rawTrace) return
     const displayTrace = isRevcomp ? reverseComplementTrace(rawTrace) : rawTrace
     renderer.setTrace(displayTrace)
-    renderSequence(sequencePanel, displayTrace)
+    applyTrim(displayTrace)
     refreshReadout()
+  }
+
+  /** Recompute trim for the given (already-displayed) trace and push results to all consumers. */
+  const applyTrim = (displayTrace: TraceData) => {
+    const result = mottTrim(displayTrace.qualities, displayTrace.baseCalls, trimSettings.threshold)
+    trimResult = result
+    // Canvas overlay: only shown in 'trimmed' mode so Full mode gives an unobstructed view.
+    const boundaries = (trimSettings.mode === 'trimmed' && result.status === 'ok')
+      ? { trimStart: result.trimStart, trimEnd: result.trimEnd }
+      : null
+    renderer.setTrimBoundaries(boundaries)
+    // Update controls summary
+    setTrimSummary(controls, result)
+    // Re-render sequence panel with new trim info
+    renderSequence(sequencePanel, displayTrace, hoveredBaseIndex ?? selectedBaseIndex ?? -1, result, trimSettings.mode)
+  }
+
+  /** rAF-throttled trim recompute (for slider drag). */
+  const scheduleTrim = () => {
+    if (trimRaf) return
+    trimRaf = requestAnimationFrame(() => {
+      trimRaf = 0
+      const trace = renderer.getCurrentTrace()
+      if (trace) applyTrim(trace)
+    })
   }
 
   const setState = (state: ViewerState, message = '') => {
@@ -198,7 +228,7 @@ export function createTraceViewer(): HTMLDivElement {
   const refreshSequence = () => {
     const trace = renderer.getCurrentTrace()
     if (!trace) return
-    renderSequence(sequencePanel, trace, hoveredBaseIndex ?? selectedBaseIndex ?? -1)
+    renderSequence(sequencePanel, trace, hoveredBaseIndex ?? selectedBaseIndex ?? -1, trimResult, trimSettings.mode)
   }
 
   const inspectBase = (clientX: number, clientY: number, select = false) => {
@@ -307,6 +337,7 @@ export function createTraceViewer(): HTMLDivElement {
   controls.addEventListener('click', async (event) => {
     const target = event.target as HTMLElement
     const action = target.getAttribute('data-action')
+    const trimMode = target.getAttribute('data-trim-mode') as 'full' | 'trimmed' | null
     const trace = renderer.getCurrentTrace()
 
     if (action === 'zoom-in') renderer.zoom(0.75)
@@ -330,10 +361,32 @@ export function createTraceViewer(): HTMLDivElement {
     }
 
     if (action === 'export-fasta' && trace) {
-      const fasta = new Blob([toFasta(trace, isRevcomp)], { type: 'text/plain' })
-      downloadBlob(fasta, `${trace.fileName.replace(/\.[^.]+$/, '')}${isRevcomp ? '-revcomp' : ''}.fasta`)
+      const suffix = [isRevcomp ? '-revcomp' : '', trimSettings.mode === 'trimmed' ? '-trimmed' : ''].filter(Boolean).join('')
+      const fasta = new Blob([toFasta(trace, isRevcomp, trimResult, trimSettings.mode)], { type: 'text/plain' })
+      downloadBlob(fasta, `${trace.fileName.replace(/\.[^.]+$/, '')}${suffix}.fasta`)
     }
+
+    // Trim mode toggle (Full / Trimmed buttons)
+    if (trimMode) {
+      trimSettings = { ...trimSettings, mode: trimMode }
+      setTrimMode(controls, trimMode)
+      const currentTrace = renderer.getCurrentTrace()
+      if (currentTrace) applyTrim(currentTrace)
+    }
+
     refreshReadout()
+  })
+
+  // Threshold slider — rAF-throttled for smoothness on large fixtures.
+  controls.addEventListener('input', (event) => {
+    const target = event.target as HTMLInputElement
+    if (target.getAttribute('data-trim') !== 'threshold') return
+    const value = Number(target.value)
+    trimSettings = { ...trimSettings, threshold: value }
+    // Update numeric display next to slider
+    const display = controls.querySelector<HTMLOutputElement>('#trim-threshold-display')
+    if (display) display.value = String(value)
+    scheduleTrim()
   })
 
   canvas.addEventListener('wheel', (event) => {

@@ -18,3 +18,13 @@ export interface BaseHoverInfo {
   samplePosition: number
   quality: number | null
 }
+
+/**
+ * Trim region boundaries for canvas overlay rendering.
+ * Both indices are into the baseCalls / peakPositions arrays.
+ * trimStart is the first kept base (inclusive); trimEnd is exclusive.
+ */
+export interface TrimBoundaries {
+  trimStart: number
+  trimEnd: number
+}

@@ -1,7 +1,7 @@
 import { TRACE_COLORS } from './colors'
 import { clampViewport } from './viewport'
 import { decimateSamples } from './decimation'
-import type { BaseHoverInfo, TraceData } from '../types/trace'
+import type { BaseHoverInfo, TrimBoundaries, TraceData } from '../types/trace'
 
 export class ChromatogramCanvas {
   private ctx: CanvasRenderingContext2D
@@ -9,6 +9,7 @@ export class ChromatogramCanvas {
   private startSample = 0
   private samplesPerPixel = 5
   private raf = 0
+  private trimBoundaries: TrimBoundaries | null = null
 
   constructor(private canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext('2d')
@@ -53,6 +54,15 @@ export class ChromatogramCanvas {
 
   getCurrentTrace(): TraceData | null {
     return this.trace
+  }
+
+  /** Accept new trim boundaries and schedule a repaint. null clears any existing overlay. */
+  setTrimBoundaries(boundaries: TrimBoundaries | null): void {
+    this.trimBoundaries = boundaries
+    // Expose overlay state as a data attribute so E2E tests can assert
+    // overlay presence/absence without relying on fragile pixel comparisons.
+    this.canvas.setAttribute('data-trim-active', boundaries !== null ? 'true' : 'false')
+    this.requestDraw()
   }
 
   getViewportInfo(): { start: number; end: number } {
@@ -143,6 +153,9 @@ export class ChromatogramCanvas {
       }
     })
 
+    // ── Trim region overlays (rendered before traces so signal shows through) ──
+    this.drawTrimOverlays(vp, width, height)
+
     for (let i = 0; i < this.trace.peakPositions.length; i += 1) {
       const peak = this.trace.peakPositions[i]
       if (peak < vp.startSample || peak > vp.endSample) continue
@@ -195,6 +208,72 @@ export class ChromatogramCanvas {
       const base = (this.trace.baseCalls[i] ?? 'N').toUpperCase() as keyof typeof TRACE_COLORS
       this.ctx.fillStyle = TRACE_COLORS[base] ?? '#444'
       this.ctx.fillText(base, x, height - 2)
+    }
+  }
+
+  /**
+   * Draw semi-transparent overlays over the trimmed end-regions.
+   * Left overlay: bases [0, trimStart)
+   * Right overlay: bases [trimEnd, baseCalls.length)
+   */
+  private drawTrimOverlays(
+    vp: { startSample: number; endSample: number; samplesPerPixel: number },
+    width: number,
+    height: number,
+  ): void {
+    const tb = this.trimBoundaries
+    if (!tb || !this.trace) return
+    const peaks = this.trace.peakPositions
+    if (!peaks.length) return
+
+    const sampleToX = (s: number) => (s - vp.startSample) / vp.samplesPerPixel
+
+    // Determine trim fill color: amber-tinted, readable in both light and dark themes.
+    const fillColor = 'rgba(160, 100, 30, 0.18)'
+    const lineColor = 'rgba(160, 100, 30, 0.55)'
+
+    // Left trimmed region: [0, trimStart)
+    if (tb.trimStart > 0) {
+      const boundaryPeak = peaks[tb.trimStart]
+      if (boundaryPeak !== undefined) {
+        const boundX = Math.max(0, Math.min(width, sampleToX(boundaryPeak)))
+        if (boundX > 0) {
+          this.ctx.fillStyle = fillColor
+          this.ctx.fillRect(0, 0, boundX, height)
+          // Vertical dashed boundary line
+          this.ctx.save()
+          this.ctx.strokeStyle = lineColor
+          this.ctx.lineWidth = 1.5
+          this.ctx.setLineDash([4, 4])
+          this.ctx.beginPath()
+          this.ctx.moveTo(boundX, 0)
+          this.ctx.lineTo(boundX, height)
+          this.ctx.stroke()
+          this.ctx.restore()
+        }
+      }
+    }
+
+    // Right trimmed region: [trimEnd, n)
+    if (tb.trimEnd < peaks.length) {
+      const boundaryPeak = peaks[tb.trimEnd]
+      if (boundaryPeak !== undefined) {
+        const boundX = Math.max(0, Math.min(width, sampleToX(boundaryPeak)))
+        if (boundX < width) {
+          this.ctx.fillStyle = fillColor
+          this.ctx.fillRect(boundX, 0, width - boundX, height)
+          // Vertical dashed boundary line
+          this.ctx.save()
+          this.ctx.strokeStyle = lineColor
+          this.ctx.lineWidth = 1.5
+          this.ctx.setLineDash([4, 4])
+          this.ctx.beginPath()
+          this.ctx.moveTo(boundX, 0)
+          this.ctx.lineTo(boundX, height)
+          this.ctx.stroke()
+          this.ctx.restore()
+        }
+      }
     }
   }
 }
