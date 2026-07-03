@@ -1,10 +1,11 @@
 import { ChromatogramCanvas } from '../render/ChromatogramCanvas'
-import { createControls, setControlsDisabled } from './Controls'
+import { createControls, setControlsDisabled, setStrandToggleState } from './Controls'
 import { createTooltip, hideTooltip, showTooltip } from './Tooltip'
 import { createSequencePanel, renderSequence } from './SequencePanel'
 import { createPositionReadout, updatePositionReadout } from './PositionReadout'
 import { downloadBlob } from '../export/png'
 import { toFasta } from '../export/fasta'
+import { reverseComplementTrace } from '../revcomp'
 import type { TraceData } from '../types/trace'
 
 // Lazily-loaded worker module (Vite ?worker import, only in browser bundles).
@@ -141,6 +142,17 @@ export function createTraceViewer(): HTMLDivElement {
   let hadMultiTouchGesture = false
   let selectedBaseIndex: number | null = null
   let hoveredBaseIndex: number | null = null
+  let isRevcomp = false
+  let rawTrace: TraceData | null = null
+
+  /** Apply (or re-apply) the current strand to the renderer. */
+  const applyDisplayTrace = () => {
+    if (!rawTrace) return
+    const displayTrace = isRevcomp ? reverseComplementTrace(rawTrace) : rawTrace
+    renderer.setTrace(displayTrace)
+    renderSequence(sequencePanel, displayTrace)
+    refreshReadout()
+  }
 
   const setState = (state: ViewerState, message = '') => {
     emptyStateEl.classList.toggle('hidden', state !== 'empty')
@@ -231,10 +243,11 @@ export function createTraceViewer(): HTMLDivElement {
       const trace = await parseInWorker(buffer, file.name)
       selectedBaseIndex = null
       hoveredBaseIndex = null
+      isRevcomp = false
+      rawTrace = trace
+      setStrandToggleState(controls, false)
       hideTooltip(tooltip)
-      renderer.setTrace(trace)
-      renderSequence(sequencePanel, trace)
-      refreshReadout()
+      applyDisplayTrace()
       const msg = `Loaded ${trace.fileName} (${trace.baseCalls.length} bases)`
       setState('loaded', msg)
     } catch (error) {
@@ -254,10 +267,11 @@ export function createTraceViewer(): HTMLDivElement {
       const trace = await parseInWorker(buffer, 'sample.ab1')
       selectedBaseIndex = null
       hoveredBaseIndex = null
+      isRevcomp = false
+      rawTrace = trace
+      setStrandToggleState(controls, false)
       hideTooltip(tooltip)
-      renderer.setTrace(trace)
-      renderSequence(sequencePanel, trace)
-      refreshReadout()
+      applyDisplayTrace()
       const msg = `Loaded ${trace.fileName} (${trace.baseCalls.length} bases)`
       setState('loaded', msg)
     } catch (error) {
@@ -305,9 +319,19 @@ export function createTraceViewer(): HTMLDivElement {
       const blob = await renderer.exportPngBlob()
       downloadBlob(blob, `${trace?.fileName ?? 'trace'}-view.png`)
     }
+    if (action === 'toggle-strand' && rawTrace) {
+      isRevcomp = !isRevcomp
+      selectedBaseIndex = null
+      hoveredBaseIndex = null
+      hideTooltip(tooltip)
+      setStrandToggleState(controls, isRevcomp)
+      applyDisplayTrace()
+      renderer.fitToScreen()
+    }
+
     if (action === 'export-fasta' && trace) {
-      const fasta = new Blob([toFasta(trace)], { type: 'text/plain' })
-      downloadBlob(fasta, `${trace.fileName.replace(/\.[^.]+$/, '')}.fasta`)
+      const fasta = new Blob([toFasta(trace, isRevcomp)], { type: 'text/plain' })
+      downloadBlob(fasta, `${trace.fileName.replace(/\.[^.]+$/, '')}${isRevcomp ? '-revcomp' : ''}.fasta`)
     }
     refreshReadout()
   })
