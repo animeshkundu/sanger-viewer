@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>True E2E validation | sanger-viewer devlog</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-shell">
+        <a class="site-title" href="../../">sanger-viewer</a>
+        <nav class="site-nav" aria-label="Site">
+          <a href="../">Devlog</a>
+        </nav>
+      </div>
+    </header>
+    <main class="site-shell blog-entry">
+      <p><a href="../">← Back to devlog</a></p>
+      <h1>Proving it actually works: true end-to-end validation</h1>
+      <p><time datetime="2026-07-03">July 3, 2026</time></p>
+      <p>
+        There is a particular kind of confidence you get when a machine mimics a real user —
+        picks up a file, drops it in the app, watches pixels appear on screen, zooms in,
+        pans around, taps a base, downloads a PNG, opens the FASTA — and every assertion
+        passes without a single hand-wave. That is what Step 5 delivers: a Playwright suite
+        that acts exactly like a user would, across both desktop Chrome and an emulated
+        iPad, against every real fixture we ship.
+      </p>
+
+      <h2>What was already there (and what was missing)</h2>
+      <p>
+        The prior four steps had meaningful test coverage, but it had gaps. The existing
+        <code>viewer.e2e.test.ts</code> iterated all four fixtures and checked for a
+        non-blank canvas, but it bundled everything into a single monolithic test — making
+        failures hard to attribute to a specific fixture. Export tests checked only the
+        <em>suggested filename</em>; nothing verified that the downloaded file was actually
+        a valid PNG or contained real FASTA structure. The hover-tooltip test ran on both
+        desktop and tablet even though tablets have no hover state. And while
+        <code>touch.e2e.test.ts</code> covered pinch-zoom and tap on one fixture, that
+        single-fixture tap assertion lived in a file that did a lot of other things.
+      </p>
+      <p>
+        Step 5 closes every one of those gaps in a single, explicitly annotated file:
+        <code>tests/e2e/step5-e2e.e2e.test.ts</code>.
+      </p>
+
+      <h2>Per-fixture canvas validation</h2>
+      <p>
+        The new suite runs a dedicated test for each of the four real committed traces:
+        <code>310.ab1</code>, <code>3100.ab1</code>, <code>abcZ_F.scf</code>, and the
+        large <code>3730.ab1</code>. Each test loads the file through the actual
+        <code>#file-input</code> element (the same path a user would take), waits for the
+        status to confirm <em>Loaded</em>, then reads the raw pixel data out of the canvas
+        and sums every RGB channel. A blank canvas sums to zero; a rendered trace is always
+        strictly positive. Both the desktop and tablet Playwright projects exercise this
+        path, so we know the canvas paints correctly on a portrait iPad viewport too.
+      </p>
+
+      <h2>Zoom and pan with real assertions</h2>
+      <p>
+        Clicking <em>Zoom +</em> should narrow the visible base range. Clicking
+        <em>← Pan</em> should shift the start position. The Step 5 tests capture the
+        position-readout text before and after each button click and assert the change with
+        <code>expect.poll</code> — so even if there is a brief animation delay the assertion
+        retries until the DOM reflects the new state. This runs against all four fixtures
+        on both the desktop and tablet projects.
+      </p>
+
+      <h2>Hover tooltip — desktop only, intentionally skipped on tablet</h2>
+      <p>
+        The tooltip that shows peak amplitude and base identity when you mouse over the
+        chromatogram only makes sense on a pointer device. On the emulated iPad there is
+        no hover state, so the test guard is explicit:
+        <code>test.skip(isMobile, 'hover tooltip is a pointer/cursor interaction')</code>.
+        On desktop, the test sweeps the mouse across ten evenly-spaced columns in the
+        canvas until the tooltip appears, then asserts that its text contains
+        <em>peak:</em>. It is not enough to assert the tooltip is visible — we need to
+        know it contains real data.
+      </p>
+
+      <h2>Tap-to-select — tablet only, intentionally skipped on desktop</h2>
+      <p>
+        The mirror image of the above: dispatching synthetic pointer events to simulate a
+        finger tap is only meaningful on the tablet project. The guard is
+        <code>test.skip(!isMobile || browserName !== 'chromium', …)</code>. After the
+        tap, two things must be true: the tooltip must contain <em>peak:</em>, and exactly
+        one element with class <code>.selected-base</code> must exist in the sequence panel
+        and contain a single valid IUPAC base character. This is a tighter assertion than
+        the prior touch suite, which only checked for a count of one.
+      </p>
+
+      <h2>File-switch: does the canvas actually change?</h2>
+      <p>
+        Switching between fixtures is easy to test incorrectly — you can load file A,
+        record the status text, load file B, assert the status says <em>Loaded</em> again,
+        and call it a day. But that does not prove the canvas re-rendered with different
+        content. The Step 5 test records a pixel sum for file A, then a pixel sum for
+        file B, and asserts they differ. Since <code>310.ab1</code> and
+        <code>3100.ab1</code> have different sample counts and different sequences, their
+        rendered pixel sums are always distinct. A rendering regression that silently kept
+        the old trace on screen would fail this check.
+      </p>
+
+      <h2>Export validation: full PNG signature and FASTA grammar</h2>
+      <p>
+        PNG export now goes beyond checking the filename. After <code>waitForEvent('download')</code>
+        resolves, the test reads the downloaded file from disk using
+        <code>download.path()</code> and checks all eight bytes of the full PNG signature
+        (<code>0x89 0x50 0x4E 0x47 0x0D 0x0A 0x1A 0x0A</code>). It then reads the IHDR
+        chunk directly from the file bytes to assert that the exported image has non-zero
+        width and height, and that the file is at least 67 bytes — the minimum for a
+        structurally complete PNG (signature + IHDR + IDAT + IEND). You cannot fake that
+        with a stubbed download.
+      </p>
+      <p>
+        FASTA export similarly reads the file content as UTF-8. The assertion checks that
+        the text starts with a <code>&gt;</code> header line, followed by one or more lines
+        that match <code>/^[ACGTNacgtn]+$/</code>. A malformed export — missing the header,
+        containing coordinates or metadata where the sequence should be, or producing an
+        empty file — would fail immediately.
+      </p>
+
+      <h2>CI is green</h2>
+      <p>
+        All tests in the new file pass in CI under both Playwright projects. The Chromium
+        browser install step was already wired into the CI workflow from Step 3; Step 5
+        adds no new dependencies or workflow changes. The full suite — lint, typecheck,
+        Vitest unit tests, Playwright E2E on desktop and tablet, performance smoke — remains
+        green.
+      </p>
+
+      <h2>What this proves, and what comes next</h2>
+      <p>
+        At this point the viewer is validated end-to-end with real fixtures, real
+        interactions, and real assertions on real output files. Every major interaction path
+        — load, zoom, pan, hover, tap, switch, export PNG, export FASTA — is covered by a
+        test that a machine runs on every PR. The devlog is complete for this phase.
+      </p>
+      <p>
+        The north star from the project brief is full feature parity with professional
+        Sanger viewers: reverse-complement, PHRED quality trimming, subsequence search with
+        IUPAC ambiguity codes, multi-trace workspace, and high-resolution vector export.
+        Each of those is its own small PR, its own devlog entry, its own green CI run.
+        The foundation is solid enough to build on.
+      </p>
+    </main>
+  </body>
+</html>
