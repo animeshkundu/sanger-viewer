@@ -1,5 +1,14 @@
 import { ChromatogramCanvas } from '../render/ChromatogramCanvas'
-import { createControls, setControlsDisabled, setStrandToggleState, setTrimSummary, setTrimMode } from './Controls'
+import {
+  createControls,
+  setControlsDisabled,
+  setSearchEmptyState,
+  setSearchNavigationState,
+  setSearchSummary,
+  setStrandToggleState,
+  setTrimSummary,
+  setTrimMode
+} from './Controls'
 import { createTooltip, hideTooltip, showTooltip } from './Tooltip'
 import { createSequencePanel, renderSequence } from './SequencePanel'
 import { createPositionReadout, updatePositionReadout } from './PositionReadout'
@@ -7,6 +16,12 @@ import { downloadBlob } from '../export/png'
 import { toFasta } from '../export/fasta'
 import { reverseComplementTrace } from '../revcomp'
 import { mottTrim, DEFAULT_TRIM_SETTINGS } from '../quality/mottTrim'
+import {
+  findSubsequenceMatches,
+  mapCanonicalMatchesToDisplay,
+  normalizeSearchQuery,
+  type SubsequenceMatch
+} from '../search/findSubsequence'
 import type { TrimResult, TrimSettings } from '../quality/mottTrim'
 import type { TraceData } from '../types/trace'
 
@@ -45,6 +60,11 @@ function parseInWorker(buffer: ArrayBuffer, fileName: string): Promise<TraceData
 }
 
 type ViewerState = 'empty' | 'loading' | 'loaded' | 'error'
+type SearchState = {
+  query: string
+  matches: SubsequenceMatch[]
+  activeIndex: number
+}
 
 export function createTraceViewer(): HTMLDivElement {
   const root = document.createElement('div')
@@ -133,6 +153,7 @@ export function createTraceViewer(): HTMLDivElement {
   const successBanner = root.querySelector<HTMLElement>('#success-banner')!
   const successText = root.querySelector<HTMLElement>('#success-text')!
   const sampleBtn = root.querySelector<HTMLButtonElement>('#sample-load-btn')!
+  const searchInput = controls.querySelector<HTMLInputElement>('#search-input')!
   const canvas = root.querySelector<HTMLCanvasElement>('canvas')!
   canvas.style.touchAction = 'none'
 
@@ -149,6 +170,92 @@ export function createTraceViewer(): HTMLDivElement {
   let trimSettings: TrimSettings = { ...DEFAULT_TRIM_SETTINGS }
   let trimResult: TrimResult | null = null
   let trimRaf = 0
+  let viewerState: ViewerState = 'empty'
+  let searchState: SearchState = { query: '', matches: [], activeIndex: -1 }
+
+  const getDisplaySearchMatches = () =>
+    rawTrace ? mapCanonicalMatchesToDisplay(searchState.matches, rawTrace.baseCalls.length, isRevcomp) : []
+
+  const getActiveDisplayMatch = () => {
+    const displayMatches = getDisplaySearchMatches()
+    return searchState.activeIndex >= 0 ? displayMatches[searchState.activeIndex] ?? null : null
+  }
+
+  const syncSearchUi = (recenterActive = false) => {
+    const canSearch = viewerState === 'loaded' && rawTrace !== null
+    const hasQuery = searchState.query.length > 0
+    const hasMatches = searchState.matches.length > 0
+    const displayMatches = canSearch ? getDisplaySearchMatches() : []
+    const activeDisplayMatch = searchState.activeIndex >= 0 ? displayMatches[searchState.activeIndex] ?? null : null
+
+    searchInput.disabled = !canSearch
+    if (searchInput.value !== searchState.query) searchInput.value = searchState.query
+
+    if (!canSearch) {
+      setSearchSummary(controls, '')
+      setSearchEmptyState(controls, false)
+      setSearchNavigationState(controls, { canNavigate: false, canClear: false })
+      renderer.setSearchMatches([], -1)
+      return
+    }
+
+    if (!hasQuery) {
+      setSearchSummary(controls, '')
+      setSearchEmptyState(controls, false)
+    } else if (!hasMatches) {
+      setSearchSummary(controls, '0 matches')
+      setSearchEmptyState(controls, true)
+    } else {
+      const count = searchState.matches.length
+      setSearchSummary(controls, `${count} match${count === 1 ? '' : 'es'} · ${searchState.activeIndex + 1} of ${count}`)
+      setSearchEmptyState(controls, false)
+    }
+
+    setSearchNavigationState(controls, {
+      canNavigate: hasMatches,
+      canClear: hasQuery,
+    })
+    renderer.setSearchMatches(displayMatches, searchState.activeIndex)
+
+    if (recenterActive && activeDisplayMatch) {
+      renderer.focusBaseRange(activeDisplayMatch.start, activeDisplayMatch.end)
+      refreshReadout()
+    }
+  }
+
+  const resetSearchState = () => {
+    searchState = { query: '', matches: [], activeIndex: -1 }
+    syncSearchUi(false)
+  }
+
+  const applySearchQuery = (query: string, recenterActive = true) => {
+    const normalizedQuery = normalizeSearchQuery(query)
+    const matches = rawTrace && normalizedQuery ? findSubsequenceMatches(rawTrace.sequence, normalizedQuery) : []
+    selectedBaseIndex = null
+    hoveredBaseIndex = null
+    hideTooltip(tooltip)
+    searchState = {
+      query: normalizedQuery,
+      matches,
+      activeIndex: matches.length > 0 ? 0 : -1,
+    }
+    syncSearchUi(recenterActive && matches.length > 0)
+    refreshSequence()
+  }
+
+  const moveActiveMatch = (direction: -1 | 1) => {
+    if (searchState.matches.length === 0) return
+    selectedBaseIndex = null
+    hoveredBaseIndex = null
+    hideTooltip(tooltip)
+    searchState = {
+      ...searchState,
+      activeIndex:
+        (searchState.activeIndex + direction + searchState.matches.length) % searchState.matches.length,
+    }
+    syncSearchUi(true)
+    refreshSequence()
+  }
 
   /** Apply (or re-apply) the current strand to the renderer. */
   const applyDisplayTrace = () => {
@@ -156,6 +263,7 @@ export function createTraceViewer(): HTMLDivElement {
     const displayTrace = isRevcomp ? reverseComplementTrace(rawTrace) : rawTrace
     renderer.setTrace(displayTrace)
     applyTrim(displayTrace)
+    syncSearchUi(false)
     refreshReadout()
   }
 
@@ -171,7 +279,7 @@ export function createTraceViewer(): HTMLDivElement {
     // Update controls summary
     setTrimSummary(controls, result)
     // Re-render sequence panel with new trim info
-    renderSequence(sequencePanel, displayTrace, hoveredBaseIndex ?? selectedBaseIndex ?? -1, result, trimSettings.mode)
+    refreshSequence()
   }
 
   /** rAF-throttled trim recompute (for slider drag). */
@@ -185,6 +293,7 @@ export function createTraceViewer(): HTMLDivElement {
   }
 
   const setState = (state: ViewerState, message = '') => {
+    viewerState = state
     emptyStateEl.classList.toggle('hidden', state !== 'empty')
     dropzoneHeader.classList.toggle('hidden', state === 'empty')
     loadingBanner.classList.toggle('hidden', state !== 'loading')
@@ -207,6 +316,7 @@ export function createTraceViewer(): HTMLDivElement {
       status.textContent = 'No trace loaded.'
       setControlsDisabled(controls, false)
     }
+    syncSearchUi(false)
   }
 
   const refreshReadout = () => {
@@ -228,7 +338,16 @@ export function createTraceViewer(): HTMLDivElement {
   const refreshSequence = () => {
     const trace = renderer.getCurrentTrace()
     if (!trace) return
-    renderSequence(sequencePanel, trace, hoveredBaseIndex ?? selectedBaseIndex ?? -1, trimResult, trimSettings.mode)
+    const activeMatch = getActiveDisplayMatch()
+    const selectedIndex = hoveredBaseIndex ?? selectedBaseIndex ?? -1
+    renderSequence(sequencePanel, trace, {
+      selectedIndex,
+      anchorIndex: selectedIndex >= 0 ? selectedIndex : activeMatch?.start ?? -1,
+      trim: trimResult,
+      mode: trimSettings.mode,
+      matches: getDisplaySearchMatches(),
+      activeMatchIndex: searchState.activeIndex,
+    })
   }
 
   const inspectBase = (clientX: number, clientY: number, select = false) => {
@@ -268,6 +387,7 @@ export function createTraceViewer(): HTMLDivElement {
 
   const load = async (file: File) => {
     try {
+      resetSearchState()
       setState('loading', `Loading ${file.name}…`)
       const buffer = await file.arrayBuffer()
       const trace = await parseInWorker(buffer, file.name)
@@ -281,6 +401,7 @@ export function createTraceViewer(): HTMLDivElement {
       const msg = `Loaded ${trace.fileName} (${trace.baseCalls.length} bases)`
       setState('loaded', msg)
     } catch (error) {
+      resetSearchState()
       const msg = error instanceof Error ? error.message : 'Failed to parse file'
       setState('error', msg)
     }
@@ -288,6 +409,7 @@ export function createTraceViewer(): HTMLDivElement {
 
   const loadSample = async () => {
     try {
+      resetSearchState()
       setState('loading', 'Loading sample trace…')
       const sampleBaseUrl = (import.meta.env.BASE_URL as string).replace(/\/?$/, '/')
       const sampleUrl = `${sampleBaseUrl}sample.ab1`
@@ -305,6 +427,7 @@ export function createTraceViewer(): HTMLDivElement {
       const msg = `Loaded ${trace.fileName} (${trace.baseCalls.length} bases)`
       setState('loaded', msg)
     } catch (error) {
+      resetSearchState()
       const msg = error instanceof Error ? error.message : 'Failed to load sample'
       setState('error', msg)
     }
@@ -357,7 +480,12 @@ export function createTraceViewer(): HTMLDivElement {
       hideTooltip(tooltip)
       setStrandToggleState(controls, isRevcomp)
       applyDisplayTrace()
-      renderer.fitToScreen()
+      if (searchState.activeIndex >= 0) {
+        syncSearchUi(true)
+        refreshSequence()
+      } else {
+        renderer.fitToScreen()
+      }
     }
 
     if (action === 'export-fasta' && trace) {
@@ -374,12 +502,23 @@ export function createTraceViewer(): HTMLDivElement {
       if (currentTrace) applyTrim(currentTrace)
     }
 
+    if (action === 'search-prev') moveActiveMatch(-1)
+    if (action === 'search-next') moveActiveMatch(1)
+    if (action === 'search-clear') {
+      resetSearchState()
+      refreshSequence()
+    }
+
     refreshReadout()
   })
 
   // Threshold slider — rAF-throttled for smoothness on large fixtures.
   controls.addEventListener('input', (event) => {
     const target = event.target as HTMLInputElement
+    if (target.id === 'search-input') {
+      applySearchQuery(target.value)
+      return
+    }
     if (target.getAttribute('data-trim') !== 'threshold') return
     const value = Number(target.value)
     trimSettings = { ...trimSettings, threshold: value }
@@ -387,6 +526,20 @@ export function createTraceViewer(): HTMLDivElement {
     const display = controls.querySelector<HTMLOutputElement>('#trim-threshold-display')
     if (display) display.value = String(value)
     scheduleTrim()
+  })
+
+  controls.addEventListener('keydown', (event) => {
+    const target = event.target as HTMLElement
+    if (target !== searchInput) return
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      moveActiveMatch(1)
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      resetSearchState()
+      refreshSequence()
+    }
   })
 
   canvas.addEventListener('wheel', (event) => {
@@ -478,5 +631,6 @@ export function createTraceViewer(): HTMLDivElement {
     refreshSequence()
   })
 
+  syncSearchUi(false)
   return root
 }

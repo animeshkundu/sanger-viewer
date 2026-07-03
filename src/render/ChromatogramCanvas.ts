@@ -2,6 +2,7 @@ import { TRACE_COLORS } from './colors'
 import { clampViewport } from './viewport'
 import { decimateSamples } from './decimation'
 import type { BaseHoverInfo, TrimBoundaries, TraceData } from '../types/trace'
+import type { SubsequenceMatch } from '../search/findSubsequence'
 
 export class ChromatogramCanvas {
   private ctx: CanvasRenderingContext2D
@@ -10,6 +11,8 @@ export class ChromatogramCanvas {
   private samplesPerPixel = 5
   private raf = 0
   private trimBoundaries: TrimBoundaries | null = null
+  private searchMatches: SubsequenceMatch[] = []
+  private activeSearchMatchIndex = -1
 
   constructor(private canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext('2d')
@@ -62,6 +65,30 @@ export class ChromatogramCanvas {
     // Expose overlay state as a data attribute so E2E tests can assert
     // overlay presence/absence without relying on fragile pixel comparisons.
     this.canvas.setAttribute('data-trim-active', boundaries !== null ? 'true' : 'false')
+    this.requestDraw()
+  }
+
+  setSearchMatches(matches: SubsequenceMatch[], activeIndex: number): void {
+    this.searchMatches = matches
+    this.activeSearchMatchIndex = activeIndex
+    this.canvas.setAttribute('data-search-match-count', String(matches.length))
+    this.requestDraw()
+  }
+
+  focusBaseRange(startIndex: number, endIndex: number): void {
+    if (!this.trace || this.trace.peakPositions.length === 0) return
+    const width = Math.max(1, this.canvas.clientWidth || 1)
+    const lastBaseIndex = this.trace.peakPositions.length - 1
+    const clampedStart = Math.max(0, Math.min(startIndex, lastBaseIndex))
+    const clampedEnd = Math.max(clampedStart, Math.min(Math.max(clampedStart, endIndex - 1), lastBaseIndex))
+    const leftIndex = Math.max(0, clampedStart - 20)
+    const rightIndex = Math.min(lastBaseIndex, clampedEnd + 20)
+    const leftSample = this.trace.peakPositions[leftIndex] ?? 0
+    const rightSample = this.trace.peakPositions[rightIndex] ?? leftSample
+    const visibleSamples = Math.max(160, (rightSample - leftSample) * 1.25)
+    const centerSample = ((this.trace.peakPositions[clampedStart] ?? 0) + (this.trace.peakPositions[clampedEnd] ?? 0)) / 2
+    this.samplesPerPixel = Math.max(0.5, visibleSamples / width)
+    this.startSample = centerSample - (width * this.samplesPerPixel) / 2
     this.requestDraw()
   }
 
@@ -155,6 +182,7 @@ export class ChromatogramCanvas {
 
     // ── Trim region overlays (rendered before traces so signal shows through) ──
     this.drawTrimOverlays(vp, width, height)
+    this.drawSearchHighlights(vp, width, height)
 
     for (let i = 0; i < this.trace.peakPositions.length; i += 1) {
       const peak = this.trace.peakPositions[i]
@@ -274,6 +302,53 @@ export class ChromatogramCanvas {
           this.ctx.restore()
         }
       }
+    }
+  }
+
+  private drawSearchHighlights(
+    vp: { startSample: number; endSample: number; samplesPerPixel: number },
+    width: number,
+    height: number,
+  ): void {
+    if (!this.trace || this.searchMatches.length === 0) {
+      this.canvas.setAttribute('data-search-visible-count', '0')
+      this.canvas.removeAttribute('data-search-active-range')
+      return
+    }
+
+    const peaks = this.trace.peakPositions
+    const activeMatch = this.activeSearchMatchIndex >= 0 ? this.searchMatches[this.activeSearchMatchIndex] ?? null : null
+    const sampleToX = (sample: number) => (sample - vp.startSample) / vp.samplesPerPixel
+    let visibleCount = 0
+
+    for (const match of this.searchMatches) {
+      if (match.start >= peaks.length || match.end <= 0) continue
+      const firstPeak = peaks[match.start]
+      const lastPeak = peaks[Math.max(match.start, match.end - 1)]
+      if (firstPeak === undefined || lastPeak === undefined) continue
+
+      const xStart = sampleToX(firstPeak) - 5
+      const xEnd = sampleToX(lastPeak) + 5
+      if (xEnd < 0 || xStart > width) continue
+
+      visibleCount += 1
+      const isActive = activeMatch === match
+      this.ctx.fillStyle = isActive ? 'rgba(245, 158, 11, 0.30)' : 'rgba(59, 130, 246, 0.18)'
+      this.ctx.fillRect(Math.max(0, xStart), 0, Math.max(3, Math.min(width, xEnd) - Math.max(0, xStart)), height)
+      if (isActive) {
+        this.ctx.save()
+        this.ctx.strokeStyle = 'rgba(245, 158, 11, 0.85)'
+        this.ctx.lineWidth = 2
+        this.ctx.strokeRect(Math.max(0, xStart), 1, Math.max(3, Math.min(width, xEnd) - Math.max(0, xStart)), Math.max(0, height - 2))
+        this.ctx.restore()
+      }
+    }
+
+    this.canvas.setAttribute('data-search-visible-count', String(visibleCount))
+    if (activeMatch) {
+      this.canvas.setAttribute('data-search-active-range', `${activeMatch.start}:${activeMatch.end}`)
+    } else {
+      this.canvas.removeAttribute('data-search-active-range')
     }
   }
 }
