@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Multi-trace workspace + high-res SVG export | sanger-viewer devlog</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-shell">
+        <a class="site-title" href="../../">sanger-viewer</a>
+        <nav class="site-nav" aria-label="Site">
+          <a href="../">Devlog</a>
+        </nav>
+      </div>
+    </header>
+    <main class="site-shell blog-entry">
+      <p><a href="../">← Back to devlog</a></p>
+      <h1>Step 10: multi-trace workspace and high-resolution SVG export</h1>
+      <p><time datetime="2026-07-03">July 3, 2026</time></p>
+
+      <p>
+        Until today, sanger-viewer could hold exactly one trace at a time. Open a second file
+        and the first was gone — no switching, no comparison, no "let me quickly check what the
+        other reaction looked like." That changes with Step 10.
+      </p>
+
+      <h2>Multi-trace workspace</h2>
+      <p>
+        The core change is a new <code>TraceWorkspace</code> class in
+        <code>src/workspace/TraceWorkspace.ts</code>. It is a simple ordered array of
+        <em>slots</em> — one per loaded trace — with LRU eviction capped at five open traces.
+        Each slot stores everything needed to fully restore a trace session: the parsed
+        <code>TraceData</code>, the strand state (forward / reverse complement), the trim
+        settings and last computed trim result, the search query and matches, and the exact
+        canvas viewport (start sample, samples-per-pixel). When you switch away from a tab and
+        come back, you pick up exactly where you left off.
+      </p>
+      <p>
+        The LRU cap is important. A large <code>.ab1</code> file can carry several megabytes of
+        raw signal in four <code>Float32Array</code> channels. Keeping an unbounded number of
+        them open would silently inflate memory until the tab hit the browser limit. Instead,
+        when a sixth trace is opened, the oldest slot that is not currently displayed has its
+        <code>rawTrace</code> set to <code>null</code> — the shell (file name, tab, saved state)
+        stays in the list, the signal arrays are released for GC. The active slot is
+        <em>never</em> evicted. This is the same invariant that professional desktop apps use
+        when they limit the "recently opened" list.
+      </p>
+
+      <h2>Workspace bar UI</h2>
+      <p>
+        A horizontal tab strip appears above the controls whenever two or more traces are open.
+        Each tab shows the file name, highlights the active one, and carries a × close button.
+        A small <strong>＋</strong> button at the right end of the bar opens a file chooser for
+        a second trace without disturbing the current one. The bar hides itself when only a
+        single trace is loaded so it adds zero visual noise to the common one-file workflow.
+      </p>
+      <p>
+        Internally the bar works via bubbling <code>CustomEvent</code>s:
+        <code>workspace-switch</code>, <code>workspace-close</code>, and
+        <code>workspace-open</code>. TraceViewer listens for these on its root element, saves
+        the departing slot's state, then restores the arriving slot's state in a single
+        synchronous pass. No extra re-parses, no flash.
+      </p>
+
+      <h2>High-resolution SVG export</h2>
+      <p>
+        The existing "Export PNG" button grabs whatever the canvas currently shows at screen
+        resolution. For a publication figure or a lab notebook printout you often want something
+        much sharper. The new "Export SVG" button produces a fully-vector rendering of the
+        current viewport: four <code>&lt;path&gt;</code> elements (one per channel, with the
+        same ACGT colour palette as the canvas), plus a <code>&lt;text&gt;</code> element for
+        each visible base call.
+      </p>
+      <p>
+        Crucially, <code>exportSvg</code> in <code>src/export/svg.ts</code> is a <em>pure
+        function</em> — no DOM, no canvas, no side effects. It reuses the same decimation and
+        viewport-clamping logic as the canvas renderer but accumulates SVG path data strings
+        instead of issuing canvas draw calls. Being DOM-free means it is directly testable in
+        Vitest's node environment, which is how we cover the output validity (namespace,
+        dimensions, path count, XML escaping) without spinning up a browser.
+      </p>
+      <p>
+        The exported SVG is 2× the canvas CSS dimensions by default, so on a retina screen
+        where the canvas might be 800 × 300 CSS pixels the SVG comes out at 1600 × 600 —
+        already print-quality. The <code>viewBox</code> matches the pixel dimensions so it
+        scales cleanly in any vector editor.
+      </p>
+
+      <h2>Testing</h2>
+      <p>
+        Thirteen new Vitest unit tests cover <code>exportSvg</code>: valid SVG structure,
+        correct dimensions, all four TRACE_COLORS present, base-call <code>&lt;text&gt;</code>
+        elements, XML escaping of special characters, custom start/end sample windowing, and
+        edge cases (empty base calls, single-sample traces).
+      </p>
+      <p>
+        Thirteen more unit tests cover <code>TraceWorkspace</code> directly: add/activate/close
+        lifecycle, <code>updateSlot</code> patching, the LRU invariant (cap never exceeded,
+        active slot never evicted, shell not null after cap).
+      </p>
+      <p>
+        Five new Playwright tests exercise the full browser workflow: two fixtures load into two
+        tabs, switching restores the correct file name and a non-blank canvas, closing a tab
+        collapses the bar, Export SVG triggers a download whose content is a real SVG document
+        with channel paths, and the "＋" button wires up to the hidden extra file input.
+      </p>
+
+      <h2>What's next</h2>
+      <p>
+        The workspace is intentionally minimal: tabs are file-name only, there is no thumbnail
+        preview, no side-by-side comparison pane, and evicted slots cannot be re-loaded without
+        re-opening the file. Future passes can add alignment / overlay view, better eviction
+        feedback, and thumbnail generation. The SVG export could grow to include the quality
+        bar, trim overlays, and search highlights. Each of those is a small, focused PR on top
+        of this foundation.
+      </p>
+    </main>
+  </body>
+</html>

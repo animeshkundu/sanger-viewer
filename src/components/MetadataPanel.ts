@@ -3,6 +3,7 @@ import type { TraceMetadata } from '../types/trace'
 export function createMetadataPanel(): HTMLDivElement {
   const el = document.createElement('div')
   el.className = 'metadata-panel hidden'
+  el.hidden = true
   el.setAttribute('role', 'region')
   el.setAttribute('aria-label', 'Trace metadata')
   el.setAttribute('data-testid', 'metadata-panel')
@@ -29,6 +30,7 @@ function createRow(label: string, value: string): HTMLDivElement {
 export function updateMetadataPanel(el: HTMLDivElement, metadata: TraceMetadata | null): void {
   if (!metadata) {
     el.classList.add('hidden')
+    el.hidden = true
     el.replaceChildren()
     return
   }
@@ -48,6 +50,7 @@ export function updateMetadataPanel(el: HTMLDivElement, metadata: TraceMetadata 
   const present = fields.filter(([, v]) => v !== undefined && v !== null && v !== '')
   if (present.length === 0) {
     el.classList.add('hidden')
+    el.hidden = true
     el.replaceChildren()
     return
   }
@@ -64,4 +67,5 @@ export function updateMetadataPanel(el: HTMLDivElement, metadata: TraceMetadata 
 
   el.replaceChildren(header, rowsContainer)
   el.classList.remove('hidden')
+  el.hidden = false
 }
