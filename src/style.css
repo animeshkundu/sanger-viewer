@@ -2,6 +2,7 @@
   font-family: Inter, system-ui, sans-serif;
   color: #111827;
   background: #f3f4f6;
+  --canvas-portrait-max-height: 340px;
 }
 
 body {
@@ -110,7 +111,9 @@ canvas {
 .controls button {
   border: 1px solid #cbd5e1;
   border-radius: 0.375rem;
-  padding: 0.4rem 0.75rem;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0.55rem 0.9rem;
   background: #fff;
   cursor: pointer;
 }
@@ -149,4 +152,32 @@ canvas {
 
 .hidden {
   display: none;
+}
+
+@media (max-width: 960px) {
+  .site-shell,
+  #app {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  .controls {
+    gap: 0.625rem;
+  }
+
+  .controls button {
+    flex: 1 1 calc(33.333% - 0.625rem);
+  }
+}
+
+@media (max-width: 768px) {
+  .controls button {
+    flex: 1 1 calc(50% - 0.625rem);
+  }
+}
+
+@media (max-width: 960px) and (orientation: portrait) {
+  .canvas-wrap {
+    height: min(42vh, var(--canvas-portrait-max-height));
+  }
 }

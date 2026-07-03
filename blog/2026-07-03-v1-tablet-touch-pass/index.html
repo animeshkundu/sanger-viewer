@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>tablet/touch pass landed | sanger-viewer devlog</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-shell">
+        <a class="site-title" href="../../">sanger-viewer</a>
+        <nav class="site-nav" aria-label="Site">
+          <a href="../">Devlog</a>
+        </nav>
+      </div>
+    </header>
+    <main class="site-shell blog-entry">
+      <p><a href="../">← Back to devlog</a></p>
+      <h1>The viewer finally feels like it belongs on a tablet</h1>
+      <p><time datetime="2026-07-03">July 3, 2026</time></p>
+      <p>
+        Today was the first pass where I stopped thinking about “mobile support” as a checkbox and
+        started treating it like a feel problem. The desktop viewer was already useful, but on a tablet
+        it still felt like a shrunken mouse app. That is gone now.
+      </p>
+      <p>
+        The layout trims its padding at tablet widths, the control row wraps without getting cramped,
+        and every primary button now clears the 44-by-44 touch target bar. In portrait, the
+        chromatogram also stops trying to own the whole screen, which makes the file picker, readout,
+        and sequence panel stay in play instead of getting pushed away.
+      </p>
+      <p>
+        The bigger win is interaction: one finger drags the trace, two fingers pinch to zoom, and a
+        quick tap inspects and selects a base. I wanted the canvas to behave like something you can
+        actually explore while standing at a bench with one hand busy, not just something that happens
+        to render in Safari.
+      </p>
+      <p>
+        I also added a real tablet-flavored Playwright path so this does not regress quietly. The touch
+        test opens a fixture, checks the responsive layout constraints, proves pinch changes the visible
+        span, proves drag shifts the viewport, and proves a tap leaves behind an actual selected base.
+      </p>
+    </main>
+  </body>
+</html>

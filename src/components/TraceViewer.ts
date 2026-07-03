@@ -32,12 +32,61 @@ export function createTraceViewer(): HTMLDivElement {
   const status = root.querySelector<HTMLElement>('#status')!
   const dropzone = root.querySelector<HTMLElement>('.dropzone')!
   const canvas = root.querySelector<HTMLCanvasElement>('canvas')!
+  canvas.style.touchAction = 'none'
 
   const renderer = new ChromatogramCanvas(canvas)
+  const tapMoveThreshold = 8
+  const activePointers = new Map<number, { clientX: number; clientY: number; startX: number; startY: number; moved: boolean }>()
+  let lastPinchDistance = 0
+  let canvasLeft = 0
+  let hadMultiTouchGesture = false
+  let selectedBaseIndex: number | null = null
+  let hoveredBaseIndex: number | null = null
 
   const refreshReadout = () => {
     const vp = renderer.getViewportInfo()
     updatePositionReadout(readout, vp.start, vp.end)
+  }
+
+  const refreshSequence = () => {
+    const trace = renderer.getCurrentTrace()
+    if (!trace) return
+    renderSequence(sequencePanel, trace, hoveredBaseIndex ?? selectedBaseIndex ?? -1)
+  }
+
+  const inspectBase = (clientX: number, clientY: number, select = false) => {
+    const hit = renderer.hitTest(clientX)
+    if (!hit) {
+      if (!select) {
+        hoveredBaseIndex = null
+        hideTooltip(tooltip)
+        refreshSequence()
+      }
+      return
+    }
+
+    showTooltip(tooltip, hit, clientX, clientY)
+    if (select) {
+      selectedBaseIndex = hit.index
+      hoveredBaseIndex = null
+    } else {
+      hoveredBaseIndex = hit.index
+    }
+    refreshSequence()
+  }
+
+  const getPointerDistance = () => {
+    const [first, second] = [...activePointers.values()]
+    if (!first || !second) return 0
+    return Math.hypot(second.clientX - first.clientX, second.clientY - first.clientY)
+  }
+
+  const releasePointer = (pointerId: number) => {
+    if (canvas.hasPointerCapture?.(pointerId)) canvas.releasePointerCapture(pointerId)
+  }
+
+  const cacheCanvasOffset = () => {
+    canvasLeft = canvas.getBoundingClientRect().left
   }
 
   const load = async (file: File) => {
@@ -45,6 +94,9 @@ export function createTraceViewer(): HTMLDivElement {
       status.textContent = `Loading ${file.name}...`
       const buffer = await file.arrayBuffer()
       const trace = parseTrace(buffer, file.name)
+      selectedBaseIndex = null
+      hoveredBaseIndex = null
+      hideTooltip(tooltip)
       renderer.setTrace(trace)
       renderSequence(sequencePanel, trace)
       refreshReadout()
@@ -93,22 +145,6 @@ export function createTraceViewer(): HTMLDivElement {
     refreshReadout()
   })
 
-  let dragging = false
-  let lastX = 0
-  canvas.addEventListener('mousedown', (event) => {
-    dragging = true
-    lastX = event.clientX
-  })
-  window.addEventListener('mouseup', () => {
-    dragging = false
-  })
-  window.addEventListener('mousemove', (event) => {
-    if (!dragging) return
-    renderer.panPixels(lastX - event.clientX)
-    lastX = event.clientX
-    refreshReadout()
-  })
-
   canvas.addEventListener('wheel', (event) => {
     event.preventDefault()
     const factor = event.deltaY < 0 ? 0.9 : 1.1
@@ -116,18 +152,87 @@ export function createTraceViewer(): HTMLDivElement {
     refreshReadout()
   })
 
-  canvas.addEventListener('mousemove', (event) => {
-    const hit = renderer.hitTest(event.clientX)
-    if (!hit) {
-      hideTooltip(tooltip)
-      return
+  canvas.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0) return
+    if (event.pointerType !== 'mouse') event.preventDefault()
+    cacheCanvasOffset()
+    activePointers.set(event.pointerId, {
+      clientX: event.clientX,
+      clientY: event.clientY,
+      startX: event.clientX,
+      startY: event.clientY,
+      moved: false
+    })
+    canvas.setPointerCapture?.(event.pointerId)
+    if (activePointers.size > 1) {
+      hadMultiTouchGesture = true
+      lastPinchDistance = getPointerDistance()
     }
-    showTooltip(tooltip, hit, event.clientX, event.clientY)
-    const trace = renderer.getCurrentTrace()
-    if (trace) renderSequence(sequencePanel, trace, hit.index)
   })
 
-  canvas.addEventListener('mouseleave', () => hideTooltip(tooltip))
+  canvas.addEventListener('pointermove', (event) => {
+    const pointer = activePointers.get(event.pointerId)
+    if (pointer) {
+      if (event.pointerType !== 'mouse') event.preventDefault()
+      activePointers.set(event.pointerId, {
+        ...pointer,
+        clientX: event.clientX,
+        clientY: event.clientY,
+        moved:
+          pointer.moved ||
+          Math.hypot(event.clientX - pointer.startX, event.clientY - pointer.startY) >= tapMoveThreshold
+      })
+
+      if (activePointers.size === 1) {
+        renderer.panPixels(pointer.clientX - event.clientX)
+        refreshReadout()
+        return
+      }
+      if (activePointers.size === 2) {
+        const currentDistance = getPointerDistance()
+        const [first, second] = [...activePointers.values()]
+        if (!first || !second || currentDistance === 0) return
+        const centerX = (first.clientX + second.clientX) / 2 - canvasLeft
+        if (lastPinchDistance > 0) {
+          renderer.zoom(lastPinchDistance / currentDistance, centerX)
+          refreshReadout()
+        }
+        lastPinchDistance = currentDistance
+        return
+      }
+
+      return
+    }
+
+    if (event.pointerType === 'mouse') inspectBase(event.clientX, event.clientY)
+  })
+
+  const finishPointer = (event: PointerEvent, cancelled = false) => {
+    const pointer = activePointers.get(event.pointerId)
+    if (!pointer) return
+    if (event.pointerType !== 'mouse') event.preventDefault()
+    activePointers.delete(event.pointerId)
+    releasePointer(event.pointerId)
+
+    if (!cancelled && !hadMultiTouchGesture && !pointer.moved) inspectBase(event.clientX, event.clientY, true)
+    if (activePointers.size < 2) lastPinchDistance = 0
+    if (activePointers.size === 0) hadMultiTouchGesture = false
+  }
+
+  canvas.addEventListener('pointerup', (event) => finishPointer(event))
+  canvas.addEventListener('pointercancel', (event) => finishPointer(event, true))
+  canvas.addEventListener('lostpointercapture', (event) => {
+    activePointers.delete(event.pointerId)
+    if (activePointers.size < 2) lastPinchDistance = 0
+    if (activePointers.size === 0) hadMultiTouchGesture = false
+  })
+
+  canvas.addEventListener('pointerleave', (event) => {
+    if (event.pointerType !== 'mouse' || activePointers.size > 0) return
+    hoveredBaseIndex = null
+    hideTooltip(tooltip)
+    refreshSequence()
+  })
 
   return root
 }
