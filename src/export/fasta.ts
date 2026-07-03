@@ -21,7 +21,7 @@ export function toFasta(
   if (inTrimmedMode && trim && trim.status === 'ok') {
     tags.push(`trimmed ${trim.trimStart + 1}–${trim.trimEnd}/${trace.baseCalls.length} bp Q${trim.meanQuality.toFixed(1)}`)
   } else if (inTrimmedMode && trim && trim.status === 'all-trimmed') {
-    tags.push(`trimmed 0–0/${trace.baseCalls.length} bp`)
+    tags.push(`trimmed all/${trace.baseCalls.length} bp`)
   }
 
   const header = tags.length > 0 ? `>${fastaId} [${tags.join('; ')}]` : `>${fastaId}`

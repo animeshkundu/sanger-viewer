@@ -34,6 +34,9 @@ export function renderSequence(
 
   if (allTrimmedInTrimmedMode) {
     const emptyState = document.createElement('div')
+    emptyState.className = 'sequence-empty-state'
+    emptyState.setAttribute('role', 'status')
+    emptyState.setAttribute('aria-live', 'polite')
     emptyState.textContent = 'All bases trimmed at this threshold.'
     panel.appendChild(emptyState)
     return
