@@ -295,7 +295,7 @@ a {
   border-color: var(--color-brand-hover);
 }
 
-.empty-state__file-label:focus-within {
+.dropzone:has(#file-input:focus-visible) #empty-state:not(.hidden) .empty-state__file-label {
   outline: 2px solid var(--color-brand);
   outline-offset: 2px;
   border-radius: var(--radius-md);
@@ -401,7 +401,7 @@ a {
   background: var(--color-accent-bg);
 }
 
-.dropzone-header__label:focus-within {
+.dropzone:has(#file-input:focus-visible) #dropzone-header:not(.hidden) .dropzone-header__label {
   outline: 2px solid var(--color-brand);
   outline-offset: 2px;
 }

@@ -16,7 +16,7 @@ export function createTraceViewer(): HTMLDivElement {
     <h1>Sanger Viewer</h1>
 
     <!-- Hidden status span kept for test/automation compatibility -->
-    <span id="status" class="sr-only" aria-live="polite" aria-atomic="true">No trace loaded.</span>
+    <span id="status" class="sr-only">No trace loaded.</span>
 
     <div class="dropzone" data-testid="dropzone" role="region" aria-label="File upload area">
 
@@ -201,7 +201,8 @@ export function createTraceViewer(): HTMLDivElement {
   const loadSample = async () => {
     try {
       setState('loading', 'Loading sample trace…')
-      const sampleUrl = new URL('sample.ab1', import.meta.env.BASE_URL as string).href
+      const sampleBaseUrl = (import.meta.env.BASE_URL as string).replace(/\/?$/, '/')
+      const sampleUrl = `${sampleBaseUrl}sample.ab1`
       const response = await fetch(sampleUrl)
       if (!response.ok) throw new Error(`Could not fetch sample (${response.status})`)
       const buffer = await response.arrayBuffer()

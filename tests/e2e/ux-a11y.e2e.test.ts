@@ -1,5 +1,16 @@
 import path from 'node:path'
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
+
+const MAX_TABS_TO_FILE_INPUT = 8
+
+async function tabToFileInput(page: Page) {
+  for (let i = 0; i < MAX_TABS_TO_FILE_INPUT; i++) {
+    await page.keyboard.press('Tab')
+    const focusedId = await page.evaluate(() => document.activeElement?.id ?? '')
+    if (focusedId === 'file-input') return
+  }
+  throw new Error('Could not focus #file-input via keyboard navigation')
+}
 
 test('shows empty state on first load', async ({ page }) => {
   await page.goto('')
@@ -50,14 +61,24 @@ test('sample load button fetches and loads the sample trace', async ({ page }) =
   const sampleBtn = page.getByRole('button', { name: /load sample/i })
   await expect(sampleBtn).toBeVisible()
   await sampleBtn.click()
-  // Loading banner should appear first
-  // Then resolve to either success or error (network may not serve sample in all envs)
-  // We verify: loading eventually finishes (loading banner goes away)
-  await expect(page.locator('#loading-banner')).toBeHidden({ timeout: 10000 })
-  // And some outcome banner is shown
-  const successVisible = await page.locator('#success-banner').isVisible()
-  const errorVisible = await page.locator('#error-banner').isVisible()
-  expect(successVisible || errorVisible).toBeTruthy()
+  await expect(page.locator('#status')).toContainText('Loaded', { timeout: 10000 })
+  await expect(page.locator('#success-banner')).toBeVisible()
+  await expect(page.locator('#error-banner')).toBeHidden()
+
+  const isCanvasPainted = await page.locator('canvas').evaluate((canvasEl) => {
+    const ctx = (canvasEl as HTMLCanvasElement).getContext('2d')
+    if (!ctx) return false
+    const { width, height } = canvasEl as HTMLCanvasElement
+    if (width === 0 || height === 0) return false
+    const pixels = ctx.getImageData(0, 0, width, height).data
+    for (let i = 0; i < pixels.length; i += 4) {
+      if (pixels[i] !== 0 || pixels[i + 1] !== 0 || pixels[i + 2] !== 0 || pixels[i + 3] !== 0) {
+        return true
+      }
+    }
+    return false
+  })
+  expect(isCanvasPainted).toBeTruthy()
 })
 
 test('controls have accessible names', async ({ page }) => {
@@ -79,6 +100,13 @@ test('controls have accessible names', async ({ page }) => {
 test('keyboard focus order is logical and focus rings are visible', { tag: ['@desktop'] }, async ({ page, isMobile }) => {
   test.skip(isMobile, 'tablet/touch project does not support keyboard focus testing')
   await page.goto('')
+
+  await tabToFileInput(page)
+  await expect(page.locator(':focus')).toHaveId('file-input')
+  const emptyStateFocusOutline = await page.locator('.empty-state__file-label').evaluate((node: Element) => {
+    return window.getComputedStyle(node).outlineWidth
+  })
+  expect(emptyStateFocusOutline).not.toBe('0px')
 
   // Tab through at least three focusable elements in the empty state
   const handles: string[] = []
@@ -102,6 +130,16 @@ test('keyboard focus order is logical and focus rings are visible', { tag: ['@de
     return window.getComputedStyle(node).outlineWidth
   })
   expect(outline).not.toBe('0px')
+
+  await page.setInputFiles('#file-input', path.resolve(process.cwd(), 'fixtures/ab1/310.ab1'))
+  await expect(page.locator('#status')).toContainText('Loaded')
+  await page.focus('body')
+  await tabToFileInput(page)
+  await expect(page.locator(':focus')).toHaveId('file-input')
+  const headerFocusOutline = await page.locator('.dropzone-header__label').evaluate((node: Element) => {
+    return window.getComputedStyle(node).outlineWidth
+  })
+  expect(headerFocusOutline).not.toBe('0px')
 })
 
 test('drag-drop shows dragging class then clears it', async ({ page }) => {

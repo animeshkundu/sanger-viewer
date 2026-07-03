@@ -59,11 +59,11 @@
       </p>
       <h2>Keyboard and screen reader support</h2>
       <p>
-        Every button now carries an <code>aria-label</code>. The status banners use
+        The controls now expose accessible names via their visible button text, and the toolbar
+        itself carries an <code>aria-label</code>. The status banners use
         <code>aria-live</code> so screen readers announce transitions without the user having
-        to manually navigate there. The hidden <code>#status</code> span kept its update path
-        for automation tests that rely on it — the ARIA live approach is layered on top,
-        not a replacement.
+        to manually navigate there. The hidden <code>#status</code> span is still updated for
+        automation tests, but it is no longer a live region to avoid duplicate announcements.
       </p>
       <p>
         Focus rings are now visible on every interactive element, which sounds like a tiny
