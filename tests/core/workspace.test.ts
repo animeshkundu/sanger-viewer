@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { TraceWorkspace, makeSlot } from '../../src/workspace/TraceWorkspace'
 import type { TraceData } from '../../src/types/trace'
+import { DEFAULT_MIXED_BASE_THRESHOLD } from '../../src/calling/mixedBase'
 
 /** Minimal fake TraceData sufficient for workspace slot tests. */
 function fakeTrace(name: string, sampleCount = 500): TraceData {
@@ -40,6 +41,8 @@ describe('TraceWorkspace', () => {
     expect(active!.id).toBe(id)
     expect(active!.fileName).toBe('a.ab1')
     expect(active!.rawTrace).not.toBeNull()
+    expect(active!.mixedBaseThreshold).toBe(DEFAULT_MIXED_BASE_THRESHOLD)
+    expect(active!.mixedBaseResult).toBeNull()
   })
 
   it('add() appends slots in order', () => {

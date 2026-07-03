@@ -9,6 +9,7 @@ interface RenderSequenceOptions {
   mode?: 'full' | 'trimmed'
   matches?: SubsequenceMatch[]
   activeMatchIndex?: number
+  ambiguousIndices?: number[]
 }
 
 export function createSequencePanel(): HTMLDivElement {
@@ -41,10 +42,13 @@ export function renderSequence(
     mode = 'full',
     matches = [],
     activeMatchIndex = -1,
+    ambiguousIndices = [],
   }: RenderSequenceOptions = {},
 ): void {
   panel.innerHTML = ''
   const fragment = document.createDocumentFragment()
+  const ambiguousSet = new Set(ambiguousIndices)
+  let ambiguousVisibleCount = 0
 
   const inTrimmedMode = mode === 'trimmed' && trim !== null && trim.status === 'ok'
   const allTrimmedInTrimmedMode = mode === 'trimmed' && trim !== null && trim.status === 'all-trimmed'
@@ -83,6 +87,11 @@ export function renderSequence(
     if (trim && trim.status === 'ok' && mode === 'full') {
       if (absolute < trim.trimStart || absolute >= trim.trimEnd) classes.push('trimmed-base')
     }
+    if (ambiguousSet.has(absolute)) {
+      classes.push('ambiguous-base')
+      span.dataset.ambiguous = 'true'
+      ambiguousVisibleCount += 1
+    }
     if (classes.length) span.className = classes.join(' ')
   }
 
@@ -117,4 +126,5 @@ export function renderSequence(
   }
 
   panel.appendChild(fragment)
+  panel.setAttribute('data-ambiguous-visible-count', String(ambiguousVisibleCount))
 }

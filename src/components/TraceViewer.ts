@@ -2,6 +2,8 @@ import { ChromatogramCanvas } from '../render/ChromatogramCanvas'
 import {
   createControls,
   setControlsDisabled,
+  setMixedSummary,
+  setMixedThresholdDisplay,
   setSearchEmptyState,
   setSearchNavigationState,
   setSearchSummary,
@@ -19,6 +21,7 @@ import { toFasta } from '../export/fasta'
 import { exportSvg } from '../export/svg'
 import { reverseComplementTrace } from '../revcomp'
 import { mottTrim, DEFAULT_TRIM_SETTINGS } from '../quality/mottTrim'
+import { callMixedBases, DEFAULT_MIXED_BASE_THRESHOLD, type MixedBaseResult } from '../calling/mixedBase'
 import {
   findSubsequenceMatches,
   mapCanonicalMatchesToDisplay,
@@ -188,11 +191,15 @@ export function createTraceViewer(): HTMLDivElement {
   let rawTrace: TraceData | null = null
   let trimSettings: TrimSettings = { ...DEFAULT_TRIM_SETTINGS }
   let trimResult: TrimResult | null = null
+  let mixedBaseThreshold = DEFAULT_MIXED_BASE_THRESHOLD
+  let mixedBaseResult: MixedBaseResult | null = null
   let trimRaf = 0
   let viewerState: ViewerState = 'empty'
   let searchState: SearchState = { query: '', matches: [], activeIndex: -1 }
   const workspace = new TraceWorkspace(5)
   let activeSlotId: string | null = null
+  setMixedThresholdDisplay(controls, mixedBaseThreshold)
+  setMixedSummary(controls, 0)
 
   const getDisplaySearchMatches = () =>
     rawTrace ? mapCanonicalMatchesToDisplay(searchState.matches, rawTrace.baseCalls.length, isRevcomp) : []
@@ -278,11 +285,26 @@ export function createTraceViewer(): HTMLDivElement {
     refreshSequence()
   }
 
+  const buildDisplayTrace = (): TraceData | null => {
+    if (!rawTrace) return null
+    const strandTrace = isRevcomp ? reverseComplementTrace(rawTrace) : rawTrace
+    mixedBaseResult = callMixedBases(strandTrace, mixedBaseThreshold)
+    setMixedSummary(controls, mixedBaseResult.ambiguousCount)
+    return {
+      ...strandTrace,
+      baseCalls: mixedBaseResult.baseCalls,
+      sequence: mixedBaseResult.sequence,
+    }
+  }
+
   /** Apply (or re-apply) the current strand to the renderer. */
-  const applyDisplayTrace = () => {
-    if (!rawTrace) return
-    const displayTrace = isRevcomp ? reverseComplementTrace(rawTrace) : rawTrace
+  const applyDisplayTrace = (preserveViewport = false) => {
+    const displayTrace = buildDisplayTrace()
+    if (!displayTrace) return
+    const previousViewport = preserveViewport ? renderer.getViewportState() : null
     renderer.setTrace(displayTrace)
+    renderer.setAmbiguousIndices(mixedBaseResult?.ambiguousIndices ?? [])
+    if (previousViewport) renderer.setViewportState(previousViewport.startSample, previousViewport.samplesPerPixel)
     applyTrim(displayTrace)
     syncSearchUi(false)
     refreshReadout()
@@ -310,6 +332,22 @@ export function createTraceViewer(): HTMLDivElement {
       trimRaf = 0
       const trace = renderer.getCurrentTrace()
       if (trace) applyTrim(trace)
+    })
+  }
+
+  let mixedBaseRaf = 0
+  const cancelMixedBaseRecompute = () => {
+    if (!mixedBaseRaf) return
+    cancelAnimationFrame(mixedBaseRaf)
+    mixedBaseRaf = 0
+  }
+  const scheduleMixedBaseRecompute = () => {
+    if (mixedBaseRaf) return
+    const scheduledSlotId = activeSlotId
+    mixedBaseRaf = requestAnimationFrame(() => {
+      mixedBaseRaf = 0
+      if (scheduledSlotId !== activeSlotId) return
+      applyDisplayTrace(true)
     })
   }
 
@@ -368,6 +406,7 @@ export function createTraceViewer(): HTMLDivElement {
       mode: trimSettings.mode,
       matches: getDisplaySearchMatches(),
       activeMatchIndex: searchState.activeIndex,
+      ambiguousIndices: mixedBaseResult?.ambiguousIndices ?? [],
     })
   }
 
@@ -423,6 +462,8 @@ export function createTraceViewer(): HTMLDivElement {
       trimSettings: { ...trimSettings },
       trimResult,
       searchState: { ...searchState },
+      mixedBaseThreshold,
+      mixedBaseResult,
       viewport: renderer.getViewportState(),
     })
   }
@@ -430,6 +471,8 @@ export function createTraceViewer(): HTMLDivElement {
   const makeActiveSlot = (trace: TraceData) => {
     const slot = makeSlot(trace)
     slot.viewport = renderer.getViewportState()
+    slot.mixedBaseThreshold = mixedBaseThreshold
+    slot.mixedBaseResult = mixedBaseResult
     return slot
   }
 
@@ -440,15 +483,20 @@ export function createTraceViewer(): HTMLDivElement {
   }
 
   const clearDisplayedTrace = () => {
+    cancelMixedBaseRecompute()
     rawTrace = null
     isRevcomp = false
     trimSettings = { ...DEFAULT_TRIM_SETTINGS }
     trimResult = null
+    mixedBaseThreshold = DEFAULT_MIXED_BASE_THRESHOLD
+    mixedBaseResult = null
     searchState = { query: '', matches: [], activeIndex: -1 }
     selectedBaseIndex = null
     hoveredBaseIndex = null
     hideTooltip(tooltip)
     setStrandToggleState(controls, false)
+    setMixedThresholdDisplay(controls, mixedBaseThreshold)
+    setMixedSummary(controls, 0)
     updateMetadataPanel(metadataPanel, null)
     clearRenderPanels()
   }
@@ -460,6 +508,7 @@ export function createTraceViewer(): HTMLDivElement {
    * and restore all per-slot state (trace, strand, trim, search, viewport).
    */
   const switchToSlot = (id: string, saveOutgoing = true) => {
+    cancelMixedBaseRecompute()
     if (saveOutgoing) saveCurrentSlot()
     workspace.activate(id)
     activeSlotId = id
@@ -472,12 +521,16 @@ export function createTraceViewer(): HTMLDivElement {
     trimSettings = { ...slot.trimSettings }
     trimResult = slot.trimResult
     searchState = { ...slot.searchState }
+    mixedBaseThreshold = slot.mixedBaseThreshold
+    mixedBaseResult = slot.mixedBaseResult
 
     // Reset interaction state.
     selectedBaseIndex = null
     hoveredBaseIndex = null
     hideTooltip(tooltip)
     setStrandToggleState(controls, isRevcomp)
+    setMixedThresholdDisplay(controls, mixedBaseThreshold)
+    setMixedSummary(controls, mixedBaseResult?.ambiguousCount ?? 0)
 
     if (rawTrace) {
       updateMetadataPanel(metadataPanel, rawTrace.metadata)
@@ -498,6 +551,7 @@ export function createTraceViewer(): HTMLDivElement {
 
   const load = async (file: File) => {
     try {
+      cancelMixedBaseRecompute()
       saveCurrentSlot()
       setState('loading', `Loading ${file.name}…`)
       const buffer = await file.arrayBuffer()
@@ -510,8 +564,11 @@ export function createTraceViewer(): HTMLDivElement {
       rawTrace = trace
       trimSettings = { ...DEFAULT_TRIM_SETTINGS }
       trimResult = null
+      mixedBaseThreshold = DEFAULT_MIXED_BASE_THRESHOLD
+      mixedBaseResult = null
       searchState = { query: '', matches: [], activeIndex: -1 }
       setStrandToggleState(controls, false)
+      setMixedThresholdDisplay(controls, mixedBaseThreshold)
       hideTooltip(tooltip)
       updateMetadataPanel(metadataPanel, trace.metadata)
       applyDisplayTrace()
@@ -532,6 +589,7 @@ export function createTraceViewer(): HTMLDivElement {
 
   const loadSample = async () => {
     try {
+      cancelMixedBaseRecompute()
       saveCurrentSlot()
       setState('loading', 'Loading sample trace…')
       const sampleBaseUrl = (import.meta.env.BASE_URL as string).replace(/\/?$/, '/')
@@ -548,8 +606,11 @@ export function createTraceViewer(): HTMLDivElement {
       rawTrace = trace
       trimSettings = { ...DEFAULT_TRIM_SETTINGS }
       trimResult = null
+      mixedBaseThreshold = DEFAULT_MIXED_BASE_THRESHOLD
+      mixedBaseResult = null
       searchState = { query: '', matches: [], activeIndex: -1 }
       setStrandToggleState(controls, false)
+      setMixedThresholdDisplay(controls, mixedBaseThreshold)
       hideTooltip(tooltip)
       updateMetadataPanel(metadataPanel, trace.metadata)
       applyDisplayTrace()
@@ -708,6 +769,13 @@ export function createTraceViewer(): HTMLDivElement {
     const target = event.target as HTMLInputElement
     if (target.id === 'search-input') {
       applySearchQuery(target.value)
+      return
+    }
+    if (target.getAttribute('data-mixed') === 'threshold') {
+      const value = Number(target.value)
+      mixedBaseThreshold = Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : DEFAULT_MIXED_BASE_THRESHOLD
+      setMixedThresholdDisplay(controls, mixedBaseThreshold)
+      scheduleMixedBaseRecompute()
       return
     }
     if (target.getAttribute('data-trim') !== 'threshold') return

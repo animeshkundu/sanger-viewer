@@ -13,6 +13,7 @@ export class ChromatogramCanvas {
   private trimBoundaries: TrimBoundaries | null = null
   private searchMatches: SubsequenceMatch[] = []
   private activeSearchMatchIndex = -1
+  private ambiguousIndices: number[] = []
   private resizeObserver: ResizeObserver | null = null
   private themeMediaQuery: MediaQueryList | null = null
   private themeObserver: MutationObserver | null = null
@@ -20,6 +21,10 @@ export class ChromatogramCanvas {
     matchColor: 'rgba(59, 130, 246, 0.18)',
     activeFill: 'rgba(245, 158, 11, 0.30)',
     activeStroke: 'rgba(245, 158, 11, 0.85)',
+  }
+  private ambiguousHighlightColors = {
+    fill: 'rgba(99, 102, 241, 0.2)',
+    stroke: 'rgba(79, 70, 229, 0.8)',
   }
 
   constructor(private canvas: HTMLCanvasElement) {
@@ -108,6 +113,12 @@ export class ChromatogramCanvas {
     this.requestDraw()
   }
 
+  setAmbiguousIndices(indices: number[]): void {
+    this.ambiguousIndices = indices
+    this.canvas.setAttribute('data-ambiguous-count', String(indices.length))
+    this.requestDraw()
+  }
+
   focusBaseRange(startIndex: number, endIndex: number): void {
     if (!this.trace || this.trace.peakPositions.length === 0) return
     const width = Math.max(1, this.canvas.clientWidth || 1)
@@ -154,9 +165,12 @@ export class ChromatogramCanvas {
     this.trimBoundaries = null
     this.searchMatches = []
     this.activeSearchMatchIndex = -1
+    this.ambiguousIndices = []
     this.canvas.setAttribute('data-trim-active', 'false')
     this.canvas.setAttribute('data-search-match-count', '0')
     this.canvas.setAttribute('data-search-visible-count', '0')
+    this.canvas.setAttribute('data-ambiguous-count', '0')
+    this.canvas.setAttribute('data-ambiguous-visible-count', '0')
     this.canvas.removeAttribute('data-search-active-range')
     this.requestDraw()
   }
@@ -245,6 +259,10 @@ export class ChromatogramCanvas {
       activeFill: cssVars.getPropertyValue('--color-search-canvas-active-fill').trim() || this.searchHighlightColors.activeFill,
       activeStroke: cssVars.getPropertyValue('--color-search-canvas-active-stroke').trim() || this.searchHighlightColors.activeStroke,
     }
+    this.ambiguousHighlightColors = {
+      fill: cssVars.getPropertyValue('--color-ambiguous-canvas-fill').trim() || this.ambiguousHighlightColors.fill,
+      stroke: cssVars.getPropertyValue('--color-ambiguous-canvas-stroke').trim() || this.ambiguousHighlightColors.stroke,
+    }
   }
 
   private draw(): void {
@@ -280,6 +298,7 @@ export class ChromatogramCanvas {
     // ── Trim region overlays (rendered before traces so signal shows through) ──
     this.drawTrimOverlays(vp, width, height)
     this.drawSearchHighlights(vp, width, height)
+    this.drawAmbiguousHighlights(vp, width, height)
 
     for (let i = 0; i < this.trace.peakPositions.length; i += 1) {
       const peak = this.trace.peakPositions[i]
@@ -447,5 +466,37 @@ export class ChromatogramCanvas {
     } else {
       this.canvas.removeAttribute('data-search-active-range')
     }
+  }
+
+  private drawAmbiguousHighlights(
+    vp: { startSample: number; endSample: number; samplesPerPixel: number },
+    width: number,
+    height: number,
+  ): void {
+    if (!this.trace || this.ambiguousIndices.length === 0) {
+      this.canvas.setAttribute('data-ambiguous-visible-count', '0')
+      return
+    }
+
+    const sampleToX = (sample: number) => (sample - vp.startSample) / vp.samplesPerPixel
+    let visibleCount = 0
+
+    for (const index of this.ambiguousIndices) {
+      const peak = this.trace.peakPositions[index]
+      if (peak === undefined || peak < vp.startSample || peak > vp.endSample) continue
+      visibleCount += 1
+      const center = sampleToX(peak)
+      const x = Math.max(0, center - 3)
+      const w = Math.max(3, Math.min(width, center + 3) - x)
+      this.ctx.fillStyle = this.ambiguousHighlightColors.fill
+      this.ctx.fillRect(x, 0, w, height)
+      this.ctx.save()
+      this.ctx.strokeStyle = this.ambiguousHighlightColors.stroke
+      this.ctx.lineWidth = 1
+      this.ctx.strokeRect(x, 0.5, w, Math.max(0, height - 1))
+      this.ctx.restore()
+    }
+
+    this.canvas.setAttribute('data-ambiguous-visible-count', String(visibleCount))
   }
 }

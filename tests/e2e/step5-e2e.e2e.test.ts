@@ -12,7 +12,7 @@
  *   ✓ Tap selects a base and opens tooltip (tablet only — skipped on desktop)
  *   ✓ File-switch replaces canvas content (pixel-sum differs)
  *   ✓ PNG export: filename ends .png AND file opens as a valid PNG (magic bytes)
- *   ✓ FASTA export: filename ends .fasta AND content is valid FASTA (>header + ACGTN)
+ *   ✓ FASTA export: filename ends .fasta AND content is valid FASTA (>header + IUPAC DNA)
  */
 
 import path from 'node:path'
@@ -193,7 +193,7 @@ test('tap on canvas selects a base (tablet only)', async ({ page, isMobile, brow
   await expect(page.locator('.tooltip')).toContainText('peak:')
   const selectedBase = page.locator('.sequence-panel .selected-base')
   await expect(selectedBase).toHaveCount(1)
-  await expect(selectedBase).toHaveText(/^[ACGTN]$/)
+  await expect(selectedBase).toHaveText(/^[ACGTNRYSWKMBDHV]$/)
 })
 
 // ---------------------------------------------------------------------------
@@ -290,6 +290,6 @@ test('FASTA export produces valid FASTA content', async ({ page }) => {
   // In Trimmed mode an all-trimmed read is valid and exports an empty body.
   const seqLines = lines.slice(1)
   for (const line of seqLines) {
-    expect(line).toMatch(/^[ACGTNacgtn]+$/)
+    expect(line).toMatch(/^[ACGTNacgtnRYSWKMBDHVryswkmbdhv]+$/)
   }
 })
