@@ -1,5 +1,6 @@
 import { TRACE_COLORS } from './colors'
 import { clampViewport } from './viewport'
+import { decimateSamples } from './decimation'
 import type { BaseHoverInfo, TraceData } from '../types/trace'
 
 export class ChromatogramCanvas {
@@ -125,10 +126,13 @@ export class ChromatogramCanvas {
     this.samplesPerPixel = vp.samplesPerPixel
 
     const channels = this.trace.channels
+    // Scan only the visible range for maxY — O(viewport) instead of O(trace).
     let maxY = 1
+    const scanFrom = Math.max(0, Math.floor(vp.startSample))
+    const scanTo = Math.min(this.trace.sampleCount - 1, Math.ceil(vp.endSample))
     ;(['A', 'C', 'G', 'T'] as const).forEach((base) => {
       const values = channels[base]
-      for (let i = 0; i < values.length; i += 1) {
+      for (let i = scanFrom; i <= scanTo; i += 1) {
         if (values[i] > maxY) maxY = values[i]
       }
     })
@@ -148,17 +152,27 @@ export class ChromatogramCanvas {
       this.ctx.lineWidth = 1.2
       this.ctx.beginPath()
       const data = channels[base]
-      let started = false
-      const from = Math.max(0, Math.floor(vp.startSample))
-      const to = Math.min(data.length - 1, Math.ceil(vp.endSample))
-      for (let sample = from; sample <= to; sample += 1) {
-        const x = (sample - vp.startSample) / vp.samplesPerPixel
-        const y = height * 0.85 - (data[sample] / maxY) * height * 0.7
-        if (!started) {
-          this.ctx.moveTo(x, y)
-          started = true
-        } else {
-          this.ctx.lineTo(x, y)
+      const points = decimateSamples(data, vp.startSample, vp.endSample, width, vp.startSample, vp.samplesPerPixel)
+      if (vp.samplesPerPixel <= 1) {
+        // Zoomed in — continuous polyline; decimation returns one point per sample (min === max).
+        let started = false
+        for (const { pixel, max } of points) {
+          const y = height * 0.85 - (max / maxY) * height * 0.7
+          if (!started) {
+            this.ctx.moveTo(pixel, y)
+            started = true
+          } else {
+            this.ctx.lineTo(pixel, y)
+          }
+        }
+      } else {
+        // Zoomed out — draw each pixel column as a discrete vertical segment so adjacent
+        // columns are not connected by diagonal lines that don't correspond to the signal.
+        for (const { pixel, min, max } of points) {
+          const yMax = height * 0.85 - (max / maxY) * height * 0.7
+          const yMin = height * 0.85 - (min / maxY) * height * 0.7
+          this.ctx.moveTo(pixel, yMin)
+          this.ctx.lineTo(pixel, yMax)
         }
       }
       this.ctx.stroke()

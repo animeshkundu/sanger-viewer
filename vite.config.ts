@@ -10,7 +10,8 @@ export default defineConfig(({ command }) => ({
         blog: fileURLToPath(new URL('./blog/index.html', import.meta.url)),
         blogEntry: fileURLToPath(new URL('./blog/2026-07-03-v0-foundation/index.html', import.meta.url)),
         blogTabletTouchEntry: fileURLToPath(new URL('./blog/2026-07-03-v1-tablet-touch-pass/index.html', import.meta.url)),
-        blogUxA11yEntry: fileURLToPath(new URL('./blog/2026-07-03-v2-ux-a11y/index.html', import.meta.url))
+        blogUxA11yEntry: fileURLToPath(new URL('./blog/2026-07-03-v2-ux-a11y/index.html', import.meta.url)),
+        blogPerfEntry: fileURLToPath(new URL('./blog/2026-07-03-v3-performance/index.html', import.meta.url))
       }
     }
   },
