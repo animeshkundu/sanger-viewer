@@ -651,7 +651,7 @@ export function createTraceViewer(): HTMLDivElement {
     const fileNames = residentSlots.map((s) => s.fileName)
     const result = computeConsensus(sequences)
     renderConsensusRow(consensusRow, result, fileNames)
-    setConsensusFastaButtonState(controls, true)
+    setConsensusFastaButtonState(controls, result.length > 0)
   }
 
   /**

@@ -47,7 +47,10 @@ export function renderConsensusRow(
   summaryEl.setAttribute('data-testid', 'consensus-summary')
   const mCount = result.mismatchCount
   if (result.length === 0) {
-    summaryEl.textContent = 'No consensus — load at least 2 traces'
+    summaryEl.textContent =
+      fileNames.length >= 2
+        ? 'No consensus — one or more loaded traces has an empty sequence'
+        : 'No consensus — load at least 2 traces'
   } else {
     const traceWord = fileNames.length === 1 ? 'trace' : 'traces'
     summaryEl.textContent =
