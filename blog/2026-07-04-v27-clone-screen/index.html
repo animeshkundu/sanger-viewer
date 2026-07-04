@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>2026-07-04 — v27 clone-screen stacked viewer: synchronized multi-trace comparison | sanger-viewer devlog</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-shell">
+        <a class="site-title" href="../../">sanger-viewer</a>
+        <nav class="site-nav" aria-label="Site">
+          <a href="../">Devlog</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="site-shell blog-entry">
+      <p><a href="../">← Back to devlog</a></p>
+      <h1>2026-07-04 — v27 clone-screen stacked viewer: synchronized multi-trace comparison</h1>
+      <p><time datetime="2026-07-04">July 4, 2026</time></p>
+
+      <p>
+        The classic Sanger verification loop goes like this: you sequence the same insert with
+        forward and reverse primers (or repeat the run with a second colony), and then you
+        carefully switch between the two chromatogram windows looking for any position where the
+        base call disagrees. One mismatch in a 700-base trace and the entire insert is suspect.
+        It is tedious, error-prone, and — until today — exactly how you had to do it with
+        sanger-viewer.
+      </p>
+      <p>
+        Step 27 ships the <strong>clone-screen stacked viewer</strong>: load two or more traces
+        and they line up base-by-base in a panel below the chromatogram. Agreement columns show
+        teal, mismatch columns flash amber, and a synchronized cursor tracks which position you
+        are looking at. Jump to the next mismatch with a single keystroke. Everything stays
+        in the browser — nothing leaves your machine.
+      </p>
+
+      <h2>What I shipped</h2>
+      <ul>
+        <li>
+          <strong>Stacked base-call comparison.</strong>
+          When two or more traces are resident in the workspace, a new
+          <em>Clone screen</em> panel appears below the consensus row. Each loaded trace
+          occupies one row; columns are aligned by position (clamped to the shortest
+          sequence). Unanimously-agreed columns are coloured teal; any column where at
+          least one trace disagrees is coloured amber with an underline.
+        </li>
+        <li>
+          <strong>Synchronized cursor.</strong>
+          A blue cursor column highlights the focused position across every trace row
+          simultaneously. Moving the cursor instantly scrolls the active chromatogram
+          viewport to that base, so you can inspect the underlying signal for any
+          position of interest without losing context.
+        </li>
+        <li>
+          <strong>Keyboard-first navigation.</strong>
+          Tab into the panel, then press <kbd>←</kbd> / <kbd>→</kbd> to step the
+          cursor one column at a time, <kbd>[</kbd> / <kbd>]</kbd> to jump to the
+          previous or next mismatch column, and <kbd>Home</kbd> / <kbd>End</kbd> to
+          jump to the first or last mismatch in the whole sequence. The keyboard-hint
+          line at the bottom of the panel is always visible as a quick reference.
+        </li>
+        <li>
+          <strong>Jump buttons.</strong>
+          ← Prev mismatch and Next mismatch → buttons give mouse users the same
+          navigation experience. Both are disabled (and visually dimmed) when there
+          are zero mismatches.
+        </li>
+        <li>
+          <strong>Copy mismatch report.</strong>
+          The "Copy report" button writes a tab-separated mismatch table to the
+          clipboard: one header row (Position, then one column per file name) followed
+          by one data row per mismatch column (1-based position, then the base from
+          each trace). Paste it straight into a spreadsheet or lab notebook.
+        </li>
+        <li>
+          <strong>Live summary line.</strong>
+          The panel header shows the trace count, the comparison length in bp, and the
+          exact mismatch count so you know at a glance how many positions need
+          attention.
+        </li>
+        <li>
+          <strong>Full light + dark theme.</strong>
+          All colours use CSS custom properties with matching dark-palette overrides —
+          teal for agreement, amber for mismatches, blue for the cursor — with
+          ≥ 4.5 : 1 measured contrast in both modes.
+        </li>
+        <li>
+          <strong>Accessibility throughout.</strong>
+          The panel carries <code>role="region"</code> with an aria-label;
+          each trace row has an aria-label with the file name; cursor position
+          changes are announced via a live region (<code>aria-live="polite"</code>);
+          the panel receives a visible focus ring on keyboard focus; navigation
+          buttons have descriptive aria-labels.
+        </li>
+      </ul>
+
+      <h2>Architecture</h2>
+      <ul>
+        <li>
+          <strong><code>src/cloneScreen/stackedViewer.ts</code></strong> — pure TypeScript,
+          zero DOM. Exports <code>computeStackedView(sequences)</code> which returns per-column
+          <code>StackedColumn</code> objects (position, per-trace bases, allAgree flag, IUPAC
+          consensus base), sorted <code>mismatchIndices</code>, and summary counts.
+          Also exports <code>nextMismatch</code>, <code>prevMismatch</code>,
+          <code>clampCursor</code>, and <code>buildMismatchReport</code> (TSV formatter).
+          All computations are client-side; no data leaves the browser.
+        </li>
+        <li>
+          <strong><code>src/components/CloneScreenPanel.ts</code></strong> — DOM component.
+          <code>createCloneScreenPanel(onCursorChange)</code> returns a panel element and a
+          state object; <code>renderCloneScreen(elements, sequences, fileNames)</code> paints
+          the ruler + N trace rows + keyboard hint; <code>hideCloneScreen(elements)</code>
+          tears it down. Cursor moves call <code>onCursorChange(position)</code> so
+          <code>TraceViewer</code> can scroll the chromatogram.
+        </li>
+        <li>
+          <strong><code>src/components/TraceViewer.ts</code></strong> — added
+          <code>refreshCloneScreen()</code> (mirrors <code>refreshConsensus()</code>) and a
+          combined helper <code>refreshMultiTracePanels()</code> that calls both plus
+          <code>syncContigPanel()</code>. All trace-set change events now go through this
+          helper so the clone screen is always in sync.
+        </li>
+        <li>
+          <strong><code>src/style.css</code></strong> — 17 new design tokens for the clone
+          screen (light + dark), plus component styles for the panel, ruler, base cells
+          (agree / mismatch / cursor states), navigation buttons, and keyboard hint.
+          <code>prefers-reduced-motion</code> guard strips the base-cell background
+          transition when motion is reduced.
+        </li>
+      </ul>
+
+      <h2>Tests</h2>
+      <ul>
+        <li>
+          <code>tests/core/cloneScreen.test.ts</code> — 45 exact-value unit tests:
+          <ul>
+            <li>
+              <code>computeStackedView</code> — edge cases (empty, single sequence);
+              EXACT mismatch indices <code>[1, 3]</code> for the 2-trace case;
+              EXACT mismatch indices <code>[1, 7]</code> for the 3-trace case;
+              per-column base arrays; allAgree/consensusBase; IUPAC resolution
+              (C+T → Y, T+A → W, C-plurality → C); case normalization.
+            </li>
+            <li>
+              <code>nextMismatch</code> / <code>prevMismatch</code> — EXACT cursor
+              positions for known mismatch lists including null returns at boundaries.
+            </li>
+            <li>
+              <code>clampCursor</code> — negative, over-length, zero-length, and
+              mid-range cases.
+            </li>
+            <li>
+              <code>buildMismatchReport</code> — EXACT TSV bytes for a 2-trace and
+              a 3-trace known input; empty string for zero mismatches; 1-based position
+              column verified.
+            </li>
+          </ul>
+        </li>
+        <li>
+          <code>tests/e2e/clone-screen.e2e.test.ts</code> — 15 Playwright tests:
+          panel hidden with one trace; visible with two; EXACT "0 mismatches" when
+          the same file is loaded twice; EXACT "2 traces" in summary; keyboard focus +
+          ArrowRight → cursor moves to Position 2 → ArrowLeft → Position 1; prev/next
+          buttons visible; copy-report button visible; two trace rows rendered, no
+          third; cursor cell has <code>--cursor</code> class at position 0 on load;
+          two different AB1 files → mismatch count &gt; 0; keyboard hint visible;
+          role=region + aria-label; bp count in summary.
+        </li>
+      </ul>
+    </main>
+  </body>
+</html>
