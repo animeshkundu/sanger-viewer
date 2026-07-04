@@ -1,7 +1,10 @@
+import fs from 'node:fs/promises'
 import path from 'node:path'
 import { test, expect, type Page } from '@playwright/test'
 
 const MAX_TABS_TO_FILE_INPUT = 15
+const SAMPLE_BASE_COUNT = 868
+const SAMPLE_BASE_AT_POSITION_100 = 'C'
 
 async function tabToFileInput(page: Page) {
   for (let i = 0; i < MAX_TABS_TO_FILE_INPUT; i++) {
@@ -12,15 +15,17 @@ async function tabToFileInput(page: Page) {
   throw new Error('Could not focus #file-input via keyboard navigation')
 }
 
-test('shows empty state on first load', async ({ page }) => {
+test('auto-loads the bundled sample trace on first load', async ({ page }) => {
   await page.goto('')
-  await expect(page.locator('#empty-state')).toBeVisible()
-  await expect(page.locator('#empty-state .empty-state__title')).toContainText('Load a Sanger trace')
-  await expect(page.getByRole('button', { name: /load sample/i })).toBeVisible()
-  // Compact header should be hidden, banners should be hidden
-  await expect(page.locator('#dropzone-header')).toBeHidden()
-  await expect(page.locator('#loading-banner')).toBeHidden()
-  await expect(page.locator('#error-banner')).toBeHidden()
+  await expect(page.locator('#status')).toContainText(`Loaded sample.ab1 (${SAMPLE_BASE_COUNT} bases)`, { timeout: 10000 })
+  await expect(page.locator('#empty-state')).toBeHidden()
+  await expect(page.locator('#dropzone-header')).toBeVisible()
+  await expect(page.locator('#success-banner')).toContainText(`Loaded sample.ab1 (${SAMPLE_BASE_COUNT} bases)`)
+  await expect(page.locator('[data-testid="chromatogram-canvas"]')).toHaveAttribute('data-viewport-start', /\d/)
+  await expect(page.locator('[data-testid="quality-track-canvas"]')).toHaveAttribute('data-bar-count', /\d+/)
+  await expect(page.locator('.sequence-panel [data-base-index="99"]')).toHaveText(SAMPLE_BASE_AT_POSITION_100)
+  await expect(page.locator('.sequence-panel [data-base-index="99"]')).toHaveAttribute('aria-label', 'C at position 100')
+  await expect(page.locator('[data-testid="sample-ribbon"]')).toBeVisible()
 })
 
 test('shows loading indicator then success banner after file load', async ({ page }) => {
@@ -56,29 +61,16 @@ test('shows error banner for invalid file and does not crash', async ({ page }) 
   expect(errors).toHaveLength(0)
 })
 
-test('sample load button fetches and loads the sample trace', async ({ page }) => {
+test('sample ribbon is dismissible and hides when a user file loads', async ({ page }) => {
   await page.goto('')
-  const sampleBtn = page.getByRole('button', { name: /load sample/i })
-  await expect(sampleBtn).toBeVisible()
-  await sampleBtn.click()
-  await expect(page.locator('#status')).toContainText('Loaded', { timeout: 10000 })
-  await expect(page.locator('#success-banner')).toBeVisible()
-  await expect(page.locator('#error-banner')).toBeHidden()
+  const ribbon = page.locator('[data-testid="sample-ribbon"]')
+  await expect(ribbon).toBeVisible({ timeout: 10000 })
+  await page.locator('[data-testid="sample-ribbon-dismiss"]').click()
+  await expect(ribbon).toBeHidden()
 
-  const isCanvasPainted = await page.locator('[data-testid="chromatogram-canvas"]').evaluate((canvasEl) => {
-    const ctx = (canvasEl as HTMLCanvasElement).getContext('2d')
-    if (!ctx) return false
-    const { width, height } = canvasEl as HTMLCanvasElement
-    if (width === 0 || height === 0) return false
-    const pixels = ctx.getImageData(0, 0, width, height).data
-    for (let i = 0; i < pixels.length; i += 4) {
-      if (pixels[i] !== 0 || pixels[i + 1] !== 0 || pixels[i + 2] !== 0 || pixels[i + 3] !== 0) {
-        return true
-      }
-    }
-    return false
-  })
-  expect(isCanvasPainted).toBeTruthy()
+  await page.setInputFiles('#file-input', path.resolve(process.cwd(), 'fixtures/ab1/310.ab1'))
+  await expect(page.locator('#status')).toContainText('Loaded 310.ab1')
+  await expect(ribbon).toBeHidden()
 })
 
 test('controls have accessible names', async ({ page }) => {
@@ -100,15 +92,16 @@ test('controls have accessible names', async ({ page }) => {
 test('keyboard focus order is logical and focus rings are visible', { tag: ['@desktop'] }, async ({ page, isMobile }) => {
   test.skip(isMobile, 'tablet/touch project does not support keyboard focus testing')
   await page.goto('')
+  await expect(page.locator('#status')).toContainText('Loaded sample.ab1', { timeout: 10000 })
 
   await tabToFileInput(page)
   await expect(page.locator(':focus')).toHaveId('file-input')
-  const emptyStateFocusOutline = await page.locator('.empty-state__file-label').evaluate((node: Element) => {
+  const initialFocusOutline = await page.locator('.dropzone-header__label').evaluate((node: Element) => {
     return window.getComputedStyle(node).outlineWidth
   })
-  expect(emptyStateFocusOutline).not.toBe('0px')
+  expect(initialFocusOutline).not.toBe('0px')
 
-  // Tab through at least three focusable elements in the empty state
+  // Tab through at least three focusable elements in the loaded state
   const handles: string[] = []
   for (let i = 0; i < 3; i++) {
     await page.keyboard.press('Tab')
@@ -130,16 +123,6 @@ test('keyboard focus order is logical and focus rings are visible', { tag: ['@de
     return window.getComputedStyle(node).outlineWidth
   })
   expect(outline).not.toBe('0px')
-
-  await page.setInputFiles('#file-input', path.resolve(process.cwd(), 'fixtures/ab1/310.ab1'))
-  await expect(page.locator('#status')).toContainText('Loaded')
-  await page.focus('body')
-  await tabToFileInput(page)
-  await expect(page.locator(':focus')).toHaveId('file-input')
-  const headerFocusOutline = await page.locator('.dropzone-header__label').evaluate((node: Element) => {
-    return window.getComputedStyle(node).outlineWidth
-  })
-  expect(headerFocusOutline).not.toBe('0px')
 })
 
 test('drag-drop shows dragging class then clears it', async ({ page }) => {
@@ -155,24 +138,47 @@ test('drag-drop shows dragging class then clears it', async ({ page }) => {
   await expect(dropzone).not.toHaveClass(/dragging/)
 })
 
-test('dark mode uses correct design token surface color', async ({ page }) => {
-  // Force dark mode via override
+test('dark mode paints the chromatogram canvas with the dark surface color instead of white', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'dark' })
+  const sampleBytes = await fs.readFile(path.resolve(process.cwd(), 'public/sample.ab1'))
+  await page.route('**/sample.ab1', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 250))
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/octet-stream',
+      body: sampleBytes,
+    })
+  })
   await page.goto('')
-  const bgToken = await page.evaluate(() =>
-    getComputedStyle(document.documentElement).getPropertyValue('--color-bg').trim()
-  )
-  // Dark palette defines --color-bg as #0f172a
-  expect(bgToken).toBe('#0f172a')
+  await expect(page.locator('#loading-banner')).toBeVisible()
+
+  const { surface, expectedPixel, pixel } = await page.locator('[data-testid="chromatogram-canvas"]').evaluate((canvasEl) => {
+    const canvas = canvasEl as HTMLCanvasElement
+    const ctx = canvas.getContext('2d')
+    if (!ctx) throw new Error('2D context unavailable')
+    const surface = getComputedStyle(document.documentElement).getPropertyValue('--color-surface').trim()
+    const parser = document.createElement('div')
+    parser.style.color = surface
+    document.body.append(parser)
+    const expectedPixel = getComputedStyle(parser).color.match(/\d+/g)?.map(Number) ?? []
+    parser.remove()
+    const pixel = Array.from(ctx.getImageData(1, 1, 1, 1).data)
+    return { surface, expectedPixel, pixel }
+  })
+
+  expect(surface).toBe('#1e293b')
+  expect(pixel).toEqual([...expectedPixel, 255])
+  expect(pixel).not.toEqual([255, 255, 255, 255])
+  await expect(page.locator('#status')).toContainText('Loaded sample.ab1', { timeout: 10000 })
 })
 
 test('new devlog entry is listed on blog index', async ({ page }) => {
   await page.goto('/blog/')
   await expect(
-    page.getByRole('link', { name: /frictionless UX \+ a11y/i })
+    page.getByRole('link', { name: /first-impression overhaul/i })
   ).toBeVisible()
 
-  await page.getByRole('link', { name: /frictionless UX \+ a11y/i }).click()
-  await expect(page).toHaveURL(/\/blog\/2026-07-03-v2-ux-a11y\/$/)
-  await expect(page.getByRole('heading', { name: /easy to use/i })).toBeVisible()
+  await page.getByRole('link', { name: /first-impression overhaul/i }).click()
+  await expect(page).toHaveURL(/\/blog\/2026-07-04-v18-first-impression\/$/)
+  await expect(page.getByRole('heading', { name: /first-impression overhaul/i })).toBeVisible()
 })

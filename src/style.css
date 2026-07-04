@@ -437,6 +437,38 @@ a {
   color: var(--color-success-text);
 }
 
+.sample-ribbon {
+  margin-top: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--color-accent-border);
+  border-radius: var(--radius-md);
+  background: var(--color-accent-bg);
+  color: var(--color-text);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+}
+
+.sample-ribbon__dismiss {
+  flex: 0 0 auto;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  line-height: 1;
+  padding: 0.25rem;
+}
+
+.sample-ribbon__dismiss:hover {
+  border-color: var(--color-accent-border);
+  background: color-mix(in srgb, var(--color-accent-bg) 72%, var(--color-surface));
+}
+
 /* Loading spinner */
 @keyframes spin {
   to { transform: rotate(360deg); }

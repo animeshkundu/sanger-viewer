@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>2026-07-04 — v18 first-impression overhaul | sanger-viewer devlog</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-shell">
+        <a class="site-title" href="../../">sanger-viewer</a>
+        <nav class="site-nav" aria-label="Site">
+          <a href="../">Devlog</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="site-shell blog-entry">
+      <p><a href="../">← Back to devlog</a></p>
+      <h1>2026-07-04 — v18 first-impression overhaul</h1>
+      <p><time datetime="2026-07-04">July 4, 2026</time></p>
+
+      <p>
+        Today’s change is about the first two seconds. The app used to open like it had crashed:
+        dark chrome, white canvas, nothing rendered yet, and the actual payoff hidden behind a
+        file picker. That is the wrong opening move for a chromatogram viewer. Now the page lands
+        on a real sample trace immediately, the quality track is already alive, and the UI plainly
+        says the sample is only there to help you get oriented before you drop in your own file.
+      </p>
+
+      <h2>What changed</h2>
+      <ul>
+        <li>The bundled <code>sample.ab1</code> trace now auto-loads on first visit.</li>
+        <li>The chromatogram canvas background now follows the theme surface token instead of hardcoding white.</li>
+        <li>A dismissible ribbon explains that you are viewing a local sample and can drop in your own <code>.ab1</code> or <code>.scf</code> file.</li>
+        <li>Fresh-load tests now assert known sample facts instead of relying on vague “canvas is non-empty” checks.</li>
+      </ul>
+
+      <h2>Why it matters</h2>
+      <p>
+        A first-time visitor should not have to imagine why the project is useful. They should see a
+        rendered chromatogram, colored peaks, base calls, and quality information right away. The
+        moment the page loads, the product now answers the question “why would I care?” with an
+        actual example instead of an empty shell.
+      </p>
+    </main>
+  </body>
+</html>
