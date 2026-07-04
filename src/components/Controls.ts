@@ -18,6 +18,7 @@ export function createControls(): HTMLDivElement {
     <button data-action="export-fasta">Export FASTA</button>
     <button data-action="export-fastq">Export FASTQ</button>
     <button data-action="export-qual">Export QUAL</button>
+    <button data-action="share-view" data-testid="share-view-btn">Share this view</button>
     <button data-action="export-consensus-fasta" data-testid="export-consensus-fasta" disabled>Export Consensus FASTA</button>
     <button data-action="print" data-testid="print-btn" aria-label="Print / Save as PDF" title="Print / Save as PDF" disabled>🖨 Print / Save as PDF</button>
     <button data-action="undo" aria-label="Undo base edit (Ctrl+Z)" title="Undo (Ctrl+Z)" disabled>↩ Undo</button>
@@ -72,6 +73,12 @@ export function createControls(): HTMLDivElement {
         >Trimmed</button>
       </div>
       <span id="trim-summary" class="trim-summary" aria-live="polite" aria-atomic="true"></span>
+    </div>
+    <div class="share-controls" role="group" aria-label="Shareable links">
+      <span id="share-status" class="share-status" role="status" aria-live="polite" aria-atomic="true"></span>
+      <p class="share-note">
+        Links are generated in-browser only. Sample + view-state links are shareable. Local files require reattaching the source trace, and very large state may exceed URL limits.
+      </p>
     </div>
     <div class="mixed-controls" role="group" aria-label="Mixed-base calling">
       <label class="mixed-label" for="mixed-threshold">
@@ -185,6 +192,11 @@ export function setMixedSummary(controls: HTMLDivElement, ambiguousCount: number
   const summary = controls.querySelector<HTMLElement>('#mixed-summary')
   if (!summary) return
   summary.textContent = `${ambiguousCount} ambiguous base${ambiguousCount === 1 ? '' : 's'}`
+}
+
+export function setShareStatus(controls: HTMLDivElement, message: string): void {
+  const el = controls.querySelector<HTMLElement>('#share-status')
+  if (el) el.textContent = message
 }
 
 /** Update disabled state of the undo and redo toolbar buttons. */

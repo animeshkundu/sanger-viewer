@@ -110,6 +110,25 @@ export class BaseEditModel {
     return this.redoStack.length > 0
   }
 
+  /** Serialize active edits for persistence (e.g. permalink state). */
+  toArray(): EditEntry[] {
+    return [...this.edits.values()].sort((a, b) => a.forwardIndex - b.forwardIndex)
+  }
+
+  /** Replace all edits from persisted data and clear undo/redo history. */
+  replace(entries: EditEntry[]): void {
+    this.edits.clear()
+    for (const entry of entries) {
+      this.edits.set(entry.forwardIndex, {
+        forwardIndex: entry.forwardIndex,
+        base: entry.base.toUpperCase(),
+        originalBase: entry.originalBase.toUpperCase(),
+      })
+    }
+    this.undoStack = []
+    this.redoStack = []
+  }
+
   /** Clear all edits and stacks.  Call this when loading a new trace. */
   reset(): void {
     this.edits.clear()

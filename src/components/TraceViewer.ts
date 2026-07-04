@@ -12,7 +12,8 @@ import {
   setTrimSummary,
   setTrimMode,
   setUndoRedoState,
-  setPrintButtonState
+  setPrintButtonState,
+  setShareStatus
 } from './Controls'
 import { createTooltip, hideTooltip, showTooltip } from './Tooltip'
 import { createBaseInspector, getBaseInspectorInfo, hideBaseInspector, showBaseInspector } from './BaseInspector'
@@ -39,6 +40,7 @@ import {
   type SubsequenceMatch
 } from '../search/findSubsequence'
 import { TraceWorkspace, makeSlot } from '../workspace/TraceWorkspace'
+import { decodePermalinkState, encodePermalinkState, type PermalinkStateV1 } from '../workspace/permalink'
 import { buildAnnotationFeatures, filterAnnotationFeaturesByRange, type AnnotationFeature } from '../annotations'
 import { mapSampleViewportToBaseRange } from '../render/viewport'
 import { BaseEditModel } from '../editing'
@@ -122,6 +124,7 @@ export function createTraceViewer(): HTMLDivElement {
           </button>
         </div>
         <p class="empty-state__hint">or drag &amp; drop a file anywhere in this area</p>
+        <p id="permalink-hint" class="empty-state__hint hidden" role="status" aria-live="polite" aria-atomic="true"></p>
       </div>
 
       <!-- Compact header (shown after a trace is loaded) -->
@@ -190,6 +193,7 @@ export function createTraceViewer(): HTMLDivElement {
   const successBanner = root.querySelector<HTMLElement>('#success-banner')!
   const successText = root.querySelector<HTMLElement>('#success-text')!
   const sampleBtn = root.querySelector<HTMLButtonElement>('#sample-load-btn')!
+  const permalinkHint = root.querySelector<HTMLElement>('#permalink-hint')!
   const searchInput = controls.querySelector<HTMLInputElement>('#search-input')!
   const canvas = root.querySelector<HTMLCanvasElement>('[data-testid="chromatogram-canvas"]')!
   canvas.style.touchAction = 'none'
@@ -197,6 +201,10 @@ export function createTraceViewer(): HTMLDivElement {
   const renderer = new ChromatogramCanvas(canvas)
   const rootDisconnectObserver = new MutationObserver(() => {
     if (!root.isConnected) {
+      if (permalinkRaf) {
+        cancelAnimationFrame(permalinkRaf)
+        permalinkRaf = 0
+      }
       qualityTrack.destroy()
       renderer.destroy()
       document.removeEventListener('keydown', undoRedoKeyHandler)
@@ -216,6 +224,7 @@ export function createTraceViewer(): HTMLDivElement {
   let hoveredBaseIndex: number | null = null
   let isRevcomp = false
   let rawTrace: TraceData | null = null
+  let traceSource: { kind: 'sample' | 'local'; value: string } | null = null
   let trimSettings: TrimSettings = { ...DEFAULT_TRIM_SETTINGS }
   let trimResult: TrimResult | null = null
   let mixedBaseThreshold = DEFAULT_MIXED_BASE_THRESHOLD
@@ -227,6 +236,9 @@ export function createTraceViewer(): HTMLDivElement {
   const workspace = new TraceWorkspace(5)
   let activeSlotId: string | null = null
   const editModel = new BaseEditModel()
+  const initialPermalink = decodePermalinkState(window.location.hash)
+  let pendingPermalink: PermalinkStateV1 | null = initialPermalink
+  let permalinkRaf = 0
   let editingIndex: number = -1  // display index of the span currently in "edit mode" (-1 = none)
   let inspectorDisplayIndex: number | null = null
   let inspectorActiveSpan: HTMLElement | null = null
@@ -316,6 +328,78 @@ export function createTraceViewer(): HTMLDivElement {
     }
     syncSearchUi(true)
     refreshSequence()
+  }
+
+  const setPermalinkHint = (message: string) => {
+    permalinkHint.textContent = message
+    permalinkHint.classList.toggle('hidden', message.length === 0)
+  }
+
+  const getPermalinkState = (): Omit<PermalinkStateV1, 'version'> | null => {
+    if (!rawTrace || !traceSource) return null
+    const viewport = renderer.getViewportState()
+    return {
+      source: traceSource,
+      view: viewport,
+      strand: isRevcomp ? 'reverse' : 'forward',
+      trim: trimSettings,
+      search: searchState,
+      selection: { baseIndex: inspectorDisplayIndex ?? selectedBaseIndex },
+      edits: editModel.toArray(),
+      overlays: {
+        quality: qualityTrack.isVisible(),
+        annotations: true,
+        mixedBases: true,
+      },
+    }
+  }
+
+  const persistPermalinkHash = () => {
+    const state = getPermalinkState()
+    if (!state) return
+    const encoded = encodePermalinkState(state, { maxChars: 1800 })
+    if (!encoded.hash) return
+    history.replaceState(null, '', `${location.pathname}${location.search}${encoded.hash}`)
+  }
+
+  const schedulePermalinkPersist = () => {
+    if (permalinkRaf) return
+    permalinkRaf = requestAnimationFrame(() => {
+      permalinkRaf = 0
+      persistPermalinkHash()
+    })
+  }
+
+  const applyPermalinkState = (state: PermalinkStateV1) => {
+    if (!rawTrace) return
+    isRevcomp = state.strand === 'reverse'
+    trimSettings = { ...state.trim }
+    setTrimMode(controls, trimSettings.mode)
+    const trimSlider = controls.querySelector<HTMLInputElement>('[data-trim="threshold"]')
+    if (trimSlider) trimSlider.value = String(trimSettings.threshold)
+    const trimOutput = controls.querySelector<HTMLOutputElement>('#trim-threshold-display')
+    if (trimOutput) trimOutput.value = String(trimSettings.threshold)
+    editModel.replace(state.edits)
+    setStrandToggleState(controls, isRevcomp)
+    setMixedThresholdDisplay(controls, mixedBaseThreshold)
+    setUndoRedoState(controls, false, false)
+    qualityTrack.setVisible(state.overlays.quality)
+    applyDisplayTrace()
+    renderer.setViewportState(state.view.startSample, state.view.samplesPerPixel)
+    const normalizedQuery = normalizeSearchQuery(state.search.query)
+    const matches = normalizedQuery ? findSubsequenceMatches(rawTrace.sequence, normalizedQuery) : []
+    searchState = {
+      query: normalizedQuery,
+      matches,
+      activeIndex: matches.length > 0 ? Math.max(0, Math.min(state.search.activeIndex, matches.length - 1)) : -1,
+    }
+    selectedBaseIndex = state.selection.baseIndex
+    hoveredBaseIndex = null
+    syncSearchUi(false)
+    refreshReadout()
+    refreshSequence()
+    setShareStatus(controls, '')
+    schedulePermalinkPersist()
   }
 
   const buildDisplayTrace = (): TraceData | null => {
@@ -464,6 +548,7 @@ export function createTraceViewer(): HTMLDivElement {
     updatePositionReadout(readout, vp.start, vp.end)
     refreshAnnotationTrack()
     refreshQualityTrack()
+    schedulePermalinkPersist()
   }
 
   const refreshQualityTrack = () => {
@@ -562,6 +647,7 @@ export function createTraceViewer(): HTMLDivElement {
     hoveredBaseIndex = null
     hideTooltip(tooltip)
     syncBaseInspector()
+    schedulePermalinkPersist()
   }
 
   const refreshSequence = () => {
@@ -615,6 +701,7 @@ export function createTraceViewer(): HTMLDivElement {
     if (select) {
       selectedBaseIndex = hit.index
       hoveredBaseIndex = null
+      schedulePermalinkPersist()
     } else {
       hoveredBaseIndex = hit.index
     }
@@ -667,6 +754,7 @@ export function createTraceViewer(): HTMLDivElement {
     if (!activeSlotId) return
     workspace.updateSlot(activeSlotId, {
       rawTrace,
+      ...(traceSource ? { source: traceSource } : {}),
       isRevcomp,
       trimSettings: { ...trimSettings },
       trimResult,
@@ -678,7 +766,7 @@ export function createTraceViewer(): HTMLDivElement {
   }
 
   const makeActiveSlot = (trace: TraceData) => {
-    const slot = makeSlot(trace)
+    const slot = makeSlot(trace, traceSource ?? { kind: 'local', value: trace.fileName })
     slot.viewport = renderer.getViewportState()
     slot.mixedBaseThreshold = mixedBaseThreshold
     slot.mixedBaseResult = mixedBaseResult
@@ -697,6 +785,7 @@ export function createTraceViewer(): HTMLDivElement {
   const clearDisplayedTrace = () => {
     cancelMixedBaseRecompute()
     rawTrace = null
+    traceSource = null
     isRevcomp = false
     trimSettings = { ...DEFAULT_TRIM_SETTINGS }
     trimResult = null
@@ -713,6 +802,7 @@ export function createTraceViewer(): HTMLDivElement {
     setStrandToggleState(controls, false)
     setMixedThresholdDisplay(controls, mixedBaseThreshold)
     setMixedSummary(controls, 0)
+    setShareStatus(controls, '')
     updateMetadataPanel(metadataPanel, null)
     clearRenderPanels()
   }
@@ -734,6 +824,7 @@ export function createTraceViewer(): HTMLDivElement {
 
     // Restore slot state.
     rawTrace = slot.rawTrace
+    traceSource = slot.source
     isRevcomp = slot.isRevcomp
     trimSettings = { ...slot.trimSettings }
     trimResult = slot.trimResult
@@ -781,6 +872,7 @@ export function createTraceViewer(): HTMLDivElement {
       hoveredBaseIndex = null
       isRevcomp = false
       rawTrace = trace
+      traceSource = { kind: 'local', value: file.name }
       trimSettings = { ...DEFAULT_TRIM_SETTINGS }
       trimResult = null
       mixedBaseThreshold = DEFAULT_MIXED_BASE_THRESHOLD
@@ -828,6 +920,7 @@ export function createTraceViewer(): HTMLDivElement {
       hoveredBaseIndex = null
       isRevcomp = false
       rawTrace = trace
+      traceSource = { kind: 'sample', value: 'sample.ab1' }
       trimSettings = { ...DEFAULT_TRIM_SETTINGS }
       trimResult = null
       mixedBaseThreshold = DEFAULT_MIXED_BASE_THRESHOLD
@@ -841,6 +934,10 @@ export function createTraceViewer(): HTMLDivElement {
       hideTooltip(tooltip)
       updateMetadataPanel(metadataPanel, trace.metadata)
       applyDisplayTrace()
+      if (pendingPermalink?.source.kind === 'sample') {
+        applyPermalinkState(pendingPermalink)
+        pendingPermalink = null
+      }
       const slot = makeActiveSlot(trace)
       const newId = workspace.add(slot)
       activeSlotId = newId
@@ -871,6 +968,31 @@ export function createTraceViewer(): HTMLDivElement {
   })
 
   sampleBtn.addEventListener('click', () => void loadSample())
+  if (pendingPermalink?.source.kind === 'local') {
+    setPermalinkHint(`Permalink loaded. Reattach local file "${pendingPermalink.source.value}" to restore this exact view.`)
+  } else {
+    setPermalinkHint('')
+  }
+  if (pendingPermalink?.source.kind === 'sample') {
+    void loadSample()
+  }
+
+  const copyToClipboard = async (text: string) => {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text)
+      return
+    }
+    const textarea = document.createElement('textarea')
+    textarea.value = text
+    textarea.style.position = 'fixed'
+    textarea.style.opacity = '0'
+    document.body.appendChild(textarea)
+    textarea.focus()
+    textarea.select()
+    const copied = document.execCommand('copy')
+    document.body.removeChild(textarea)
+    if (!copied) throw new Error('Clipboard unavailable')
+  }
 
   dropzone.addEventListener('dragover', (event) => {
     event.preventDefault()
@@ -922,6 +1044,13 @@ export function createTraceViewer(): HTMLDivElement {
     fileInputExtra.click()
   })
 
+  root.addEventListener('click', (event) => {
+    const action = (event.target as HTMLElement).getAttribute('data-action')
+    if (action === 'toggle-quality-track') {
+      schedulePermalinkPersist()
+    }
+  })
+
   controls.addEventListener('click', async (event) => {
     const target = event.target as HTMLElement
     const action = target.getAttribute('data-action')
@@ -933,6 +1062,26 @@ export function createTraceViewer(): HTMLDivElement {
     if (action === 'pan-left') renderer.panPixels(-80)
     if (action === 'pan-right') renderer.panPixels(80)
     if (action === 'fit') renderer.fitToScreen()
+
+    if (action === 'share-view') {
+      const permalinkState = getPermalinkState()
+      if (!permalinkState) {
+        setShareStatus(controls, 'Load a trace before sharing a permalink.')
+      } else {
+        const encoded = encodePermalinkState(permalinkState, { maxChars: 1800 })
+        if (!encoded.hash) {
+          setShareStatus(controls, encoded.error ?? 'Could not create permalink.')
+        } else {
+          const permalinkUrl = `${location.origin}${location.pathname}${location.search}${encoded.hash}`
+          try {
+            await copyToClipboard(permalinkUrl)
+            setShareStatus(controls, 'Link copied. Local files still require reattaching the source trace.')
+          } catch {
+            setShareStatus(controls, 'Copy failed. Copy the URL from your browser address bar.')
+          }
+        }
+      }
+    }
 
     if (action === 'export-png') {
       const blob = await renderer.exportPngBlob()
@@ -1080,6 +1229,7 @@ export function createTraceViewer(): HTMLDivElement {
     const target = event.target as HTMLInputElement
     if (target.id === 'search-input') {
       applySearchQuery(target.value)
+      schedulePermalinkPersist()
       return
     }
     if (target.getAttribute('data-mixed') === 'threshold') {
@@ -1087,6 +1237,7 @@ export function createTraceViewer(): HTMLDivElement {
       mixedBaseThreshold = Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : DEFAULT_MIXED_BASE_THRESHOLD
       setMixedThresholdDisplay(controls, mixedBaseThreshold)
       scheduleMixedBaseRecompute()
+      schedulePermalinkPersist()
       return
     }
     if (target.getAttribute('data-trim') !== 'threshold') return
@@ -1096,6 +1247,7 @@ export function createTraceViewer(): HTMLDivElement {
     const display = controls.querySelector<HTMLOutputElement>('#trim-threshold-display')
     if (display) display.value = String(value)
     scheduleTrim()
+    schedulePermalinkPersist()
   })
 
   controls.addEventListener('keydown', (event) => {
@@ -1172,6 +1324,11 @@ export function createTraceViewer(): HTMLDivElement {
     }
 
     if (event.pointerType === 'mouse') inspectBase(event.clientX, event.clientY)
+  })
+
+  canvas.addEventListener('mousemove', (event) => {
+    if (activePointers.size > 0) return
+    inspectBase(event.clientX, event.clientY)
   })
 
   const finishPointer = (event: PointerEvent, cancelled = false) => {
@@ -1255,6 +1412,7 @@ export function createTraceViewer(): HTMLDivElement {
     // Refocus the span at the same display index after re-render.
     const updatedSpan = sequencePanel.querySelector<HTMLElement>(`[data-base-index="${displayIdx}"]`)
     updatedSpan?.focus()
+    schedulePermalinkPersist()
   }
 
   // Double-click on a base span → enter editing mode for that position.
@@ -1315,6 +1473,7 @@ export function createTraceViewer(): HTMLDivElement {
         refreshSequence()
         const refreshedSpan = sequencePanel.querySelector<HTMLElement>(`[data-base-index="${displayIdx}"]`)
         refreshedSpan?.focus()
+        schedulePermalinkPersist()
       }
       return
     }
@@ -1359,6 +1518,7 @@ export function createTraceViewer(): HTMLDivElement {
       setUndoRedoState(controls, editModel.canUndo, editModel.canRedo)
       applyDisplayTrace(true)
       refreshSequence()
+      schedulePermalinkPersist()
     } else if ((event.ctrlKey || event.metaKey) && ((key === 'z' && event.shiftKey) || key === 'y')) {
       if (!editModel.canRedo) return
       event.preventDefault()
@@ -1367,6 +1527,7 @@ export function createTraceViewer(): HTMLDivElement {
       setUndoRedoState(controls, editModel.canUndo, editModel.canRedo)
       applyDisplayTrace(true)
       refreshSequence()
+      schedulePermalinkPersist()
     }
   }
   document.addEventListener('keydown', undoRedoKeyHandler)
