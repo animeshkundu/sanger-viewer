@@ -891,7 +891,7 @@ export function createTraceViewer(): HTMLDivElement {
     renderContigPanel(contigPanelElements, contig)
     setContigPanelStatus(
       contigPanelElements,
-      `Assembled: ${contig.contigLength} bp · ${contig.overlapLength} bp overlap · ${contig.mismatchCount} disagreement${contig.mismatchCount === 1 ? '' : 's'}`,
+      `Assembled: ${contig.contigLength} bp, ${contig.overlapLength} bp overlap, ${contig.mismatchCount} disagreement${contig.mismatchCount === 1 ? '' : 's'}`,
       'success',
     )
   }
