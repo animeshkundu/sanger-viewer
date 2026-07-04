@@ -144,7 +144,7 @@ export function setControlsDisabled(controls: HTMLElement, disabled: boolean): v
     // individual menu items are never directly toggled by setControlsDisabled.
     if (action && /^export-(?!menu-toggle)/.test(action)) return
     if (action === 'print') return
-    // Undo/redo and export-consensus-fasta have their own enabled-state management;
+    // Undo/redo have their own enabled-state management (setUndoRedoState);
     // only force-disable them during loading, never auto-enable on re-enable.
     if (!disabled && (action === 'undo' || action === 'redo')) return
     btn.disabled = disabled

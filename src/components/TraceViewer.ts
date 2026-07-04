@@ -26,6 +26,7 @@ import { createAnnotationTrack } from './AnnotationTrack'
 import { createPlasmidMap } from './PlasmidMap'
 import { createQualityTrack } from './QualityTrack'
 import { createConsensusRow, renderConsensusRow, hideConsensusRow } from './ConsensusRow'
+import { createCloneScreenPanel, renderCloneScreen, hideCloneScreen, type CloneScreenPanelElements } from './CloneScreenPanel'
 import { createReferencePanel, setReferencePanelStatus, type ReferencePanelElements } from './ReferencePanel'
 import { createVariantTable, renderVariantTable, setVariantTableVisible, type VariantTableElements } from './VariantTable'
 import {
@@ -229,6 +230,11 @@ export function createTraceViewer(): HTMLDivElement {
   const variantTableElements: VariantTableElements = createVariantTable()
   const contigPanelElements: ContigPanelElements = createContigPanel()
   const primerPanelElements: PrimerPanelElements = createPrimerPanel()
+  const cloneScreenPanelElements: CloneScreenPanelElements = createCloneScreenPanel((position) => {
+    // Cursor changed in clone screen → jump the active trace chromatogram to that base.
+    renderer.focusBaseRange(position, position + 1)
+    refreshReadout()
+  })
   const canvasWrap = root.querySelector<HTMLElement>('.canvas-wrap')!
   const dropzone = root.querySelector<HTMLElement>('.dropzone')!
   const sampleRibbon = root.querySelector<HTMLElement>('#sample-ribbon')!
@@ -297,6 +303,7 @@ export function createTraceViewer(): HTMLDivElement {
   mapPanel.append(plasmidMap.element)
   analyzePanel.append(
     consensusRow,
+    cloneScreenPanelElements.root,
     referencePanelElements.root,
     variantTableElements.root,
     contigPanelElements.root,
@@ -806,7 +813,7 @@ export function createTraceViewer(): HTMLDivElement {
 
   const refreshAnnotationTrack = () => {
     const trace = renderer.getCurrentTrace()
-    if (!trace) {
+    if (!trace || annotationFeatures.length === 0) {
       annotationTrack.clear()
       return
     }
@@ -1005,6 +1012,21 @@ export function createTraceViewer(): HTMLDivElement {
   }
 
   /**
+   * Recompute and render the clone-screen stacked viewer from all resident slots.
+   * Shows the panel only when ≥ 2 traces are resident; hides it otherwise.
+   */
+  const refreshCloneScreen = () => {
+    const residentSlots = workspace.getAll().filter((s) => s.rawTrace !== null)
+    if (residentSlots.length < 2) {
+      hideCloneScreen(cloneScreenPanelElements)
+      return
+    }
+    const sequences = residentSlots.map((s) => s.rawTrace!.sequence)
+    const fileNames = residentSlots.map((s) => s.fileName)
+    renderCloneScreen(cloneScreenPanelElements, sequences, fileNames)
+  }
+
+  /**
    * Sync the ContigPanel enabled/disabled state based on resident-slot count.
    * Enables "Assemble pair" only when exactly 2 traces are resident.
    * Clears any stale contig result when the trace set changes.
@@ -1017,6 +1039,13 @@ export function createTraceViewer(): HTMLDivElement {
     currentContig = null
     clearContigPanel(contigPanelElements)
     clearPrimerPanel(primerPanelElements)
+  }
+
+  /** Refresh all multi-trace panels (consensus, clone screen, contig). */
+  const refreshMultiTracePanels = () => {
+    refreshConsensus()
+    refreshCloneScreen()
+    syncContigPanel()
   }
 
   /**
@@ -1226,8 +1255,7 @@ export function createTraceViewer(): HTMLDivElement {
   }
 
   syncWorkspaceBar()
-  refreshConsensus()
-  syncContigPanel()
+  refreshMultiTracePanels()
 
   /**
    * Activate a workspace slot: save the current slot, switch to the new one,
@@ -1299,8 +1327,7 @@ export function createTraceViewer(): HTMLDivElement {
     }
 
     syncWorkspaceBar()
-    refreshConsensus()
-    syncContigPanel()
+    refreshMultiTracePanels()
   }
 
   const beginLoad = (message: string) => {
@@ -1363,8 +1390,7 @@ export function createTraceViewer(): HTMLDivElement {
     applyPendingPermalinkIfReady(source)
     saveCurrentSlot()
     syncWorkspaceBar()
-    refreshConsensus()
-    syncContigPanel()
+    refreshMultiTracePanels()
     const msg = `Loaded ${trace.fileName} (${trace.baseCalls.length} bases)`
     setState('loaded', msg)
   }
@@ -1382,8 +1408,7 @@ export function createTraceViewer(): HTMLDivElement {
       clearDisplayedTrace()
       activeSlotId = null
       syncWorkspaceBar()
-      refreshConsensus()
-      syncContigPanel()
+      refreshMultiTracePanels()
       const msg = error instanceof Error ? error.message : 'Failed to parse file'
       setState('error', msg)
     }
@@ -1406,8 +1431,7 @@ export function createTraceViewer(): HTMLDivElement {
       clearDisplayedTrace()
       activeSlotId = null
       syncWorkspaceBar()
-      refreshConsensus()
-      syncContigPanel()
+      refreshMultiTracePanels()
       const msg = error instanceof Error ? error.message : 'Failed to load sample'
       setState('error', msg)
     }
@@ -1416,6 +1440,8 @@ export function createTraceViewer(): HTMLDivElement {
   fileInput.addEventListener('change', () => {
     const file = fileInput.files?.[0]
     if (file) void load(file)
+    // Reset so the same file can be re-opened if desired (e.g., clone-screen compare).
+    fileInput.value = ''
   })
 
   fileInputExtra.addEventListener('change', () => {
@@ -1496,13 +1522,11 @@ export function createTraceViewer(): HTMLDivElement {
         clearDisplayedTrace()
         setState('empty')
         syncWorkspaceBar()
-        refreshConsensus()
-        syncContigPanel()
+        refreshMultiTracePanels()
       }
     } else {
       syncWorkspaceBar()
-      refreshConsensus()
-      syncContigPanel()
+      refreshMultiTracePanels()
     }
   })
 
