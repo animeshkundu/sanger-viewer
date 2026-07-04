@@ -99,6 +99,13 @@ export function createControls(): HTMLDivElement {
         <span id="trim-summary" class="trim-summary" aria-live="polite" aria-atomic="true"></span>
       </div>
     </div>
+    <div class="share-controls" role="group" aria-label="Shareable links">
+      <button data-action="share-view" data-testid="share-view-btn">Share this view</button>
+      <span id="share-status" class="share-status" role="status" aria-live="polite" aria-atomic="true"></span>
+      <p class="share-note">
+        Links are generated in-browser only. Sample + view-state links are shareable. Local files require reattaching the source trace, and very large state may exceed URL limits.
+      </p>
+    </div>
     <div class="controls-group controls-group--mixed" role="group" aria-label="Mixed-base" data-group="mixed">
       <span class="controls-group__label" aria-hidden="true">Mixed</span>
       <div class="mixed-controls" role="group" aria-label="Mixed-base calling">
@@ -232,6 +239,11 @@ export function setMixedSummary(controls: HTMLDivElement, ambiguousCount: number
   const summary = controls.querySelector<HTMLElement>('#mixed-summary')
   if (!summary) return
   summary.textContent = `${ambiguousCount} ambiguous base${ambiguousCount === 1 ? '' : 's'}`
+}
+
+export function setShareStatus(controls: HTMLDivElement, message: string): void {
+  const el = controls.querySelector<HTMLElement>('#share-status')
+  if (el) el.textContent = message
 }
 
 /** Update disabled state of the undo and redo toolbar buttons. */

@@ -23,6 +23,10 @@ function residentCount(ws: TraceWorkspace): number {
   return ws.getAll().filter((slot) => slot.rawTrace !== null).length
 }
 
+function makeLocalSlot(name: string) {
+  return makeSlot(fakeTrace(name), { kind: 'local', value: name })
+}
+
 describe('TraceWorkspace', () => {
   it('starts empty with no active slot', () => {
     const ws = new TraceWorkspace()
@@ -33,7 +37,7 @@ describe('TraceWorkspace', () => {
   it('add() returns a string id and sets the new slot as active', () => {
     const ws = new TraceWorkspace()
     const trace = fakeTrace('a.ab1')
-    const id = ws.add(makeSlot(trace))
+    const id = ws.add(makeSlot(trace, { kind: 'local', value: trace.fileName }))
     expect(typeof id).toBe('string')
     expect(id.length).toBeGreaterThan(0)
     const active = ws.getActive()
@@ -47,8 +51,8 @@ describe('TraceWorkspace', () => {
 
   it('add() appends slots in order', () => {
     const ws = new TraceWorkspace()
-    const idA = ws.add(makeSlot(fakeTrace('a.ab1')))
-    const idB = ws.add(makeSlot(fakeTrace('b.ab1')))
+    const idA = ws.add(makeLocalSlot('a.ab1'))
+    const idB = ws.add(makeLocalSlot('b.ab1'))
     const all = ws.getAll()
     expect(all).toHaveLength(2)
     expect(all[0].id).toBe(idA)
@@ -57,8 +61,8 @@ describe('TraceWorkspace', () => {
 
   it('activate() moves the slot to MRU end and sets activeId', () => {
     const ws = new TraceWorkspace()
-    const idA = ws.add(makeSlot(fakeTrace('a.ab1')))
-    const idB = ws.add(makeSlot(fakeTrace('b.ab1')))
+    const idA = ws.add(makeLocalSlot('a.ab1'))
+    const idB = ws.add(makeLocalSlot('b.ab1'))
     ws.activate(idA)
     const all = ws.getAll()
     // A is now MRU (end of array)
@@ -70,8 +74,8 @@ describe('TraceWorkspace', () => {
 
   it('close() removes a non-active slot', () => {
     const ws = new TraceWorkspace()
-    const idA = ws.add(makeSlot(fakeTrace('a.ab1')))
-    const idB = ws.add(makeSlot(fakeTrace('b.ab1')))
+    const idA = ws.add(makeLocalSlot('a.ab1'))
+    const idB = ws.add(makeLocalSlot('b.ab1'))
     ws.close(idA)
     expect(ws.getAll()).toHaveLength(1)
     expect(ws.getActive()!.id).toBe(idB)
@@ -79,9 +83,9 @@ describe('TraceWorkspace', () => {
 
   it('close() of the active slot activates the last remaining slot', () => {
     const ws = new TraceWorkspace()
-    const idA = ws.add(makeSlot(fakeTrace('a.ab1')))
-    const idB = ws.add(makeSlot(fakeTrace('b.ab1')))
-    const idC = ws.add(makeSlot(fakeTrace('c.ab1')))
+    const idA = ws.add(makeLocalSlot('a.ab1'))
+    const idB = ws.add(makeLocalSlot('b.ab1'))
+    const idC = ws.add(makeLocalSlot('c.ab1'))
     // idC is now active
     ws.close(idC)
     // Next active should be whatever is last in the remaining array
@@ -94,7 +98,7 @@ describe('TraceWorkspace', () => {
 
   it('close() of the only slot results in null active', () => {
     const ws = new TraceWorkspace()
-    const id = ws.add(makeSlot(fakeTrace('only.ab1')))
+    const id = ws.add(makeLocalSlot('only.ab1'))
     ws.close(id)
     expect(ws.getAll()).toHaveLength(0)
     expect(ws.getActive()).toBeNull()
@@ -102,7 +106,7 @@ describe('TraceWorkspace', () => {
 
   it('updateSlot() merges a partial patch', () => {
     const ws = new TraceWorkspace()
-    const id = ws.add(makeSlot(fakeTrace('x.ab1')))
+    const id = ws.add(makeLocalSlot('x.ab1'))
     ws.updateSlot(id, { isRevcomp: true, viewport: { startSample: 42, samplesPerPixel: 3 } })
     const slot = ws.getActive()!
     expect(slot.isRevcomp).toBe(true)
@@ -118,21 +122,21 @@ describe('TraceWorkspace', () => {
   describe('LRU eviction (_evict)', () => {
     it('resident trace count never exceeds cap', () => {
       const ws = new TraceWorkspace(3)
-      ws.add(makeSlot(fakeTrace('a.ab1')))
-      ws.add(makeSlot(fakeTrace('b.ab1')))
-      ws.add(makeSlot(fakeTrace('c.ab1')))
-      ws.add(makeSlot(fakeTrace('d.ab1')))
+      ws.add(makeLocalSlot('a.ab1'))
+      ws.add(makeLocalSlot('b.ab1'))
+      ws.add(makeLocalSlot('c.ab1'))
+      ws.add(makeLocalSlot('d.ab1'))
       expect(residentCount(ws)).toBe(3)
     })
 
     it('keeps the evicted slot shell with rawTrace === null', () => {
       const ws = new TraceWorkspace(2)
-      const idA = ws.add(makeSlot(fakeTrace('a.ab1')))
-      ws.add(makeSlot(fakeTrace('b.ab1')))
+      const idA = ws.add(makeLocalSlot('a.ab1'))
+      ws.add(makeLocalSlot('b.ab1'))
       const residentBefore = residentCount(ws)
       expect(residentBefore).toBe(2)
       // Adding c evicts a (LRU)
-      ws.add(makeSlot(fakeTrace('c.ab1')))
+      ws.add(makeLocalSlot('c.ab1'))
       expect(ws.getAll()).toHaveLength(3)
       const evicted = ws.getAll().find((slot) => slot.id === idA)
       expect(evicted).toBeDefined()
@@ -145,10 +149,10 @@ describe('TraceWorkspace', () => {
 
     it('active slot is never evicted', () => {
       const ws = new TraceWorkspace(2)
-      const idA = ws.add(makeSlot(fakeTrace('a.ab1')))
-      ws.add(makeSlot(fakeTrace('b.ab1')))
+      const idA = ws.add(makeLocalSlot('a.ab1'))
+      ws.add(makeLocalSlot('b.ab1'))
       ws.activate(idA)  // a is now active AND LRU position is b
-      ws.add(makeSlot(fakeTrace('c.ab1')))
+      ws.add(makeLocalSlot('c.ab1'))
       // b should have been evicted (LRU non-active), a should survive.
       const all = ws.getAll()
       expect(all).toHaveLength(3)
@@ -162,7 +166,7 @@ describe('TraceWorkspace', () => {
     it('keeps exactly cap resident traces after many adds', () => {
       const ws = new TraceWorkspace(3)
       for (let i = 0; i < 10; i += 1) {
-        ws.add(makeSlot(fakeTrace(`trace${i}.ab1`)))
+        ws.add(makeLocalSlot(`trace${i}.ab1`))
       }
       expect(ws.getAll()).toHaveLength(10)
       expect(residentCount(ws)).toBe(3)
