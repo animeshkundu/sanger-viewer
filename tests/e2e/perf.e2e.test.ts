@@ -1,0 +1,215 @@
+/**
+ * tests/e2e/perf.e2e.test.ts
+ *
+ * Playwright performance tests with EXPLICIT numeric budget assertions.
+ *
+ * Ground truth: merged perf-audit (#20)
+ *   Machine: 4-vCPU Xeon 8370C Azure CI runner, Chromium 149, Node v22.23.0
+ *   Measured baseline:
+ *     3100.ab1 (795 bp) — first non-blank canvas: 81.4 ms
+ *     3730.ab1 (1165 bp) — first non-blank canvas: 90.2 ms
+ *     Zoom+: 34–40 ms, Pan←: 55–56 ms, Wheel: 48–54 ms
+ *
+ * Budgets allow 3× the measured median to tolerate CI variability while
+ * staying genuinely useful (not vacuous).  All thresholds are numeric.
+ *
+ * Tests run on desktop Chrome only (the default project).
+ * Synthetic fixtures from scripts/generate-fixtures.ts.
+ */
+
+import path from 'node:path'
+import { test, expect, type Page } from '@playwright/test'
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Measure elapsed ms from file-load dispatch to status containing "Loaded" */
+async function measureLoadTime(page: Page, fixturePath: string): Promise<number> {
+  const t0 = Date.now()
+  await page.setInputFiles('#file-input', fixturePath)
+  await expect(page.locator('#status')).toContainText('Loaded', { timeout: 15_000 })
+  return Date.now() - t0
+}
+
+/** Return true if the chromatogram canvas has at least one non-white pixel */
+async function canvasIsNonBlank(page: Page): Promise<boolean> {
+  return page.locator('[data-testid="chromatogram-canvas"]').evaluate((el) => {
+    const canvas = el as HTMLCanvasElement
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return false
+    const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height)
+    for (let i = 0; i < data.length; i += 4) {
+      if (data[i] + data[i + 1] + data[i + 2] < 765) return true
+    }
+    return false
+  })
+}
+
+/** Measure how long an action takes (wall-clock, includes a 50 ms repaint wait) */
+async function measureInteraction(page: Page, action: () => Promise<void>): Promise<number> {
+  const t0 = Date.now()
+  await action()
+  // Give the browser a chance to repaint after the interaction
+  await page.waitForTimeout(50)
+  return Date.now() - t0
+}
+
+// ---------------------------------------------------------------------------
+// Fixture definitions — paths relative to cwd()
+// ---------------------------------------------------------------------------
+
+const FIX = {
+  small: path.resolve(process.cwd(), 'fixtures/ab1/synth-small-500bp.ab1'),
+  existing: path.resolve(process.cwd(), 'fixtures/ab1/3100.ab1'),
+  large: path.resolve(process.cwd(), 'fixtures/large/synth-large-3kbp.ab1'),
+  lowq: path.resolve(process.cwd(), 'fixtures/large/synth-lowq-800bp.ab1'),
+  longread: path.resolve(process.cwd(), 'fixtures/large/synth-longread-5kbp.ab1'),
+  realLarge: path.resolve(process.cwd(), 'fixtures/large/3730.ab1'),
+}
+
+// ---------------------------------------------------------------------------
+// Load + first-render budget
+//
+// Budget: 3× the measured median (audit baseline: 81–90 ms → 300 ms).
+// We allow 500 ms for large synthetic traces (3 k–5 k bases) since they are
+// 2.5–4× the sample count of the audit fixtures.
+// ---------------------------------------------------------------------------
+
+test.describe('first-render budgets', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('')
+    // Wait for initial sample load so the app is fully ready
+    await expect(page.locator('#status')).toContainText('Loaded', { timeout: 10_000 })
+  })
+
+  test('synth-small-500bp loads and renders within 300 ms', async ({ page }) => {
+    const elapsed = await measureLoadTime(page, FIX.small)
+    expect(elapsed, `load time ${elapsed} ms exceeds 300 ms budget`).toBeLessThan(300)
+    expect(await canvasIsNonBlank(page)).toBe(true)
+  })
+
+  test('3100.ab1 (existing medium) loads and renders within 300 ms', async ({ page }) => {
+    const elapsed = await measureLoadTime(page, FIX.existing)
+    expect(elapsed, `load time ${elapsed} ms exceeds 300 ms budget`).toBeLessThan(300)
+    expect(await canvasIsNonBlank(page)).toBe(true)
+  })
+
+  test('3730.ab1 (existing real large) loads and renders within 300 ms', async ({ page }) => {
+    const elapsed = await measureLoadTime(page, FIX.realLarge)
+    expect(elapsed, `load time ${elapsed} ms exceeds 300 ms budget`).toBeLessThan(300)
+    expect(await canvasIsNonBlank(page)).toBe(true)
+  })
+
+  test('synth-large-3kbp loads and renders within 500 ms', async ({ page }) => {
+    const elapsed = await measureLoadTime(page, FIX.large)
+    expect(elapsed, `load time ${elapsed} ms exceeds 500 ms budget`).toBeLessThan(500)
+    expect(await canvasIsNonBlank(page)).toBe(true)
+  })
+
+  test('synth-lowq-800bp loads and renders within 300 ms', async ({ page }) => {
+    const elapsed = await measureLoadTime(page, FIX.lowq)
+    expect(elapsed, `load time ${elapsed} ms exceeds 300 ms budget`).toBeLessThan(300)
+    expect(await canvasIsNonBlank(page)).toBe(true)
+  })
+
+  test('synth-longread-5kbp loads and renders within 800 ms', async ({ page }) => {
+    const elapsed = await measureLoadTime(page, FIX.longread)
+    expect(elapsed, `load time ${elapsed} ms exceeds 800 ms budget`).toBeLessThan(800)
+    expect(await canvasIsNonBlank(page)).toBe(true)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Interaction latency budgets (measured on 3100.ab1 in the audit)
+//
+// Audit medians: Zoom+ 34 ms, Pan← 56 ms, Wheel 49 ms
+// Budget: 3× measured + 50 ms CI buffer = ~200 ms cap per interaction.
+// We check these on the existing fixture first (known good baseline), then
+// on the large synthetic fixture (stress test).
+// ---------------------------------------------------------------------------
+
+test.describe('interaction latency budgets', () => {
+  async function loadFixture(page: Page, fixPath: string) {
+    await page.goto('')
+    await expect(page.locator('#status')).toContainText('Loaded', { timeout: 10_000 })
+    await page.setInputFiles('#file-input', fixPath)
+    await expect(page.locator('#status')).toContainText('Loaded', { timeout: 10_000 })
+  }
+
+  test('Zoom+ on 3100.ab1 completes within 200 ms', async ({ page }) => {
+    await loadFixture(page, FIX.existing)
+    const elapsed = await measureInteraction(page, () =>
+      page.getByRole('button', { name: 'Zoom +' }).click(),
+    )
+    expect(elapsed, `zoom time ${elapsed} ms exceeds 200 ms budget`).toBeLessThan(200)
+  })
+
+  test('Pan← on 3100.ab1 completes within 200 ms', async ({ page }) => {
+    await loadFixture(page, FIX.existing)
+    const elapsed = await measureInteraction(page, () =>
+      page.getByRole('button', { name: '← Pan' }).click(),
+    )
+    expect(elapsed, `pan time ${elapsed} ms exceeds 200 ms budget`).toBeLessThan(200)
+  })
+
+  test('Wheel zoom on 3100.ab1 completes within 200 ms', async ({ page }) => {
+    await loadFixture(page, FIX.existing)
+    const canvas = page.locator('[data-testid="chromatogram-canvas"]')
+    const box = await canvas.boundingBox()
+    if (!box) throw new Error('Canvas not visible')
+
+    const elapsed = await measureInteraction(page, () =>
+      page.mouse.wheel(0, -100),
+    )
+    expect(elapsed, `wheel time ${elapsed} ms exceeds 200 ms budget`).toBeLessThan(200)
+  })
+
+  test('Zoom+ on synth-large-3kbp completes within 300 ms', async ({ page }) => {
+    await loadFixture(page, FIX.large)
+    const elapsed = await measureInteraction(page, () =>
+      page.getByRole('button', { name: 'Zoom +' }).click(),
+    )
+    expect(elapsed, `zoom time ${elapsed} ms exceeds 300 ms budget`).toBeLessThan(300)
+  })
+
+  test('Pan← on synth-large-3kbp completes within 300 ms', async ({ page }) => {
+    await loadFixture(page, FIX.large)
+    const elapsed = await measureInteraction(page, () =>
+      page.getByRole('button', { name: '← Pan' }).click(),
+    )
+    expect(elapsed, `pan time ${elapsed} ms exceeds 300 ms budget`).toBeLessThan(300)
+  })
+
+  test('Zoom+ on synth-longread-5kbp completes within 400 ms', async ({ page }) => {
+    await loadFixture(page, FIX.longread)
+    const elapsed = await measureInteraction(page, () =>
+      page.getByRole('button', { name: 'Zoom +' }).click(),
+    )
+    expect(elapsed, `zoom time ${elapsed} ms exceeds 400 ms budget`).toBeLessThan(400)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Low-quality fixture rendering — confirm the viewer doesn't crash or blank
+// ---------------------------------------------------------------------------
+
+test.describe('low-quality fixture robustness', () => {
+  test('synth-lowq-800bp renders non-blank chromatogram', async ({ page }) => {
+    await page.goto('')
+    await expect(page.locator('#status')).toContainText('Loaded', { timeout: 10_000 })
+    await page.setInputFiles('#file-input', FIX.lowq)
+    await expect(page.locator('#status')).toContainText('Loaded', { timeout: 10_000 })
+    expect(await canvasIsNonBlank(page)).toBe(true)
+  })
+
+  test('synth-lowq-800bp: quality track renders without crash', async ({ page }) => {
+    await page.goto('')
+    await expect(page.locator('#status')).toContainText('Loaded', { timeout: 10_000 })
+    await page.setInputFiles('#file-input', FIX.lowq)
+    await expect(page.locator('#status')).toContainText('Loaded', { timeout: 10_000 })
+    // Status must not show an error
+    await expect(page.locator('#error-banner')).toBeHidden()
+    await expect(page.locator('#status')).not.toContainText('Error')
+  })
+})

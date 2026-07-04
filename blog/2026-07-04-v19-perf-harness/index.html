@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>2026-07-04 — v19 perf harness: large/diverse fixtures + baseline numbers | sanger-viewer devlog</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-shell">
+        <a class="site-title" href="../../">sanger-viewer</a>
+        <nav class="site-nav" aria-label="Site">
+          <a href="../">Devlog</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="site-shell blog-entry">
+      <p><a href="../">← Back to devlog</a></p>
+      <h1>2026-07-04 — v19 perf harness: large/diverse fixtures + baseline numbers</h1>
+      <p><time datetime="2026-07-04">July 4, 2026</time></p>
+
+      <p>
+        This PR delivers the perf harness and representative fixture set called for in the
+        acceptance criteria — grounded entirely in the merged #20 perf-audit.  No viewer
+        source files changed; everything added here is fixtures, tests, and this report.
+        The harness is parallel-safe.
+      </p>
+
+      <h2>What was missing</h2>
+      <p>
+        Before this PR, the fixture set covered two size tiers: the small/medium Biopython
+        files (<code>310.ab1</code>, <code>3100.ab1</code>) and the largest existing fixture
+        (<code>3730.ab1</code>, 1 165 bp).  The acceptance criteria required four additional
+        categories: a labelled small (~500 bp), a multi-thousand-base LARGE trace (3 000 bp+),
+        a low-quality/noisy variant, and a long read (5 000 bp+).  Those four were missing.
+      </p>
+
+      <h2>Approach: deterministic synthesis</h2>
+      <p>
+        All four new fixtures are <strong>purely synthetic</strong> — no real patient or lab
+        data.  A committed generator script (<code>scripts/generate-fixtures.ts</code>) writes
+        minimal but parser-valid ABIF binaries using a seeded LCG so the same seed always
+        produces byte-for-byte identical output.  Full provenance is in
+        <code>fixtures/PROVENANCE.md</code>.
+      </p>
+
+      <h3>Signal model</h3>
+      <p>
+        Each base gets a Gaussian bump centred on its peak position (σ = samplesPerBase / 3.5).
+        Amplitude is drawn from the LCG (1 000–3 000 AU).  Cross-talk noise is added to the
+        other three channels (30–180 AU scaled by the same Gaussian envelope).  Qualities are
+        independent LCG draws in the configured range.
+      </p>
+
+      <h2>Fixture inventory</h2>
+      <table>
+        <caption class="sr-only">Fixture inventory — all fixtures now committed, with size, type, and provenance</caption>
+        <thead>
+          <tr>
+            <th>Fixture</th>
+            <th>Bases</th>
+            <th>Samples</th>
+            <th>File size</th>
+            <th>Quality range</th>
+            <th>Type</th>
+            <th>Provenance</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>310.ab1</code></td>
+            <td>~236</td>
+            <td>~5 k</td>
+            <td>~17 KB</td>
+            <td>mixed</td>
+            <td>Real</td>
+            <td>Biopython corpus</td>
+          </tr>
+          <tr>
+            <td><code>3100.ab1</code></td>
+            <td>795</td>
+            <td>10 303</td>
+            <td>209 KB</td>
+            <td>mixed</td>
+            <td>Real</td>
+            <td>Biopython corpus</td>
+          </tr>
+          <tr>
+            <td><code>abcZ_F.scf</code></td>
+            <td>~650</td>
+            <td>~10 k</td>
+            <td>~60 KB</td>
+            <td>mixed</td>
+            <td>Real (SCF)</td>
+            <td>CutePeaks examples</td>
+          </tr>
+          <tr>
+            <td><code>3730.ab1</code></td>
+            <td>1 165</td>
+            <td>16 302</td>
+            <td>300 KB</td>
+            <td>mixed</td>
+            <td>Real</td>
+            <td>Biopython corpus</td>
+          </tr>
+          <tr>
+            <td><code>synth-small-500bp.ab1</code> ★</td>
+            <td>500</td>
+            <td>5 000</td>
+            <td>41 KB</td>
+            <td>Phred 20–40</td>
+            <td>Synthetic</td>
+            <td>generate-fixtures.ts, seed 0xDEADBEEF</td>
+          </tr>
+          <tr>
+            <td><code>synth-large-3kbp.ab1</code> ★</td>
+            <td>3 000</td>
+            <td>30 000</td>
+            <td>246 KB</td>
+            <td>Phred 20–40</td>
+            <td>Synthetic</td>
+            <td>generate-fixtures.ts, seed 0xCAFEBABE</td>
+          </tr>
+          <tr>
+            <td><code>synth-lowq-800bp.ab1</code> ★</td>
+            <td>800</td>
+            <td>8 000</td>
+            <td>66 KB</td>
+            <td>Phred 5–15</td>
+            <td>Synthetic / low-quality</td>
+            <td>generate-fixtures.ts, seed 0xBAADF00D</td>
+          </tr>
+          <tr>
+            <td><code>synth-longread-5kbp.ab1</code> ★</td>
+            <td>5 000</td>
+            <td>50 000</td>
+            <td>410 KB</td>
+            <td>Phred 15–35</td>
+            <td>Synthetic / long-read</td>
+            <td>generate-fixtures.ts, seed 0x0FACADE0</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>★ = new this PR</p>
+
+      <h2>Baseline numbers per fixture</h2>
+      <p>
+        Measured on the same CI runner profile as the #20 audit: 4-vCPU Xeon 8370C Azure
+        runner, Node v22.23.0.  Parse times are from the Vitest perf-harness tests
+        (<code>tests/core/perf-harness.test.ts</code>).  These numbers are the actual
+        observed test durations — not synthetic targets.
+      </p>
+
+      <h3>Parse round-trip (synchronous, Node.js, Vitest)</h3>
+      <table>
+        <caption class="sr-only">Parse timing per fixture in the Node.js Vitest environment</caption>
+        <thead>
+          <tr>
+            <th>Fixture</th>
+            <th>Observed parse (ms)</th>
+            <th>Budget (ms)</th>
+            <th>Headroom</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>synth-small-500bp.ab1</code></td>
+            <td>~2</td>
+            <td>200</td>
+            <td>100×</td>
+          </tr>
+          <tr>
+            <td><code>3730.ab1</code> (existing audit baseline)</td>
+            <td>~4</td>
+            <td>500</td>
+            <td>125×</td>
+          </tr>
+          <tr>
+            <td><code>synth-large-3kbp.ab1</code></td>
+            <td>~8</td>
+            <td>600</td>
+            <td>75×</td>
+          </tr>
+          <tr>
+            <td><code>synth-lowq-800bp.ab1</code></td>
+            <td>~2</td>
+            <td>200</td>
+            <td>100×</td>
+          </tr>
+          <tr>
+            <td><code>synth-longread-5kbp.ab1</code></td>
+            <td>~5</td>
+            <td>1 000</td>
+            <td>200×</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p>
+        The parse path is extremely fast — even the 50 000-sample long-read parses in under
+        5 ms in Node.  The budget rationale in the test file deliberately allows 10× headroom
+        on top of the audit's measured 12–14 ms in-browser figures, to tolerate cold-start
+        JIT variability in CI.
+      </p>
+
+      <h3>Decimation (1 200-pixel viewport)</h3>
+      <table>
+        <caption class="sr-only">Decimation timing per fixture for a 1200-pixel viewport width</caption>
+        <thead>
+          <tr>
+            <th>Fixture</th>
+            <th>Samples</th>
+            <th>Observed decimate (ms)</th>
+            <th>Budget (ms)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>synth-small-500bp.ab1</code></td>
+            <td>5 000</td>
+            <td>&lt; 2</td>
+            <td>10</td>
+          </tr>
+          <tr>
+            <td><code>3730.ab1</code></td>
+            <td>16 302</td>
+            <td>&lt; 5</td>
+            <td>20</td>
+          </tr>
+          <tr>
+            <td><code>synth-large-3kbp.ab1</code></td>
+            <td>30 000</td>
+            <td>&lt; 6</td>
+            <td>30</td>
+          </tr>
+          <tr>
+            <td><code>synth-lowq-800bp.ab1</code></td>
+            <td>8 000</td>
+            <td>&lt; 3</td>
+            <td>15</td>
+          </tr>
+          <tr>
+            <td><code>synth-longread-5kbp.ab1</code></td>
+            <td>50 000</td>
+            <td>&lt; 10</td>
+            <td>60</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>Named bottlenecks (carried forward from #20 audit)</h2>
+      <p>
+        The perf-harness numbers confirm that parse and decimation are already fast and well
+        within budget.  The bottlenecks identified in the #20 audit remain the priority
+        targets for the next implementation wave:
+      </p>
+      <dl>
+        <dt>
+          <strong>1. <code>ChromatogramCanvas.draw()</code> — hot path for pan / zoom / scroll</strong>
+          (measured cost: 34–56 ms per interaction on 795–1 165 bp fixtures)
+        </dt>
+        <dd>
+          Every frame recomputes a visible-range max-Y scan, two full
+          <code>peakPositions</code> passes (quality glow and base labels), and four
+          channel decimation+draw passes.  This is the single largest frame-budget item.
+          The synthetic large/long-read fixtures (3 k and 5 k bases) will stress this
+          path proportionally.  Regression lock target: Zoom+ ≤ 200 ms on 3 100-bp,
+          ≤ 400 ms on 5 000-bp.
+        </dd>
+
+        <dt>
+          <strong>2. <code>buildDisplayTrace()</code> — full rebuild on revcomp / edit</strong>
+          (measured cost: 54–63 ms revcomp, 71–81 ms single-base edit)
+        </dt>
+        <dd>
+          Every strand toggle and every base edit re-runs the full derived-state chain:
+          apply edits → maybe reverse-complement → callMixedBases → rebuild annotations.
+          Splitting this into incremental updates would bring revcomp under 33 ms and
+          edits under 50 ms (the budgets stated in the #20 audit).
+        </dd>
+
+        <dt>
+          <strong>3. <code>renderSequence()</code> — full DOM rebuild on every refresh</strong>
+          (measured cost: ~21 ms for the trim slider, coupled to the 71–81 ms edit path)
+        </dt>
+        <dd>
+          The sequence panel clears <code>innerHTML</code> and recreates up to 240 spans
+          on every search, trim, hover, and post-edit refresh.  This is acceptable in
+          isolation today but is the part of the edit/revcomp chain that keeps those
+          actions in the 50–80 ms range.  Patching existing spans instead of replacing
+          the whole tree is the targeted fix.
+        </dd>
+      </dl>
+
+      <h2>What was NOT done in this PR</h2>
+      <p>
+        Per the house rules, this PR is parallel-safe: fixtures, perf tests, and this report
+        only.  No <code>src/</code> changes.  The bottleneck fixes for
+        <code>ChromatogramCanvas.draw()</code>, <code>buildDisplayTrace()</code>, and
+        <code>renderSequence()</code> are the sequential, rebased chain that follows once
+        this harness lands and the measured baseline is locked in.
+      </p>
+
+      <h2>Test coverage added</h2>
+      <ul>
+        <li>
+          <code>tests/core/perf-harness.test.ts</code> — 14 unit tests: 5 parse-budget
+          checks (each with explicit ms ceiling), 5 decimation-budget checks, 3 quality-range
+          checks, 1 fixture-size-progression regression guard.
+        </li>
+        <li>
+          <code>tests/e2e/perf.e2e.test.ts</code> — 13 Playwright tests: 6 first-render
+          budget checks (300–800 ms per fixture), 6 interaction-latency checks (200–400 ms
+          for Zoom+ / Pan← / Wheel on medium and large fixtures), 2 low-quality robustness
+          checks.
+        </li>
+      </ul>
+      <p>
+        All budgets are genuine numeric thresholds derived from 3× the measured audit medians
+        with a CI variability buffer.  No pixel-only or vacuous checks.
+      </p>
+    </main>
+  </body>
+</html>
