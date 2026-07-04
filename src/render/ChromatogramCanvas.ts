@@ -1,5 +1,5 @@
 import { TRACE_COLORS } from './colors'
-import { clampViewport } from './viewport'
+import { clampViewport, findNearestPeakIndex, findVisiblePeakRange } from './viewport'
 import { decimateSamples } from './decimation'
 import type { BaseHoverInfo, TrimBoundaries, TraceData } from '../types/trace'
 import type { SubsequenceMatch } from '../search/findSubsequence'
@@ -182,18 +182,11 @@ export class ChromatogramCanvas {
     const x = clientX - rect.left
     const vp = clampViewport(this.startSample, this.samplesPerPixel, this.trace.sampleCount, this.canvas.clientWidth)
     const sampleAtX = vp.startSample + x * vp.samplesPerPixel
-
-    let bestIndex = -1
-    let bestDistance = Number.POSITIVE_INFINITY
-    for (let i = 0; i < this.trace.peakPositions.length; i += 1) {
-      const peak = this.trace.peakPositions[i]
-      if (peak < vp.startSample || peak > vp.endSample) continue
-      const dx = Math.abs(peak - sampleAtX)
-      if (dx < bestDistance) {
-        bestDistance = dx
-        bestIndex = i
-      }
-    }
+    const visibleRange = findVisiblePeakRange(this.trace.peakPositions, {
+      startSample: vp.startSample,
+      endSample: vp.endSample,
+    })
+    const bestIndex = findNearestPeakIndex(this.trace.peakPositions, sampleAtX, visibleRange)
 
     if (bestIndex < 0) return null
     const peakPos = this.trace.peakPositions[bestIndex] ?? 0
@@ -285,6 +278,10 @@ export class ChromatogramCanvas {
     this.samplesPerPixel = vp.samplesPerPixel
     this.canvas.setAttribute('data-viewport-start', String(this.startSample))
     this.canvas.setAttribute('data-viewport-spp', String(this.samplesPerPixel))
+    const visiblePeaks = findVisiblePeakRange(this.trace.peakPositions, {
+      startSample: vp.startSample,
+      endSample: vp.endSample,
+    })
 
     const channels = this.trace.channels
     // Scan only the visible range for maxY — O(viewport) instead of O(trace).
@@ -303,9 +300,8 @@ export class ChromatogramCanvas {
     this.drawSearchHighlights(vp, width, height)
     this.drawAmbiguousHighlights(vp, width, height)
 
-    for (let i = 0; i < this.trace.peakPositions.length; i += 1) {
+    for (let i = visiblePeaks.start; i < visiblePeaks.end; i += 1) {
       const peak = this.trace.peakPositions[i]
-      if (peak < vp.startSample || peak > vp.endSample) continue
       const q = this.trace.qualities?.[i] ?? 0
       const x = (peak - vp.startSample) / vp.samplesPerPixel
       const alpha = Math.min(0.25, q / 220)
@@ -348,9 +344,8 @@ export class ChromatogramCanvas {
     this.ctx.textAlign = 'center'
     this.ctx.textBaseline = 'bottom'
 
-    for (let i = 0; i < this.trace.peakPositions.length; i += 1) {
+    for (let i = visiblePeaks.start; i < visiblePeaks.end; i += 1) {
       const peak = this.trace.peakPositions[i]
-      if (peak < vp.startSample || peak > vp.endSample) continue
       const x = (peak - vp.startSample) / vp.samplesPerPixel
       const base = (this.trace.baseCalls[i] ?? 'N').toUpperCase() as keyof typeof TRACE_COLORS
       this.ctx.fillStyle = TRACE_COLORS[base] ?? '#444'
