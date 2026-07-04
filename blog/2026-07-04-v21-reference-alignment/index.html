@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>2026-07-04 — v21 reference alignment + variant/SNP calling: in-browser banded NW aligner, IUPAC scoring, variant review table, CSV/VCF export | sanger-viewer devlog</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-shell">
+        <a class="site-title" href="../../">sanger-viewer</a>
+        <nav class="site-nav" aria-label="Site">
+          <a href="../">Devlog</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="site-shell blog-entry">
+      <p><a href="../">← Back to devlog</a></p>
+      <h1>2026-07-04 — v21 reference alignment + variant/SNP calling</h1>
+      <p><time datetime="2026-07-04">July 4, 2026</time></p>
+
+      <p>
+        Work unit 2: paste or load a reference sequence; the viewer aligns the Sanger read
+        to it entirely in the browser (no server, no upload), calls substitutions, indels, and
+        ambiguous IUPAC positions with 1-based coordinates, shows them in a filterable review
+        table, and lets you export a CSV or VCF-lite TSV. The privacy wedge — data never
+        leaving the machine — is preserved end-to-end.
+      </p>
+
+      <h2>What changed</h2>
+      <ul>
+        <li>
+          <strong>Banded semi-global Needleman-Wunsch aligner (<code>src/alignment/aligner.ts</code>).</strong>
+          Semi-global alignment gives free end-gaps on the read so a partial Sanger read can
+          align anywhere within a longer reference. Bandwidth is 20 diagonals on each side,
+          which handles typical sequencing indels while keeping the runtime near-linear.
+          Strand is auto-detected: if the reverse-complement alignment scores higher, the read
+          is flipped. FASTA and raw-sequence input are both accepted.
+        </li>
+        <li>
+          <strong>IUPAC-aware scoring matrix (<code>src/alignment/iupac.ts</code>).</strong>
+          Ambiguous bases (W, S, M, K, R, Y, B, D, H, V, N) are scored by the fraction of
+          their possible expansions that match the reference base, so a Y read-base against a
+          T reference contributes +0.5 rather than being penalised as a full mismatch.
+        </li>
+        <li>
+          <strong>CIGAR string builder/parser (<code>src/alignment/cigar.ts</code>).</strong>
+          Coordinate mappers <code>readPosToRefPos</code> and <code>refPosToReadPos</code>
+          enable exact 1-based reference positions for every called variant. Insertions return
+          <code>null</code> for the ref coordinate; deletions return <code>null</code> for the
+          read coordinate.
+        </li>
+        <li>
+          <strong>Variant caller (<code>src/variants/caller.ts</code>).</strong>
+          Walks the CIGAR segment-by-segment. Substitutions that differ from the reference
+          base become SNVs; multi-base runs of I or D are collapsed to a single indel record;
+          read bases that are IUPAC ambiguity codes (but not N) and could differ from the
+          reference emit an <code>ambiguous</code> call. Confidence follows quality score
+          brackets (high ≥ 40, medium ≥ 20, low otherwise). N bases are skipped.
+        </li>
+        <li>
+          <strong>Variant filter utilities (<code>src/variants/filter.ts</code>).</strong>
+          <code>filterVariants</code> supports four filter modes — all, high-confidence,
+          ambiguous, and indel — plus suppressed-variant exclusion for export.
+        </li>
+        <li>
+          <strong>CSV and VCF-lite TSV export (<code>src/export/variants.ts</code>).</strong>
+          <code>toVariantsCsv</code> emits a deterministic UTF-8 CSV with the header
+          <code>position,ref,alt,type,confidence,review</code>. <code>toVariantsVcf</code>
+          emits a minimal VCF with the mandatory meta-info lines, header, and one data row
+          per non-suppressed variant. Both are fully deterministic and exact-byte tested.
+        </li>
+        <li>
+          <strong>Reference panel UI (<code>src/components/ReferencePanel.ts</code>).</strong>
+          A collapsible textarea (FASTA or raw sequence) plus a "Load FASTA" file button and
+          an "Align" button. While alignment runs the button shows "Aligning…" and the
+          textarea is locked. On success, a status line reports strand and 1-based reference
+          span. A "Clear" button resets everything.
+        </li>
+        <li>
+          <strong>Variant review table (<code>src/components/VariantTable.ts</code>).</strong>
+          A filter tab bar (All / High / Ambig / Indel), row-level review cycling (pending →
+          confirmed → suppressed → pending), and export buttons. The table is hidden while no
+          alignment is active. Suppressed rows show struck-through text and are excluded from
+          all exports.
+        </li>
+        <li>
+          <strong>Permalink wiring.</strong>
+          <code>variantReviews</code> — the per-variant review state — is encoded into the
+          permalink alongside edits. The reference sequence itself is intentionally <em>not</em>
+          encoded (too large for a URL; the UI says so explicitly). Sharing a view that
+          includes a reference requires the receiver to re-paste the reference and click Align.
+        </li>
+      </ul>
+
+      <h2>Specs grounding this unit</h2>
+      <ul>
+        <li><a href="../../docs/specs/07-reference-alignment.md"><code>docs/specs/07-reference-alignment.md</code></a></li>
+        <li><a href="../../docs/specs/08-variant-calling-review.md"><code>docs/specs/08-variant-calling-review.md</code></a></li>
+      </ul>
+
+      <h2>Tests</h2>
+      <table>
+        <caption class="sr-only">New test coverage for v21</caption>
+        <thead>
+          <tr><th>File</th><th>Count</th><th>What is asserted</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>tests/core/alignment.test.ts</code></td>
+            <td>43</td>
+            <td>
+              IUPAC scoring exact values, reverseComplement, CIGAR parse/build,
+              coordinate mapping (readPosToRefPos / refPosToReadPos), CIGAR length
+              helpers, aligner placement + strand detection, known-mismatch variant
+              positions from CIGAR walk.
+            </td>
+          </tr>
+          <tr>
+            <td><code>tests/core/variants.test.ts</code></td>
+            <td>29</td>
+            <td>
+              callVariants exact position + type + confidence + alt sequence;
+              filterVariants all four modes; countByType; toVariantsCsv exact bytes;
+              toVariantsVcf exact bytes; suppressed-variant exclusion.
+            </td>
+          </tr>
+          <tr>
+            <td><code>tests/e2e/reference-alignment.e2e.test.ts</code></td>
+            <td>8</td>
+            <td>
+              Panel visible after load; Align button disabled when empty; Align
+              enabled after paste; status shows strand + ref-pos range; variant table
+              appears; filter tab state transitions; CSV download header exact match;
+              Clear resets panel and hides table.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>Design decisions</h2>
+      <ul>
+        <li>
+          <strong>No new npm dependencies.</strong> The aligner, scorer, and exporters
+          are pure TypeScript with zero runtime imports beyond the existing codebase.
+        </li>
+        <li>
+          <strong>Circular alignment is supported.</strong> Setting <code>circular: true</code>
+          in the aligner rotates the reference to find the best wrap-around placement — useful
+          for plasmid reads. Disabled by default.
+        </li>
+        <li>
+          <strong>Reference not encoded in permalink.</strong> A reference sequence can be
+          hundreds to thousands of bases; encoding it in the URL hash would routinely exceed
+          browser limits. The UI documents this: the share link encodes review decisions but
+          not the raw reference. This is consistent with the privacy-first design (the
+          reference is also often the researcher's unpublished data).
+        </li>
+        <li>
+          <strong>Variant IDs are deterministic.</strong> The format
+          <code>{alignmentId}:{position}:{ref}:{alt}</code> means review-state can survive
+          a re-alignment to the same reference and be correctly re-applied via permalink.
+        </li>
+      </ul>
+    </main>
+  </body>
+</html>

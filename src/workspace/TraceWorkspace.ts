@@ -15,6 +15,7 @@ import type { SubsequenceMatch } from '../search/findSubsequence'
 import type { MixedBaseResult } from '../calling/mixedBase'
 import { DEFAULT_MIXED_BASE_THRESHOLD } from '../calling/mixedBase'
 import type { PermalinkSource } from './permalink'
+import type { ReferenceAlignment, CalledVariant } from '../types/alignment'
 
 export interface WorkspaceSearchState {
   query: string
@@ -50,6 +51,14 @@ export interface TraceSlot {
   viewport: { startSample: number; samplesPerPixel: number }
   /** Whether the sample-state ribbon has been dismissed for this slot. */
   sampleRibbonDismissed: boolean
+  /** Reference alignment result for this slot, or null if not yet aligned. */
+  alignmentResult: ReferenceAlignment | null
+  /** Reference sequence used in the last alignment, or null. */
+  referenceSequence: string | null
+  /** Reference name/id used in the last alignment, or null. */
+  referenceId: string | null
+  /** Per-variant review overrides set by the user (variantId → review). */
+  variantReviews: Record<string, CalledVariant['review']>
 }
 
 let _idCounter = 0
@@ -151,6 +160,7 @@ export class TraceWorkspace {
       this.slots[idx].rawTrace = null
       this.slots[idx].trimResult = null
       this.slots[idx].mixedBaseResult = null
+      this.slots[idx].alignmentResult = null
     }
   }
 }
@@ -169,5 +179,9 @@ export function makeSlot(trace: TraceData, source: PermalinkSource): Omit<TraceS
     source,
     viewport: { startSample: 0, samplesPerPixel: Math.max(1, trace.sampleCount / 300) },
     sampleRibbonDismissed: false,
+    alignmentResult: null,
+    referenceSequence: null,
+    referenceId: null,
+    variantReviews: {},
   }
 }
