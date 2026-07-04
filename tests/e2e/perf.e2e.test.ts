@@ -185,11 +185,12 @@ test.describe('interaction latency budgets', () => {
     const previousSpp = await canvas.getAttribute('data-viewport-spp')
     const elapsed = await measureInteractionUntil(
       () => page.getByRole('button', { name: 'Zoom +' }).click(),
-      () =>
-        page.waitForFunction((prev) => {
+      async () => {
+        await page.waitForFunction((prev) => {
           const el = document.querySelector('[data-testid="chromatogram-canvas"]')
           return (el as HTMLCanvasElement | null)?.getAttribute('data-viewport-spp') !== prev
-        }, previousSpp),
+        }, previousSpp)
+      },
     )
     expect(elapsed, `zoom time ${elapsed} ms exceeds 300 ms budget`).toBeLessThan(300)
   })
