@@ -40,7 +40,7 @@ import {
   type SubsequenceMatch
 } from '../search/findSubsequence'
 import { TraceWorkspace, makeSlot } from '../workspace/TraceWorkspace'
-import { decodePermalinkState, encodePermalinkState, type PermalinkStateV1 } from '../workspace/permalink'
+import { decodePermalinkState, encodePermalinkState, type PermalinkSource, type PermalinkStateV1 } from '../workspace/permalink'
 import { buildAnnotationFeatures, filterAnnotationFeaturesByRange, type AnnotationFeature } from '../annotations'
 import { mapSampleViewportToBaseRange } from '../render/viewport'
 import { BaseEditModel } from '../editing'
@@ -158,6 +158,11 @@ export function createTraceViewer(): HTMLDivElement {
 
     </div>
 
+    <div id="sample-ribbon" class="status-banner status-banner--sample hidden" role="status" aria-live="polite" aria-atomic="true">
+      <span id="sample-ribbon-text">Viewing sample trace — drop your own .ab1/.scf (100% in-browser, nothing uploaded)</span>
+      <button id="sample-ribbon-dismiss" type="button" class="status-banner__dismiss" aria-label="Dismiss sample trace notice">Dismiss</button>
+    </div>
+
     <div class="canvas-wrap">
       <canvas data-testid="chromatogram-canvas" aria-label="Chromatogram trace canvas"></canvas>
     </div>
@@ -194,6 +199,8 @@ export function createTraceViewer(): HTMLDivElement {
   const successText = root.querySelector<HTMLElement>('#success-text')!
   const sampleBtn = root.querySelector<HTMLButtonElement>('#sample-load-btn')!
   const permalinkHint = root.querySelector<HTMLElement>('#permalink-hint')!
+  const sampleRibbon = root.querySelector<HTMLElement>('#sample-ribbon')!
+  const sampleRibbonDismissBtn = root.querySelector<HTMLButtonElement>('#sample-ribbon-dismiss')!
   const searchInput = controls.querySelector<HTMLInputElement>('#search-input')!
   const canvas = root.querySelector<HTMLCanvasElement>('[data-testid="chromatogram-canvas"]')!
   canvas.style.touchAction = 'none'
@@ -224,7 +231,7 @@ export function createTraceViewer(): HTMLDivElement {
   let hoveredBaseIndex: number | null = null
   let isRevcomp = false
   let rawTrace: TraceData | null = null
-  let traceSource: { kind: 'sample' | 'local'; value: string } | null = null
+  let traceSource: PermalinkSource | null = null
   let trimSettings: TrimSettings = { ...DEFAULT_TRIM_SETTINGS }
   let trimResult: TrimResult | null = null
   let mixedBaseThreshold = DEFAULT_MIXED_BASE_THRESHOLD
@@ -235,6 +242,8 @@ export function createTraceViewer(): HTMLDivElement {
   let annotationFeatures: AnnotationFeature[] = []
   const workspace = new TraceWorkspace(5)
   let activeSlotId: string | null = null
+  let sampleRibbonDismissed = false
+  let loadRequestId = 0
   const editModel = new BaseEditModel()
   const initialPermalink = decodePermalinkState(window.location.hash)
   let pendingPermalink: PermalinkStateV1 | null = initialPermalink
@@ -513,6 +522,11 @@ export function createTraceViewer(): HTMLDivElement {
     })
   }
 
+  const syncSampleRibbon = () => {
+    const show = viewerState === 'loaded' && traceSource?.kind === 'sample' && !sampleRibbonDismissed
+    sampleRibbon.classList.toggle('hidden', !show)
+  }
+
   const setState = (state: ViewerState, message = '') => {
     viewerState = state
     emptyStateEl.classList.toggle('hidden', state !== 'empty')
@@ -541,6 +555,7 @@ export function createTraceViewer(): HTMLDivElement {
       setPrintButtonState(controls, false)
     }
     syncSearchUi(false)
+    syncSampleRibbon()
   }
 
   const refreshReadout = () => {
@@ -762,6 +777,7 @@ export function createTraceViewer(): HTMLDivElement {
       mixedBaseThreshold,
       mixedBaseResult,
       viewport: renderer.getViewportState(),
+      sampleRibbonDismissed,
     })
   }
 
@@ -770,6 +786,7 @@ export function createTraceViewer(): HTMLDivElement {
     slot.viewport = renderer.getViewportState()
     slot.mixedBaseThreshold = mixedBaseThreshold
     slot.mixedBaseResult = mixedBaseResult
+    slot.sampleRibbonDismissed = traceSource?.kind === 'sample' ? sampleRibbonDismissed : false
     return slot
   }
 
@@ -792,6 +809,7 @@ export function createTraceViewer(): HTMLDivElement {
     mixedBaseThreshold = DEFAULT_MIXED_BASE_THRESHOLD
     mixedBaseResult = null
     searchState = { query: '', matches: [], activeIndex: -1 }
+    sampleRibbonDismissed = false
     selectedBaseIndex = null
     hoveredBaseIndex = null
     editingIndex = -1
@@ -831,6 +849,7 @@ export function createTraceViewer(): HTMLDivElement {
     searchState = { ...slot.searchState }
     mixedBaseThreshold = slot.mixedBaseThreshold
     mixedBaseResult = slot.mixedBaseResult
+    sampleRibbonDismissed = slot.sampleRibbonDismissed
 
     // Reset interaction state.
     selectedBaseIndex = null
@@ -859,41 +878,81 @@ export function createTraceViewer(): HTMLDivElement {
     refreshConsensus()
   }
 
-  const load = async (file: File) => {
-    try {
-      cancelMixedBaseRecompute()
-      saveCurrentSlot()
-      setState('loading', `Loading ${file.name}…`)
-      const buffer = await file.arrayBuffer()
-      const trace = await parseInWorker(buffer, file.name)
-      resetSearchState()
-      updateMetadataPanel(metadataPanel, null)
-      selectedBaseIndex = null
-      hoveredBaseIndex = null
-      isRevcomp = false
-      rawTrace = trace
-      traceSource = { kind: 'local', value: file.name }
-      trimSettings = { ...DEFAULT_TRIM_SETTINGS }
-      trimResult = null
-      mixedBaseThreshold = DEFAULT_MIXED_BASE_THRESHOLD
-      mixedBaseResult = null
-      searchState = { query: '', matches: [], activeIndex: -1 }
-      editingIndex = -1
-      editModel.reset()
-      setStrandToggleState(controls, false)
-      setMixedThresholdDisplay(controls, mixedBaseThreshold)
-      setUndoRedoState(controls, false, false)
-      hideTooltip(tooltip)
-      updateMetadataPanel(metadataPanel, trace.metadata)
-      applyDisplayTrace()
-      const slot = makeActiveSlot(trace)
+  const beginLoad = (message: string) => {
+    loadRequestId += 1
+    cancelMixedBaseRecompute()
+    saveCurrentSlot()
+    setState('loading', message)
+    return loadRequestId
+  }
+
+  const shouldReplacePlaceholderSample = (source: PermalinkSource) => {
+    if (source.kind !== 'local') return false
+    const activeSlot = workspace.getActive()
+    return activeSlot !== null
+      && activeSlot.id === activeSlotId
+      && activeSlot.source.kind === 'sample'
+      && workspace.getAll().length === 1
+  }
+
+  const applyPendingPermalinkIfReady = (source: PermalinkSource) => {
+    if (!pendingPermalink) return
+    const sourceMatches = pendingPermalink.source.kind === source.kind
+      && pendingPermalink.source.value === source.value
+    if (!sourceMatches) return
+    applyPermalinkState(pendingPermalink)
+    pendingPermalink = null
+    if (source.kind === 'local') setPermalinkHint('')
+  }
+
+  const commitLoadedTrace = (trace: TraceData, source: PermalinkSource) => {
+    resetSearchState()
+    updateMetadataPanel(metadataPanel, null)
+    selectedBaseIndex = null
+    hoveredBaseIndex = null
+    isRevcomp = false
+    rawTrace = trace
+    trimSettings = { ...DEFAULT_TRIM_SETTINGS }
+    trimResult = null
+    mixedBaseThreshold = DEFAULT_MIXED_BASE_THRESHOLD
+    mixedBaseResult = null
+    traceSource = source
+    sampleRibbonDismissed = false
+    editingIndex = -1
+    editModel.reset()
+    setStrandToggleState(controls, false)
+    setMixedThresholdDisplay(controls, mixedBaseThreshold)
+    setUndoRedoState(controls, false, false)
+    hideTooltip(tooltip)
+    updateMetadataPanel(metadataPanel, trace.metadata)
+    applyDisplayTrace()
+
+    const slot = makeActiveSlot(trace)
+    if (shouldReplacePlaceholderSample(source) && activeSlotId) {
+      workspace.updateSlot(activeSlotId, slot)
+      workspace.activate(activeSlotId)
+    } else {
       const newId = workspace.add(slot)
       activeSlotId = newId
-      syncWorkspaceBar()
-      refreshConsensus()
-      const msg = `Loaded ${trace.fileName} (${trace.baseCalls.length} bases)`
-      setState('loaded', msg)
+    }
+    applyPendingPermalinkIfReady(source)
+    saveCurrentSlot()
+    syncWorkspaceBar()
+    refreshConsensus()
+    const msg = `Loaded ${trace.fileName} (${trace.baseCalls.length} bases)`
+    setState('loaded', msg)
+  }
+
+  const load = async (file: File) => {
+    const requestId = beginLoad(`Loading ${file.name}…`)
+    try {
+      const buffer = await file.arrayBuffer()
+      if (requestId !== loadRequestId) return
+      const trace = await parseInWorker(buffer, file.name)
+      if (requestId !== loadRequestId) return
+      commitLoadedTrace(trace, { kind: 'local', value: file.name })
     } catch (error) {
+      if (requestId !== loadRequestId) return
       clearDisplayedTrace()
       activeSlotId = null
       syncWorkspaceBar()
@@ -904,48 +963,19 @@ export function createTraceViewer(): HTMLDivElement {
   }
 
   const loadSample = async () => {
+    const requestId = beginLoad('Loading sample trace…')
     try {
-      cancelMixedBaseRecompute()
-      saveCurrentSlot()
-      setState('loading', 'Loading sample trace…')
       const sampleBaseUrl = (import.meta.env.BASE_URL as string).replace(/\/?$/, '/')
       const sampleUrl = `${sampleBaseUrl}sample.ab1`
       const response = await fetch(sampleUrl)
       if (!response.ok) throw new Error(`Could not fetch sample (${response.status})`)
       const buffer = await response.arrayBuffer()
+      if (requestId !== loadRequestId) return
       const trace = await parseInWorker(buffer, 'sample.ab1')
-      resetSearchState()
-      updateMetadataPanel(metadataPanel, null)
-      selectedBaseIndex = null
-      hoveredBaseIndex = null
-      isRevcomp = false
-      rawTrace = trace
-      traceSource = { kind: 'sample', value: 'sample.ab1' }
-      trimSettings = { ...DEFAULT_TRIM_SETTINGS }
-      trimResult = null
-      mixedBaseThreshold = DEFAULT_MIXED_BASE_THRESHOLD
-      mixedBaseResult = null
-      searchState = { query: '', matches: [], activeIndex: -1 }
-      editingIndex = -1
-      editModel.reset()
-      setStrandToggleState(controls, false)
-      setMixedThresholdDisplay(controls, mixedBaseThreshold)
-      setUndoRedoState(controls, false, false)
-      hideTooltip(tooltip)
-      updateMetadataPanel(metadataPanel, trace.metadata)
-      applyDisplayTrace()
-      if (pendingPermalink?.source.kind === 'sample') {
-        applyPermalinkState(pendingPermalink)
-        pendingPermalink = null
-      }
-      const slot = makeActiveSlot(trace)
-      const newId = workspace.add(slot)
-      activeSlotId = newId
-      syncWorkspaceBar()
-      refreshConsensus()
-      const msg = `Loaded ${trace.fileName} (${trace.baseCalls.length} bases)`
-      setState('loaded', msg)
+      if (requestId !== loadRequestId) return
+      commitLoadedTrace(trace, { kind: 'sample', value: 'sample.ab1' })
     } catch (error) {
+      if (requestId !== loadRequestId) return
       clearDisplayedTrace()
       activeSlotId = null
       syncWorkspaceBar()
@@ -966,7 +996,6 @@ export function createTraceViewer(): HTMLDivElement {
     // Reset so the same file can be re-opened if desired.
     fileInputExtra.value = ''
   })
-
   sampleBtn.addEventListener('click', () => void loadSample())
   if (pendingPermalink?.source.kind === 'local') {
     setPermalinkHint(`Permalink loaded. Reattach local file "${pendingPermalink.source.value}" to restore this exact view.`)
@@ -993,6 +1022,13 @@ export function createTraceViewer(): HTMLDivElement {
     document.body.removeChild(textarea)
     if (!copied) throw new Error('Clipboard unavailable')
   }
+  sampleRibbonDismissBtn.addEventListener('click', () => {
+    sampleRibbonDismissed = true
+    syncSampleRibbon()
+    if (activeSlotId) {
+      workspace.updateSlot(activeSlotId, { sampleRibbonDismissed: true })
+    }
+  })
 
   dropzone.addEventListener('dragover', (event) => {
     event.preventDefault()
@@ -1533,5 +1569,6 @@ export function createTraceViewer(): HTMLDivElement {
   document.addEventListener('keydown', undoRedoKeyHandler)
 
   syncSearchUi(false)
+  requestAnimationFrame(() => void loadSample())
   return root
 }

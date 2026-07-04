@@ -48,6 +48,8 @@ export interface TraceSlot {
   source: PermalinkSource
   /** Chromatogram viewport state. */
   viewport: { startSample: number; samplesPerPixel: number }
+  /** Whether the sample-state ribbon has been dismissed for this slot. */
+  sampleRibbonDismissed: boolean
 }
 
 let _idCounter = 0
@@ -166,5 +168,6 @@ export function makeSlot(trace: TraceData, source: PermalinkSource): Omit<TraceS
     mixedBaseResult: null,
     source,
     viewport: { startSample: 0, samplesPerPixel: Math.max(1, trace.sampleCount / 300) },
+    sampleRibbonDismissed: false,
   }
 }

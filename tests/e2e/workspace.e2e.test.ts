@@ -20,6 +20,11 @@ const FIXTURE_A = fixturePath('fixtures/ab1/310.ab1')
 const FIXTURE_B = fixturePath('fixtures/scf/abcZ_F.scf')
 const INK_THRESHOLD = 1000
 
+async function waitForInitialSampleLoad(page: Page) {
+  await page.goto('')
+  await expect(page.locator('#status')).toContainText('Loaded sample.ab1 (868 bases)')
+}
+
 async function canvasInkSum(page: Page): Promise<number> {
   return page.locator('[data-testid="chromatogram-canvas"]').evaluate((canvas) => {
     const el = canvas as HTMLCanvasElement
@@ -47,7 +52,7 @@ async function readViewportState(page: Page) {
 
 test.describe('Multi-trace workspace', () => {
   test('opening two fixtures shows two tabs in the workspace bar', async ({ page }) => {
-    await page.goto('')
+    await waitForInitialSampleLoad(page)
 
     // Load first fixture via primary input.
     await page.setInputFiles('#file-input', FIXTURE_A)
@@ -73,7 +78,7 @@ test.describe('Multi-trace workspace', () => {
   })
 
   test('switching between tabs restores state', async ({ page }) => {
-    await page.goto('')
+    await waitForInitialSampleLoad(page)
 
     await page.setInputFiles('#file-input', FIXTURE_A)
     await expect(page.locator('#status')).toContainText('310.ab1')
@@ -95,9 +100,8 @@ test.describe('Multi-trace workspace', () => {
     await page.setInputFiles('#file-input-extra', FIXTURE_B)
     await expect(page.locator('#status')).toContainText('abcZ_F.scf')
 
-    // Click the first tab (310.ab1) to switch back.
-    const firstTab = page.locator('.workspace-bar__tab').first()
-    await firstTab.click()
+    // Switch back via the named tab so ordering changes do not make the test flaky.
+    await page.getByRole('tab', { name: '310.ab1' }).click()
     await expect(page.locator('#status')).toContainText('310.ab1')
     await expect
       .poll(async () => await readViewportState(page))
@@ -110,7 +114,7 @@ test.describe('Multi-trace workspace', () => {
   })
 
   test('closing a tab removes it from the workspace bar', async ({ page }) => {
-    await page.goto('')
+    await waitForInitialSampleLoad(page)
 
     await page.setInputFiles('#file-input', FIXTURE_A)
     await expect(page.locator('#status')).toContainText('Loaded')
@@ -130,7 +134,7 @@ test.describe('Multi-trace workspace', () => {
   })
 
   test('Export SVG downloads a .svg file', async ({ page }) => {
-    await page.goto('')
+    await waitForInitialSampleLoad(page)
     await page.setInputFiles('#file-input', FIXTURE_A)
     await expect(page.locator('#status')).toContainText('Loaded')
 
@@ -141,7 +145,7 @@ test.describe('Multi-trace workspace', () => {
   })
 
   test('SVG download contains valid SVG content', async ({ page }) => {
-    await page.goto('')
+    await waitForInitialSampleLoad(page)
     await page.setInputFiles('#file-input', FIXTURE_A)
     await expect(page.locator('#status')).toContainText('Loaded')
 
@@ -165,7 +169,7 @@ test.describe('Multi-trace workspace', () => {
   })
 
   test('workspace-open button ("+") stays visible and loads a second file', async ({ page }) => {
-    await page.goto('')
+    await waitForInitialSampleLoad(page)
 
     await page.setInputFiles('#file-input', FIXTURE_A)
     await expect(page.locator('#status')).toContainText('Loaded')
@@ -180,7 +184,7 @@ test.describe('Multi-trace workspace', () => {
   })
 
   test('switching to an evicted tab clears rendered UI and shows reload state', async ({ page }) => {
-    await page.goto('')
+    await waitForInitialSampleLoad(page)
 
     const files = [FIXTURE_A, FIXTURE_B, FIXTURE_A, FIXTURE_B, FIXTURE_A, FIXTURE_B]
     await page.setInputFiles('#file-input', files[0])

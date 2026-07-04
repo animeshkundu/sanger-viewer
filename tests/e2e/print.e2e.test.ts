@@ -78,20 +78,15 @@ async function readPrintView(page: Page) {
 // ────────────────────────────────────────────────────────────────────
 
 test.describe('Print / Save as PDF', () => {
-  test('Print button is present and disabled until a trace is loaded', async ({ page }) => {
+  test('Print button is present and enabled after the bundled sample auto-loads', async ({ page }) => {
     await mockPrint(page)
     await page.goto('')
 
     const btn = page.getByRole('button', { name: /Print \/ Save as PDF/i })
     // The button must exist in the toolbar.
     await expect(btn).toBeAttached()
-
-    // Before loading a trace the button should be disabled (no trace to print).
-    // NOTE: setControlsDisabled keeps the print button in its natural state
-    // during loading — it is ONLY enabled once a trace is resident, matching the
-    // `action === 'print' && trace` guard in the handler.
-    // Loading state is transient; check the empty state.
-    await expect(btn).toBeDisabled()
+    await expect(page.locator('#status')).toContainText('Loaded', { timeout: 10_000 })
+    await expect(btn).toBeEnabled()
   })
 
   test('print-view DOM is populated with exact metadata, sequence, and image content', async ({ page }) => {
