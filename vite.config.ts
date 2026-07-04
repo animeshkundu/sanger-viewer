@@ -26,8 +26,9 @@ export default defineConfig(({ command }) => ({
         blogConsensusEntry: fileURLToPath(new URL('./blog/2026-07-04-v17-consensus/index.html', import.meta.url)),
         blogAuditEntry: fileURLToPath(new URL('./blog/2026-07-04-v17-perf-reliability-audit/index.html', import.meta.url)),
         blogDesignResearchEntry: fileURLToPath(new URL('./blog/2026-07-04-v17-design-research/index.html', import.meta.url)),
-        blogFirstImpressionEntry: fileURLToPath(new URL('./blog/2026-07-04-v18-first-impression/index.html', import.meta.url)),
         blogPrintEntry: fileURLToPath(new URL('./blog/2026-07-04-v18-print/index.html', import.meta.url)),
+        blogFirstImpressionEntry: fileURLToPath(new URL('./blog/2026-07-04-v18-first-impression/index.html', import.meta.url)),
+        blogPermalinksEntry: fileURLToPath(new URL('./blog/2026-07-04-v19-permalinks/index.html', import.meta.url)),
         blogPerfHarnessEntry: fileURLToPath(new URL('./blog/2026-07-04-v19-perf-harness/index.html', import.meta.url)),
         blogPerfHotPathsEntry: fileURLToPath(new URL('./blog/2026-07-04-v20-perf-hot-paths/index.html', import.meta.url))
       }

@@ -14,6 +14,7 @@ import { DEFAULT_TRIM_SETTINGS } from '../quality/mottTrim'
 import type { SubsequenceMatch } from '../search/findSubsequence'
 import type { MixedBaseResult } from '../calling/mixedBase'
 import { DEFAULT_MIXED_BASE_THRESHOLD } from '../calling/mixedBase'
+import type { PermalinkSource } from './permalink'
 
 export interface WorkspaceSearchState {
   query: string
@@ -43,10 +44,10 @@ export interface TraceSlot {
   mixedBaseThreshold: number
   /** Last computed mixed-base calls for displayed strand. */
   mixedBaseResult: MixedBaseResult | null
+  /** Source metadata for permalink reconstruction. */
+  source: PermalinkSource
   /** Chromatogram viewport state. */
   viewport: { startSample: number; samplesPerPixel: number }
-  /** Whether this slot came from the bundled sample trace or a user file. */
-  source: 'sample' | 'user'
   /** Whether the sample-state ribbon has been dismissed for this slot. */
   sampleRibbonDismissed: boolean
 }
@@ -155,7 +156,7 @@ export class TraceWorkspace {
 }
 
 /** Build a fresh slot from a loaded trace with default per-slot state. */
-export function makeSlot(trace: TraceData, source: 'sample' | 'user' = 'user'): Omit<TraceSlot, 'id'> {
+export function makeSlot(trace: TraceData, source: PermalinkSource): Omit<TraceSlot, 'id'> {
   return {
     fileName: trace.fileName,
     rawTrace: trace,
@@ -165,8 +166,8 @@ export function makeSlot(trace: TraceData, source: 'sample' | 'user' = 'user'): 
     searchState: { query: '', matches: [], activeIndex: -1 },
     mixedBaseThreshold: DEFAULT_MIXED_BASE_THRESHOLD,
     mixedBaseResult: null,
-    viewport: { startSample: 0, samplesPerPixel: Math.max(1, trace.sampleCount / 300) },
     source,
+    viewport: { startSample: 0, samplesPerPixel: Math.max(1, trace.sampleCount / 300) },
     sampleRibbonDismissed: false,
   }
 }
