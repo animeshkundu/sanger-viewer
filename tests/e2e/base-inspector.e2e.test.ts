@@ -111,7 +111,6 @@ test('tooltip is hidden when keyboard inspector opens', { tag: ['@desktop'] }, a
   if (!box) throw new Error('Canvas not visible')
   await page.mouse.move(box.x + 8, box.y + box.height / 2)
   await page.locator('.tooltip').waitFor({ state: 'visible', timeout: 3000 })
-  await expect(page.locator('.tooltip')).toBeVisible()
   await expect(page.locator('.tooltip')).toContainText('peak:')
 
   // Focus a rendered sequence base via keyboard — tooltip must be dismissed, inspector must appear.
