@@ -14,6 +14,13 @@ export interface PermalinkStateV1 {
   selection: { baseIndex: number | null }
   edits: Array<{ forwardIndex: number; base: string; originalBase: string }>
   overlays: { quality: boolean; annotations: boolean; mixedBases: boolean }
+  /**
+   * Variant review overrides (variantId → review).
+   * The reference sequence is NOT encoded in the permalink (too large); users
+   * must reattach the reference file when opening a local-file permalink.
+   * Review states are only encoded for 'sample' sources to avoid URL bloat.
+   */
+  variantReviews?: Array<{ id: string; review: 'unreviewed' | 'accepted' | 'uncertain' | 'suppressed' }>
 }
 
 const PREFIX = '#sv='
@@ -37,6 +44,20 @@ function fromBase64Url(input: string): string | null {
   } catch {
     return null
   }
+}
+
+function normalizeVariantReviews(reviews: unknown): PermalinkStateV1['variantReviews'] {
+  if (!Array.isArray(reviews)) return undefined
+  const valid: NonNullable<PermalinkStateV1['variantReviews']> = []
+  for (const entry of reviews) {
+    if (typeof entry !== 'object' || entry === null) continue
+    const id = (entry as { id?: unknown }).id
+    const review = (entry as { review?: unknown }).review
+    if (typeof id !== 'string' || typeof review !== 'string') continue
+    if (!['unreviewed', 'accepted', 'uncertain', 'suppressed'].includes(review)) continue
+    valid.push({ id, review: review as 'unreviewed' | 'accepted' | 'uncertain' | 'suppressed' })
+  }
+  return valid.length > 0 ? valid : undefined
 }
 
 function normalizeEdits(edits: unknown): EditEntry[] {
@@ -86,6 +107,7 @@ function normalizeState(candidate: unknown): PermalinkStateV1 | null {
     selection: { baseIndex },
     edits: normalizeEdits(value.edits),
     overlays,
+    variantReviews: normalizeVariantReviews(value.variantReviews),
   }
 }
 

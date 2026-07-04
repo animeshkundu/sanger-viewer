@@ -24,10 +24,13 @@ import { createWorkspaceBar, renderWorkspaceBar } from './WorkspaceBar'
 import { createAnnotationTrack } from './AnnotationTrack'
 import { createQualityTrack } from './QualityTrack'
 import { createConsensusRow, renderConsensusRow, hideConsensusRow } from './ConsensusRow'
+import { createReferencePanel, setReferencePanelStatus, type ReferencePanelElements } from './ReferencePanel'
+import { createVariantTable, renderVariantTable, setVariantTableVisible, type VariantTableElements } from './VariantTable'
 import { downloadBlob } from '../export/png'
 import { toFasta } from '../export/fasta'
 import { toFastq, toQual } from '../export/fastq'
 import { exportSvg } from '../export/svg'
+import { toVariantsCsv, toVariantsVcf } from '../export/variants'
 import { computeConsensus, toConsensusFasta } from '../consensus/consensus'
 import { buildPrintSection, type PrintSectionData } from '../export/print'
 import { reverseComplementTrace, iupacComplement } from '../revcomp'
@@ -44,8 +47,12 @@ import { decodePermalinkState, encodePermalinkState, type PermalinkSource, type 
 import { buildAnnotationFeatures, filterAnnotationFeaturesByRange, type AnnotationFeature } from '../annotations'
 import { mapSampleViewportToBaseRange } from '../render/viewport'
 import { BaseEditModel } from '../editing'
+import { alignReadToReference, parseFastaSequence } from '../alignment/aligner'
+import { callVariants } from '../variants/caller'
+import type { VariantFilterMode } from '../variants/filter'
 import type { TrimResult, TrimSettings } from '../quality/mottTrim'
 import type { TraceData } from '../types/trace'
+import type { ReferenceAlignment, CalledVariant } from '../types/alignment'
 
 // Lazily-loaded worker module (Vite ?worker import, only in browser bundles).
 type WorkerConstructor = new () => Worker
@@ -90,6 +97,7 @@ type SearchState = {
 
 const ANNOTATION_VIEWPORT_EXTRA_BASES = 12
 const ANNOTATION_FEATURE_PADDING_BASES = 6
+const DEFAULT_ALIGNMENT_BANDWIDTH = 20
 
 export function createTraceViewer(): HTMLDivElement {
   const root = document.createElement('div')
@@ -181,9 +189,12 @@ export function createTraceViewer(): HTMLDivElement {
   })
   const qualityTrack = createQualityTrack()
   const consensusRow = createConsensusRow()
+  const referencePanelElements: ReferencePanelElements = createReferencePanel()
+  const variantTableElements: VariantTableElements = createVariantTable()
   const canvasWrap = root.querySelector<HTMLElement>('.canvas-wrap')!
   root.insertBefore(annotationTrack.element, canvasWrap)
-  root.append(qualityTrack.element, controls, workspaceBar, readout, sequencePanel, baseInspector, metadataPanel, consensusRow, tooltip)
+  root.append(qualityTrack.element, controls, workspaceBar, readout, sequencePanel, baseInspector, metadataPanel, consensusRow, referencePanelElements.root, variantTableElements.root, tooltip)
+  setVariantTableVisible(variantTableElements, false)
 
   const fileInput = root.querySelector<HTMLInputElement>('#file-input')!
   const fileInputExtra = root.querySelector<HTMLInputElement>('#file-input-extra')!
@@ -251,6 +262,14 @@ export function createTraceViewer(): HTMLDivElement {
   let editingIndex: number = -1  // display index of the span currently in "edit mode" (-1 = none)
   let inspectorDisplayIndex: number | null = null
   let inspectorActiveSpan: HTMLElement | null = null
+  // ── Reference alignment / variant state ────────────────────────────────────
+  let alignmentResult: ReferenceAlignment | null = null
+  let referenceSequence: string | null = null
+  let referenceId: string | null = null
+  let calledVariants: CalledVariant[] = []
+  let variantReviews: Record<string, CalledVariant['review']> = {}
+  let variantFilterMode: VariantFilterMode = 'all'
+  let selectedVariantId: string | null = null
   setMixedThresholdDisplay(controls, mixedBaseThreshold)
   setMixedSummary(controls, 0)
   setUndoRedoState(controls, false, false)
@@ -763,6 +782,92 @@ export function createTraceViewer(): HTMLDivElement {
   }
 
   /**
+   * Apply per-variant review overrides from `variantReviews` to the
+   * base `calledVariants` array and sync the variant table.
+   */
+  const getEffectiveVariants = (): CalledVariant[] =>
+    calledVariants.map((v) => ({
+      ...v,
+      review: variantReviews[v.id] ?? v.review,
+    }))
+
+  const refreshVariantTable = () => {
+    const effective = getEffectiveVariants()
+    renderVariantTable(variantTableElements, effective, variantFilterMode, selectedVariantId)
+    setVariantTableVisible(variantTableElements, alignmentResult !== null)
+  }
+
+  /**
+   * Run reference alignment for the active trace slot, then call variants.
+   * Updates all relevant UI panels.
+   */
+  const runAlignment = (refSeq: string, refName: string) => {
+    if (!rawTrace) return
+    const displayTrace = renderer.getCurrentTrace() ?? rawTrace
+
+    // Use the currently-displayed sequence (with edits + strand applied).
+    const readSeq = displayTrace.sequence
+    const qualities = displayTrace.qualities
+
+    setReferencePanelStatus(referencePanelElements, 'Aligning…', 'idle')
+
+    // Run synchronously (sequences are short for Sanger reads).
+    const result = alignReadToReference(readSeq, refSeq, refName, activeSlotId ?? 'slot', DEFAULT_ALIGNMENT_BANDWIDTH)
+    alignmentResult = result
+    referenceSequence = refSeq
+    referenceId = refName
+
+    // Determine the sequence actually used in alignment (strand-corrected).
+    const alignedReadSeq = result.strand === 'reverse'
+      ? displayTrace.sequence  // aligner already ran on RC internally
+      : readSeq
+
+    calledVariants = callVariants(result, alignedReadSeq, refSeq, qualities)
+    variantReviews = {}
+    selectedVariantId = null
+
+    const strand = result.strand
+    const status = `Aligned ${strand} · ref pos ${result.refStart}–${result.refEnd} · score ${result.score.toFixed(0)} · ${calledVariants.length} variant${calledVariants.length !== 1 ? 's' : ''}`
+    setReferencePanelStatus(referencePanelElements, status, 'success')
+
+    refreshVariantTable()
+
+    // Persist to active slot.
+    if (activeSlotId) {
+      workspace.updateSlot(activeSlotId, {
+        alignmentResult,
+        referenceSequence,
+        referenceId,
+        variantReviews: { ...variantReviews },
+      })
+    }
+  }
+
+  /**
+   * Clear alignment state (when trace changes or user clicks "Clear").
+   */
+  const clearAlignment = () => {
+    alignmentResult = null
+    referenceSequence = null
+    referenceId = null
+    calledVariants = []
+    variantReviews = {}
+    selectedVariantId = null
+    referencePanelElements.textarea.value = ''
+    referencePanelElements.alignBtn.disabled = true
+    setReferencePanelStatus(referencePanelElements, '', 'idle')
+    refreshVariantTable()
+    if (activeSlotId) {
+      workspace.updateSlot(activeSlotId, {
+        alignmentResult: null,
+        referenceSequence: null,
+        referenceId: null,
+        variantReviews: {},
+      })
+    }
+  }
+
+  /**
    * Save the currently active slot's per-slot state back into the workspace
    * so it is correctly restored when switching back later.
    */
@@ -779,6 +884,10 @@ export function createTraceViewer(): HTMLDivElement {
       mixedBaseResult,
       viewport: renderer.getViewportState(),
       sampleRibbonDismissed,
+      alignmentResult,
+      referenceSequence,
+      referenceId,
+      variantReviews: { ...variantReviews },
     })
   }
 
@@ -814,6 +923,12 @@ export function createTraceViewer(): HTMLDivElement {
     selectedBaseIndex = null
     hoveredBaseIndex = null
     editingIndex = -1
+    alignmentResult = null
+    referenceSequence = null
+    referenceId = null
+    calledVariants = []
+    variantReviews = {}
+    selectedVariantId = null
     editModel.reset()
     setUndoRedoState(controls, false, false)
     hideTooltip(tooltip)
@@ -823,6 +938,8 @@ export function createTraceViewer(): HTMLDivElement {
     setMixedSummary(controls, 0)
     setShareStatus(controls, '')
     updateMetadataPanel(metadataPanel, null)
+    setReferencePanelStatus(referencePanelElements, '', 'idle')
+    setVariantTableVisible(variantTableElements, false)
     clearRenderPanels()
   }
 
@@ -851,6 +968,11 @@ export function createTraceViewer(): HTMLDivElement {
     mixedBaseThreshold = slot.mixedBaseThreshold
     mixedBaseResult = slot.mixedBaseResult
     sampleRibbonDismissed = slot.sampleRibbonDismissed
+    alignmentResult = slot.alignmentResult
+    referenceSequence = slot.referenceSequence
+    referenceId = slot.referenceId
+    variantReviews = { ...slot.variantReviews }
+    selectedVariantId = null
 
     // Reset interaction state.
     selectedBaseIndex = null
@@ -867,11 +989,29 @@ export function createTraceViewer(): HTMLDivElement {
       refreshReadout()
       const msg = `Loaded ${rawTrace.fileName} (${rawTrace.baseCalls.length} bases)`
       setState('loaded', msg)
+      // Restore alignment panel state.
+      if (alignmentResult && referenceSequence) {
+        const alignStatus = `Aligned ${alignmentResult.strand} · ref pos ${alignmentResult.refStart}–${alignmentResult.refEnd} · score ${alignmentResult.score.toFixed(0)}`
+        setReferencePanelStatus(referencePanelElements, alignStatus, 'success')
+        referencePanelElements.textarea.value = referenceSequence
+        referencePanelElements.alignBtn.disabled = false
+        // Re-derive variants from stored alignment (reviews are already restored).
+        const displayTrace = renderer.getCurrentTrace() ?? rawTrace
+        calledVariants = callVariants(alignmentResult, displayTrace.sequence, referenceSequence, displayTrace.qualities)
+      } else {
+        setReferencePanelStatus(referencePanelElements, '', 'idle')
+        calledVariants = []
+      }
+      refreshVariantTable()
     } else {
       // Evicted slot — show the file name but indicate it needs reloading.
       closeBaseInspector()
       updateMetadataPanel(metadataPanel, null)
       clearRenderPanels()
+      alignmentResult = null
+      calledVariants = []
+      setReferencePanelStatus(referencePanelElements, '', 'idle')
+      setVariantTableVisible(variantTableElements, false)
       setState('error', `${slot.fileName} was evicted from memory — please re-open the file`)
     }
 
@@ -1079,6 +1219,73 @@ export function createTraceViewer(): HTMLDivElement {
 
   root.addEventListener('workspace-open', () => {
     fileInputExtra.click()
+  })
+
+  // ── Reference alignment events ─────────────────────────────────────────────
+  referencePanelElements.alignBtn.addEventListener('click', () => {
+    const raw = referencePanelElements.textarea.value.trim()
+    if (!raw || !rawTrace) return
+    const { name, sequence } = parseFastaSequence(raw)
+    if (sequence.length === 0) {
+      setReferencePanelStatus(referencePanelElements, 'No valid sequence found. Paste plain bases or FASTA.', 'error')
+      return
+    }
+    runAlignment(sequence, name)
+  })
+
+  referencePanelElements.clearBtn.addEventListener('click', () => {
+    clearAlignment()
+  })
+
+  // ── Variant table events ─────────────────────────────────────────────────────
+  variantTableElements.tabBar.addEventListener('click', (event) => {
+    const btn = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-filter]')
+    if (!btn) return
+    variantFilterMode = btn.dataset.filter as VariantFilterMode
+    refreshVariantTable()
+  })
+
+  root.addEventListener('variant-select', (event) => {
+    const { variantId } = (event as CustomEvent<{ variantId: string }>).detail
+    selectedVariantId = selectedVariantId === variantId ? null : variantId
+    refreshVariantTable()
+    // Jump chromatogram to the read position of this variant.
+    if (selectedVariantId) {
+      const variant = getEffectiveVariants().find((v) => v.id === selectedVariantId)
+      if (variant && variant.readIndex >= 0) {
+        const displayTrace = renderer.getCurrentTrace()
+        if (displayTrace) {
+          const peakSample = displayTrace.peakPositions[variant.readIndex]
+          if (peakSample !== undefined) {
+            renderer.focusBaseRange(variant.readIndex, variant.readIndex)
+            refreshReadout()
+          }
+        }
+      }
+    }
+  })
+
+  root.addEventListener('variant-review', (event) => {
+    const { variantId, review } = (event as CustomEvent<{ variantId: string; review: CalledVariant['review'] }>).detail
+    variantReviews = { ...variantReviews, [variantId]: review }
+    refreshVariantTable()
+    if (activeSlotId) workspace.updateSlot(activeSlotId, { variantReviews: { ...variantReviews } })
+  })
+
+  root.addEventListener('export-variants-csv', () => {
+    const effective = getEffectiveVariants()
+    const csv = toVariantsCsv(effective, referenceId ?? '')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const suffix = rawTrace ? rawTrace.fileName.replace(/\.[^.]+$/, '') : 'trace'
+    downloadBlob(blob, `${suffix}-variants.csv`)
+  })
+
+  root.addEventListener('export-variants-vcf', () => {
+    const effective = getEffectiveVariants()
+    const vcf = toVariantsVcf(effective, referenceId ?? 'ref')
+    const blob = new Blob([vcf], { type: 'text/tab-separated-values' })
+    const suffix = rawTrace ? rawTrace.fileName.replace(/\.[^.]+$/, '') : 'trace'
+    downloadBlob(blob, `${suffix}-variants.vcf.tsv`)
   })
 
   root.addEventListener('click', (event) => {

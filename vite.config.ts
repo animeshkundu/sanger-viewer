@@ -30,7 +30,8 @@ export default defineConfig(({ command }) => ({
         blogFirstImpressionEntry: fileURLToPath(new URL('./blog/2026-07-04-v18-first-impression/index.html', import.meta.url)),
         blogPermalinksEntry: fileURLToPath(new URL('./blog/2026-07-04-v19-permalinks/index.html', import.meta.url)),
         blogPerfHarnessEntry: fileURLToPath(new URL('./blog/2026-07-04-v19-perf-harness/index.html', import.meta.url)),
-        blogPerfHotPathsEntry: fileURLToPath(new URL('./blog/2026-07-04-v20-perf-hot-paths/index.html', import.meta.url))
+        blogPerfHotPathsEntry: fileURLToPath(new URL('./blog/2026-07-04-v20-perf-hot-paths/index.html', import.meta.url)),
+        blogReferenceAlignmentEntry: fileURLToPath(new URL('./blog/2026-07-04-v21-reference-alignment/index.html', import.meta.url))
       }
     }
   },
