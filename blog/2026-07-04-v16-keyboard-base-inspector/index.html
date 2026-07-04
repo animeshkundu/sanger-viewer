@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>2026-07-04 — keyboard base inspector (FU-1) | sanger-viewer devlog</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-shell">
+        <a class="site-title" href="../../">sanger-viewer</a>
+        <nav class="site-nav" aria-label="Site">
+          <a href="../">Devlog</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="site-shell blog-entry">
+      <p><a href="../">← Back to devlog</a></p>
+      <h1>2026-07-04 — keyboard-accessible base inspector (FU-1)</h1>
+      <p><time datetime="2026-07-04">July 4, 2026</time></p>
+
+      <p>
+        This pass closes QA follow-up FU-1 by giving keyboard users a first-class way to inspect
+        per-base values. Focusing a base call in the sequence panel now opens an inspector popover
+        with exact position, called base, PHRED score, and peak amplitude.
+      </p>
+
+      <p>
+        The inspector opens on focus and keyboard activation (Enter/Space), closes on Escape or
+        when focus leaves the sequence panel, and exposes explicit dialog semantics for assistive
+        tech. Existing hover tooltip behavior is preserved for pointer users.
+      </p>
+
+      <p>
+        Validation was added with exact-value Playwright assertions (fixture-backed expected
+        position/base/quality/amplitude), close behavior checks, ARIA wiring checks, and light +
+        dark mode coverage.
+      </p>
+    </main>
+  </body>
+</html>

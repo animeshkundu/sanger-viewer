@@ -13,6 +13,7 @@ import {
   setUndoRedoState
 } from './Controls'
 import { createTooltip, hideTooltip, showTooltip } from './Tooltip'
+import { createBaseInspector, hideBaseInspector, showBaseInspector } from './BaseInspector'
 import { createSequencePanel, renderSequence } from './SequencePanel'
 import { createPositionReadout, updatePositionReadout } from './PositionReadout'
 import { createMetadataPanel, updateMetadataPanel } from './MetadataPanel'
@@ -158,6 +159,7 @@ export function createTraceViewer(): HTMLDivElement {
   const sequencePanel = createSequencePanel()
   const readout = createPositionReadout()
   const tooltip = createTooltip()
+  const baseInspector = createBaseInspector()
   const metadataPanel = createMetadataPanel()
   const workspaceBar = createWorkspaceBar()
   const annotationTrack = createAnnotationTrack((feature) => {
@@ -167,7 +169,7 @@ export function createTraceViewer(): HTMLDivElement {
   const qualityTrack = createQualityTrack()
   const canvasWrap = root.querySelector<HTMLElement>('.canvas-wrap')!
   root.insertBefore(annotationTrack.element, canvasWrap)
-  root.append(qualityTrack.element, controls, workspaceBar, readout, sequencePanel, metadataPanel, tooltip)
+  root.append(qualityTrack.element, controls, workspaceBar, readout, sequencePanel, metadataPanel, tooltip, baseInspector)
 
   const fileInput = root.querySelector<HTMLInputElement>('#file-input')!
   const fileInputExtra = root.querySelector<HTMLInputElement>('#file-input-extra')!
@@ -220,9 +222,62 @@ export function createTraceViewer(): HTMLDivElement {
   let activeSlotId: string | null = null
   const editModel = new BaseEditModel()
   let editingIndex: number = -1  // display index of the span currently in "edit mode" (-1 = none)
+  let inspectorIndex: number | null = null
+  let inspectorAnchor: HTMLElement | null = null
   setMixedThresholdDisplay(controls, mixedBaseThreshold)
   setMixedSummary(controls, 0)
   setUndoRedoState(controls, false, false)
+
+  const clearInspectorAnchor = () => {
+    if (inspectorAnchor) {
+      inspectorAnchor.removeAttribute('aria-describedby')
+      inspectorAnchor.setAttribute('aria-expanded', 'false')
+    }
+    inspectorAnchor = null
+  }
+
+  const openBaseInspector = (displayIdx: number, anchor: HTMLElement | null = null) => {
+    const trace = renderer.getCurrentTrace()
+    if (!trace) return
+    if (displayIdx < 0 || displayIdx >= trace.baseCalls.length) {
+      inspectorIndex = null
+      clearInspectorAnchor()
+      hideBaseInspector(baseInspector)
+      return
+    }
+    const peakPos = trace.peakPositions[displayIdx] ?? 0
+    const amplitudes = {
+      A: Math.round(trace.channels.A[peakPos] ?? 0),
+      C: Math.round(trace.channels.C[peakPos] ?? 0),
+      G: Math.round(trace.channels.G[peakPos] ?? 0),
+      T: Math.round(trace.channels.T[peakPos] ?? 0),
+    }
+    const base = trace.baseCalls[displayIdx] ?? 'N'
+    const upperBase = base.toUpperCase()
+    const peakAmplitude = upperBase === 'A' || upperBase === 'C' || upperBase === 'G' || upperBase === 'T'
+      ? amplitudes[upperBase]
+      : Math.max(amplitudes.A, amplitudes.C, amplitudes.G, amplitudes.T)
+    showBaseInspector(baseInspector, {
+      index: displayIdx,
+      base,
+      quality: trace.qualities?.[displayIdx] ?? null,
+      peakAmplitude,
+    })
+    inspectorIndex = displayIdx
+    clearInspectorAnchor()
+    const nextAnchor = anchor ?? sequencePanel.querySelector<HTMLElement>(`[data-base-index="${displayIdx}"]`)
+    if (nextAnchor) {
+      nextAnchor.setAttribute('aria-describedby', 'base-inspector')
+      nextAnchor.setAttribute('aria-expanded', 'true')
+      inspectorAnchor = nextAnchor
+    }
+  }
+
+  const closeBaseInspector = () => {
+    inspectorIndex = null
+    clearInspectorAnchor()
+    hideBaseInspector(baseInspector)
+  }
 
   const getDisplaySearchMatches = () =>
     rawTrace ? mapCanonicalMatchesToDisplay(searchState.matches, rawTrace.baseCalls.length, isRevcomp) : []
@@ -528,6 +583,7 @@ export function createTraceViewer(): HTMLDivElement {
       editedIndices: displayEdited,
       editingIndex,
     })
+    if (inspectorIndex !== null) openBaseInspector(inspectorIndex)
   }
 
   const inspectBase = (clientX: number, clientY: number, select = false) => {
@@ -620,6 +676,7 @@ export function createTraceViewer(): HTMLDivElement {
     editModel.reset()
     setUndoRedoState(controls, false, false)
     hideTooltip(tooltip)
+    closeBaseInspector()
     setStrandToggleState(controls, false)
     setMixedThresholdDisplay(controls, mixedBaseThreshold)
     setMixedSummary(controls, 0)
@@ -654,6 +711,7 @@ export function createTraceViewer(): HTMLDivElement {
     selectedBaseIndex = null
     hoveredBaseIndex = null
     hideTooltip(tooltip)
+    closeBaseInspector()
     setStrandToggleState(controls, isRevcomp)
     setMixedThresholdDisplay(controls, mixedBaseThreshold)
     setMixedSummary(controls, mixedBaseResult?.ambiguousCount ?? 0)
@@ -699,6 +757,7 @@ export function createTraceViewer(): HTMLDivElement {
       setMixedThresholdDisplay(controls, mixedBaseThreshold)
       setUndoRedoState(controls, false, false)
       hideTooltip(tooltip)
+      closeBaseInspector()
       updateMetadataPanel(metadataPanel, trace.metadata)
       applyDisplayTrace()
       const slot = makeActiveSlot(trace)
@@ -744,6 +803,7 @@ export function createTraceViewer(): HTMLDivElement {
       setMixedThresholdDisplay(controls, mixedBaseThreshold)
       setUndoRedoState(controls, false, false)
       hideTooltip(tooltip)
+      closeBaseInspector()
       updateMetadataPanel(metadataPanel, trace.metadata)
       applyDisplayTrace()
       const slot = makeActiveSlot(trace)
@@ -864,6 +924,7 @@ export function createTraceViewer(): HTMLDivElement {
       selectedBaseIndex = null
       hoveredBaseIndex = null
       hideTooltip(tooltip)
+      closeBaseInspector()
       setStrandToggleState(controls, isRevcomp)
       applyDisplayTrace()
       if (searchState.activeIndex >= 0) {
@@ -1113,6 +1174,7 @@ export function createTraceViewer(): HTMLDivElement {
     editingIndex = Number(idxStr)
     setSpanEditingClass(editingIndex, true)
     target.focus()
+    openBaseInspector(editingIndex, target)
   })
 
   // Keyboard: Enter or Space on a focused span also enters editing mode.
@@ -1127,6 +1189,7 @@ export function createTraceViewer(): HTMLDivElement {
       event.preventDefault()
       editingIndex = displayIdx
       setSpanEditingClass(displayIdx, true)
+      openBaseInspector(displayIdx, target)
       return
     }
 
@@ -1134,6 +1197,7 @@ export function createTraceViewer(): HTMLDivElement {
       event.preventDefault()
       editingIndex = -1
       setSpanEditingClass(-1, false)
+      closeBaseInspector()
       return
     }
 
@@ -1165,12 +1229,21 @@ export function createTraceViewer(): HTMLDivElement {
   })
 
   // Cancel editing mode when focus leaves the sequence panel entirely.
+  sequencePanel.addEventListener('focusin', (event) => {
+    if (!rawTrace) return
+    const target = event.target as HTMLElement
+    const idxStr = target.dataset.baseIndex
+    if (idxStr === undefined) return
+    openBaseInspector(Number(idxStr), target)
+  })
+
   sequencePanel.addEventListener('focusout', (event) => {
     const related = (event as FocusEvent).relatedTarget as Node | null
     if (!sequencePanel.contains(related)) {
       editingIndex = -1
       // Remove editing highlight from the current span without a full re-render.
       setSpanEditingClass(-1, false)
+      closeBaseInspector()
     }
   })
 

@@ -77,6 +77,9 @@
   --color-edited-base-border: #eab308;
   --color-tooltip-bg:       #0f172a;
   --color-tooltip-fg:       #f8fafc;
+  --color-inspector-bg:     #ffffff;
+  --color-inspector-fg:     #0f172a;
+  --color-inspector-border: #cbd5e1;
   --color-annotation-row-bg: #f8fafc;
   --color-annotation-row-border: #cbd5e1;
   --color-annotation-chip-bg: #ffffff;
@@ -138,6 +141,9 @@
     --color-edited-base-border: #ca8a04;
     --color-tooltip-bg:       #1e293b;
     --color-tooltip-fg:       #f1f5f9;
+    --color-inspector-bg:     #1e293b;
+    --color-inspector-fg:     #f1f5f9;
+    --color-inspector-border: #475569;
     --color-annotation-row-bg: #0f172a;
     --color-annotation-row-border: #334155;
     --color-annotation-chip-bg: #1e293b;
@@ -710,6 +716,42 @@ canvas {
   font-size: var(--text-xs);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
   z-index: 100;
+}
+
+.base-inspector {
+  margin-top: 0.5rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--color-inspector-border);
+  border-radius: var(--radius-md);
+  background: var(--color-inspector-bg);
+  color: var(--color-inspector-fg);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.16);
+}
+
+.base-inspector__title {
+  margin: 0 0 0.45rem;
+  font-size: var(--text-sm);
+}
+
+.base-inspector__list {
+  margin: 0;
+}
+
+.base-inspector__row {
+  display: grid;
+  grid-template-columns: 7.5rem 1fr;
+  gap: 0.5rem;
+  font-size: var(--text-xs);
+  line-height: 1.4;
+}
+
+.base-inspector__row dt {
+  color: var(--color-text-muted);
+}
+
+.base-inspector__row dd {
+  margin: 0;
+  font-family: var(--font-mono);
 }
 
 /* ─── Trim controls ──────────────────────────────────────────────── */
