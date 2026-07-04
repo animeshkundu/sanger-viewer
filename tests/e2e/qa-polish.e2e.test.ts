@@ -95,6 +95,19 @@ async function clickAndWaitForSppChange(
   return readViewportAttrs(page)
 }
 
+async function clickAndWaitForViewportStartChange(
+  page: Page,
+  buttonName: string,
+  previousStart: number,
+): Promise<{ start: number; spp: number }> {
+  const canvas = page.locator('[data-testid="chromatogram-canvas"]')
+  await page.getByRole('button', { name: buttonName }).click()
+  await expect
+    .poll(() => canvas.getAttribute('data-viewport-start').then(Number), { timeout: 3000 })
+    .not.toBe(previousStart)
+  return readViewportAttrs(page)
+}
+
 async function downloadContent(page: Page, buttonName: string): Promise<string> {
   const [download] = await Promise.all([
     page.waitForEvent('download'),
@@ -160,10 +173,9 @@ test.describe('zoom and pan', () => {
 
   test('pan-right increases viewport start', async ({ page }) => {
     // Zoom in first so there is room to pan right
-    await page.getByRole('button', { name: 'Zoom +' }).click()
-    const before = await readViewportAttrs(page)
-    await page.getByRole('button', { name: 'Pan →' }).click()
-    const after = await readViewportAttrs(page)
+    const initial = await readViewportAttrs(page)
+    const before = await clickAndWaitForSppChange(page, 'Zoom +', initial.spp)
+    const after = await clickAndWaitForViewportStartChange(page, 'Pan →', before.start)
     expect(after.start).toBeGreaterThan(before.start)
   })
 
@@ -557,7 +569,8 @@ test.describe('quality track', () => {
       }
       return null
     })
-    if (!samplePoint) return // canvas has no bars yet — skip assertion
+    expect(samplePoint, 'quality track canvas should contain at least one painted quality bar').not.toBeNull()
+    if (!samplePoint) throw new Error('quality track canvas did not contain any painted quality bars')
 
     const readColor = async () =>
       canvas.evaluate(
@@ -621,14 +634,7 @@ test.describe('multi-trace workspace and SVG export', () => {
   test('SVG export contains valid SVG with trace paths', async ({ page }) => {
     await loadFixture(page, FIXTURE_310)
 
-    const [download] = await Promise.all([
-      page.waitForEvent('download'),
-      page.getByRole('button', { name: 'Export SVG' }).click(),
-    ])
-    const stream = await download.createReadStream()
-    const chunks: Buffer[] = []
-    for await (const chunk of stream) chunks.push(chunk as Buffer)
-    const svg = Buffer.concat(chunks).toString('utf-8')
+    const svg = await downloadContent(page, 'Export SVG')
 
     expect(svg).toContain('<svg ')
     expect(svg).toContain('xmlns="http://www.w3.org/2000/svg"')
@@ -676,7 +682,10 @@ test.describe('FASTQ and QUAL export', () => {
 
   test('edited position has quality 0 in QUAL export', async ({ page }) => {
     const firstSpan = page.locator('.sequence-panel span[data-base-index]').first()
-    const displayIndex = Number(await firstSpan.getAttribute('data-base-index'))
+    const baseIndexAttr = await firstSpan.getAttribute('data-base-index')
+    expect(baseIndexAttr, 'sequence panel span should expose data-base-index').not.toBeNull()
+    if (baseIndexAttr === null) throw new Error('sequence panel span is missing data-base-index')
+    const displayIndex = Number(baseIndexAttr)
 
     await firstSpan.dblclick()
     await page.keyboard.type('N')
@@ -753,7 +762,7 @@ test.describe('keyboard navigation and ARIA', () => {
     await expect(btn).toHaveAttribute('aria-pressed', 'true')
   })
 
-  test('Undo button is initially disabled and gains role=button', async ({ page }) => {
+  test('Undo button is initially disabled and has the correct accessible name', async ({ page }) => {
     const undoBtn = page.getByRole('button', { name: /Undo/i })
     await expect(undoBtn).toBeDisabled()
     await expect(undoBtn).toHaveAttribute('aria-label', /Undo/i)

@@ -176,6 +176,14 @@
           Tablet gets an unconditional early <code>test.skip</code> via <code>isMobile</code>; on
           desktop a failure to show the tooltip within 3 s is a hard assertion failure, not a skip.
         </dd>
+        <dt><strong>Fail-loud guards for export/repaint checks (post-review)</strong></dt>
+        <dd>
+          Two silent/flaky paths were removed: the SVG export test now reuses the
+          <code>download.path()</code>-backed helper so a missing download file fails with a clear
+          error instead of iterating a null stream, and the quality-track repaint test now throws if
+          no painted bar pixel can be found instead of silently returning early and skipping the real
+          colour assertion.
+        </dd>
       </dl>
 
       <h2>Validation</h2>
