@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>2026-07-04 — plasmid/linear map overlay | sanger-viewer devlog</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-shell">
+        <a class="site-title" href="../../">sanger-viewer</a>
+        <nav class="site-nav" aria-label="Site">
+          <a href="../">Devlog</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="site-shell blog-entry">
+      <h1>2026-07-04 — plasmid/linear map + restriction overlay linked to trace evidence</h1>
+      <p>
+        I shipped the Top-1 post-v1.0 slice: a sequence map that can flip between circular plasmid and linear views,
+        renders ORF + restriction features from the active read, and stays synced to the current chromatogram window.
+      </p>
+      <p>
+        Every map marker is keyboard-operable and focus-visible. Clicking (or pressing Enter on) a site/feature now
+        jumps to the exact base range in the trace and opens the base inspector at the exact start base, so the map
+        and trace evidence stay locked together.
+      </p>
+      <p>
+        Validation is exact-value, not pixel-noise: map tests assert known HindIII coordinates, exact computed marker
+        angles/ratios in circular vs linear modes, and exact jump target base indices. Circular-origin split handling
+        is covered with explicit wrap-range unit tests.
+      </p>
+      <p>
+        The privacy wedge remains intact: all rendering, restriction scanning, and navigation run fully client-side in
+        browser memory; trace data is never uploaded.
+      </p>
+    </main>
+  </body>
+</html>

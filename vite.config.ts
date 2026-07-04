@@ -36,7 +36,8 @@ export default defineConfig(({ command }) => ({
         blogAnnotationA11yEntry: fileURLToPath(new URL('./blog/2026-07-04-v22-annotation-a11y/index.html', import.meta.url)),
         blogContigAssemblyEntry: fileURLToPath(new URL('./blog/2026-07-04-v22-contig-assembly/index.html', import.meta.url)),
         blogPrimerDesignEntry: fileURLToPath(new URL('./blog/2026-07-04-v23-primer-design/index.html', import.meta.url)),
-        blogDesignSystemEntry: fileURLToPath(new URL('./blog/2026-07-04-v24-design-system/index.html', import.meta.url))
+        blogDesignSystemEntry: fileURLToPath(new URL('./blog/2026-07-04-v24-design-system/index.html', import.meta.url)),
+        blogPlasmidMapEntry: fileURLToPath(new URL('./blog/2026-07-04-v25-plasmid-map/index.html', import.meta.url)),
       }
     }
   },

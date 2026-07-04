@@ -23,6 +23,7 @@ import { createPositionReadout, updatePositionReadout } from './PositionReadout'
 import { createMetadataPanel, updateMetadataPanel } from './MetadataPanel'
 import { createWorkspaceBar, renderWorkspaceBar } from './WorkspaceBar'
 import { createAnnotationTrack } from './AnnotationTrack'
+import { createPlasmidMap } from './PlasmidMap'
 import { createQualityTrack } from './QualityTrack'
 import { createConsensusRow, renderConsensusRow, hideConsensusRow } from './ConsensusRow'
 import { createReferencePanel, setReferencePanelStatus, type ReferencePanelElements } from './ReferencePanel'
@@ -207,6 +208,11 @@ export function createTraceViewer(): HTMLDivElement {
     renderer.focusBaseRange(feature.start, feature.end)
     refreshReadout()
   })
+  const plasmidMap = createPlasmidMap((feature) => {
+    renderer.focusBaseRange(feature.start, feature.end)
+    openBaseInspector(feature.start)
+    refreshReadout()
+  })
   const qualityTrack = createQualityTrack()
   const consensusRow = createConsensusRow()
   const referencePanelElements: ReferencePanelElements = createReferencePanel()
@@ -214,6 +220,7 @@ export function createTraceViewer(): HTMLDivElement {
   const contigPanelElements: ContigPanelElements = createContigPanel()
   const primerPanelElements: PrimerPanelElements = createPrimerPanel()
   const canvasWrap = root.querySelector<HTMLElement>('.canvas-wrap')!
+  root.insertBefore(plasmidMap.element, canvasWrap)
   root.insertBefore(annotationTrack.element, canvasWrap)
   root.append(qualityTrack.element, controls, workspaceBar, readout, sequencePanel, baseInspector, metadataPanel, consensusRow, referencePanelElements.root, variantTableElements.root, contigPanelElements.root, primerPanelElements.root, tooltip)
   setVariantTableVisible(variantTableElements, false)
@@ -628,6 +635,7 @@ export function createTraceViewer(): HTMLDivElement {
   const refreshAnnotationTrack = () => {
     const trace = renderer.getCurrentTrace()
     if (!trace) {
+      plasmidMap.clear()
       annotationTrack.clear()
       return
     }
@@ -645,6 +653,11 @@ export function createTraceViewer(): HTMLDivElement {
       visibleFeatures,
       visibleRange,
       totalCount: annotationFeatures.length,
+    })
+    plasmidMap.render({
+      sequenceLength: trace.baseCalls.length,
+      features: annotationFeatures,
+      visibleRange,
     })
   }
 
@@ -979,6 +992,7 @@ export function createTraceViewer(): HTMLDivElement {
   const clearRenderPanels = () => {
     renderer.clearTrace()
     annotationFeatures = []
+    plasmidMap.clear()
     annotationTrack.clear()
     qualityTrack.clear()
     readout.textContent = 'Position: -'
