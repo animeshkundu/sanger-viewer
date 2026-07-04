@@ -33,7 +33,8 @@ export default defineConfig(({ command }) => ({
         blogPerfHarnessEntry: fileURLToPath(new URL('./blog/2026-07-04-v19-perf-harness/index.html', import.meta.url)),
         blogPerfHotPathsEntry: fileURLToPath(new URL('./blog/2026-07-04-v20-perf-hot-paths/index.html', import.meta.url)),
         blogReferenceAlignmentEntry: fileURLToPath(new URL('./blog/2026-07-04-v21-reference-alignment/index.html', import.meta.url)),
-        blogContigAssemblyEntry: fileURLToPath(new URL('./blog/2026-07-04-v22-contig-assembly/index.html', import.meta.url))
+        blogContigAssemblyEntry: fileURLToPath(new URL('./blog/2026-07-04-v22-contig-assembly/index.html', import.meta.url)),
+        blogPrimerDesignEntry: fileURLToPath(new URL('./blog/2026-07-04-v23-primer-design/index.html', import.meta.url))
       }
     }
   },

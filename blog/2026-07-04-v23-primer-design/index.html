@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>2026-07-04 — v23 primer design + Tm + in-silico PCR | sanger-viewer devlog</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-shell">
+        <a class="site-title" href="../../">sanger-viewer</a>
+        <nav class="site-nav" aria-label="Site">
+          <a href="../">Devlog</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="site-shell blog-entry">
+      <p><a href="../">← Back to devlog</a></p>
+      <h1>2026-07-04 — v23 primer design + Tm + in-silico PCR</h1>
+      <p><time datetime="2026-07-04">July 4, 2026</time></p>
+
+      <p>
+        Work unit 4: the Primer panel lets you enter a forward and a reverse primer,
+        instantly see Tm / GC% / hairpin risk / self-dimer scores computed with the
+        SantaLucia 1998 nearest-neighbor parameters, search the loaded sequence for
+        binding sites (mismatch-tolerant, strict 3′ end), and predict PCR amplicons
+        — all in-browser, nothing uploaded. This closes the Sanger-review → primer-design
+        → PCR-validation loop without a context switch to another tool.
+      </p>
+
+      <h2>What changed</h2>
+      <ul>
+        <li>
+          <strong>Nearest-neighbor Tm library (<code>src/primers/tm.ts</code>).</strong>
+          Implements the SantaLucia 1998 unified parameter set (all 16 dinucleotide
+          ΔH°/ΔS° values, terminal initiation penalties, R × ln(c<sub>T</sub>/4)
+          entropy correction, and a Marmur–Schildkraut salt correction:
+          Tm += 16.6 × log₁₀([Na⁺])). Default conditions: 250 nM primer,
+          50 mM NaCl. Also exports <code>computeGC</code> (IUPAC-aware),
+          <code>computeHairpinTm</code> (stem-loop scan, ≥ 3 bp stem / ≥ 3 bp loop),
+          <code>computeSelfDimerScore</code> (max contiguous complement run in
+          anti-parallel alignment), and <code>computePrimerFlags</code> (length,
+          GC%, Tm, hairpin, self-dimer, 3′ homopolymer, 3′ G/C clamp).
+        </li>
+        <li>
+          <strong>Binding-site search (<code>src/primers/binding.ts</code>).</strong>
+          <code>findPrimerBindingSites</code> slides the primer (and its
+          reverse-complement for reverse-strand search) across the template, counting
+          mismatches with a full IUPAC compatibility table. The last
+          <code>THREE_END_STRICT = 3</code> bases of the primer must match perfectly
+          (any 3′ mismatch immediately rejects the site). Returns 1-based coordinates
+          to match the VCF / lab convention used by the rest of the app.
+        </li>
+        <li>
+          <strong>In-silico PCR engine (<code>src/primers/pcr.ts</code>).</strong>
+          <code>predictAmplicons</code> pairs every forward site with every reverse
+          site, emitting a linear amplicon when the reverse site is downstream of the
+          forward site, or a circular wrap-around amplicon when
+          <code>circular = true</code> and the primer positions cross the origin.
+          Results are sorted by ascending size then ascending total mismatches.
+          <code>ampliconToFasta</code> serialises the top amplicon to standard
+          FASTA (80-char line wrap, header includes both primer names, size,
+          coordinates, and <code>[circular wrap]</code> tag when applicable).
+        </li>
+        <li>
+          <strong>Shared types (<code>src/types/primer.ts</code>).</strong>
+          Defines <code>PrimerEntry</code>, <code>PrimerBindingSite</code>,
+          <code>PredictedAmplicon</code>, and <code>PrimerPairResult</code>
+          — the data contracts that flow between the math layer, the search engine,
+          and the DOM component.
+        </li>
+        <li>
+          <strong>Primer panel UI (<code>src/components/PrimerPanel.ts</code>).</strong>
+          Two primer input rows (name + sequence), each with a live stat card
+          (Tm, GC%, hairpin Tm, self-dimer score, length, quality flags) that
+          updates on every keystroke without a Run click. "Run in-silico PCR" fires
+          the binding search and amplicon prediction. Results are split into a
+          "Binding Sites" table (primer name, strand, 1-based start/end, mismatch
+          count) and a "Predicted Amplicons" table (rank, size, coordinates,
+          total mismatches). "Export FASTA" downloads the top amplicon with a
+          complete FASTA header. All computation happens in the parent
+          (TraceViewer) — the panel dispatches a <code>run-pcr</code> custom event
+          and receives rendered results back via <code>renderPrimerResults</code>.
+        </li>
+        <li>
+          <strong>TraceViewer wiring (<code>src/components/TraceViewer.ts</code>).</strong>
+          Imports <code>PrimerPanel</code>, <code>findPrimerBindingSites</code>, and
+          <code>predictAmplicons</code>. The <code>run-pcr</code> event handler
+          extracts the current display-trace sequence (strand-corrected + edited),
+          runs binding search on both strands, predicts amplicons, and calls
+          <code>renderPrimerResults</code>. The panel is cleared by
+          <code>syncContigPanel</code> (which fires on every workspace change) so
+          stale results never persist across trace loads.
+        </li>
+        <li>
+          <strong>Full light + dark theme (<code>src/style.css</code>).</strong>
+          <code>--color-primer-*</code> design tokens (14 light, 14 dark), covering
+          panel background, border, title, forward/reverse pill labels, stat text,
+          quality-flag chips (amber warning, green OK), table header, and table
+          border. The primer panel uses a purple accent distinct from the reference
+          panel (sky-blue) and the contig panel (deep-blue).
+        </li>
+      </ul>
+
+      <h2>Spec grounding</h2>
+      <ul>
+        <li><a href="../../docs/specs/09-primer-design-and-tm.md"><code>docs/specs/09-primer-design-and-tm.md</code></a></li>
+        <li><a href="../../docs/specs/10-in-silico-pcr.md"><code>docs/specs/10-in-silico-pcr.md</code></a></li>
+      </ul>
+
+      <h2>Tests</h2>
+      <table>
+        <caption class="sr-only">New test coverage for v23</caption>
+        <thead>
+          <tr><th>File</th><th>Count</th><th>What is asserted</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>tests/core/primers.test.ts</code></td>
+            <td>53</td>
+            <td>
+              <code>computeGC</code>: exact values for ACGT / poly-A / poly-G / 20-mer /
+              IUPAC S / empty / case-insensitive.<br />
+              <code>computeTm</code>: numeric + not-NaN; ordering (longer &gt; shorter,
+              high GC &gt; high AT); range check for a known 18-mer; salt effect.<br />
+              <code>computeHairpinTm</code>: null for short sequence; non-null for
+              self-complementary 15-mer; no crash for random 20-mer.<br />
+              <code>computeSelfDimerScore</code>: 0 for all-A vs all-T RC;
+              ≥ 2 for ACGT palindrome; ≥ 3 for ATATAT; ≥ 3 for 3′ self-complement tail.<br />
+              <code>computePrimerFlags</code>: no flags for ideal primer; each flag
+              trigger tested individually (short, low/high GC, low Tm, hairpin,
+              self-dimer, 3′ homopolymer, 3′ no-clamp).<br />
+              <code>findPrimerBindingSites</code>: exact 1-based forward site position;
+              forward-strand exact match; reverse-strand RC match; zero-tolerance
+              rejection; 1-mismatch tolerance; 3′ mismatch rejection; primer longer than
+              template.<br />
+              <code>predictAmplicons</code>: one amplicon with exact size and sequence;
+              mismatch passthrough; zero amplicons when rev upstream of fwd; ascending-
+              size sort; circular wrap-around; no circular when disabled; maxSize filter;
+              empty forward/reverse arrays.<br />
+              <code>ampliconToFasta</code>: header contains both names, size, and
+              coordinates; sequence present; trailing newline; circular-wrap tag;
+              80-char line wrap.
+            </td>
+          </tr>
+          <tr>
+            <td><code>tests/e2e/primer.e2e.test.ts</code></td>
+            <td>8</td>
+            <td>
+              Panel visible after trace load; live Tm/GC stats appear on input;
+              Run button disabled/enabled correctly; binding sites section appears
+              after Run; status reports site and amplicon counts; FASTA download
+              header starts with <code>&gt;amplicon [</code> (when amplicons found);
+              primer name reflected in UI; results cleared after new trace load.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>Design decisions</h2>
+      <ul>
+        <li>
+          <strong>No new npm dependencies.</strong> The entire Tm calculator, binding
+          search, and PCR engine are pure TypeScript — no bioinformatics library
+          needed. The SantaLucia 1998 parameter table is embedded as a 16-entry
+          constant (≈ 50 lines).
+        </li>
+        <li>
+          <strong>3′ strict-end rule.</strong> The last three bases of every primer
+          must match perfectly — any 3′ mismatch immediately rejects the site. This
+          mimics the biological reality that DNA polymerase extension requires a
+          matched 3′ terminus, and prevents spurious partial matches from polluting
+          the results.
+        </li>
+        <li>
+          <strong>Live stats without clicking Run.</strong> Tm / GC% / hairpin /
+          self-dimer update on every keystroke using the same pure-TS functions as
+          the test suite. This makes the panel feel interactive rather than
+          batch-oriented.
+        </li>
+        <li>
+          <strong>Amplicon results not encoded in permalink.</strong> A predicted
+          amplicon sequence (up to 5 000 bp) would far exceed the 1 800-character
+          URL-hash guardrail. Users re-run PCR from the panel after re-loading the
+          trace — the primer sequences themselves are short enough to encode in a
+          future permalink extension.
+        </li>
+        <li>
+          <strong>Privacy preserved.</strong> All primer sequences, binding searches,
+          and amplicon predictions happen locally. The hint text in the panel reads
+          "all in-browser, nothing uploaded" — matching the privacy language used
+          across the reference-alignment and contig-assembly panels.
+        </li>
+      </ul>
+    </main>
+  </body>
+</html>
