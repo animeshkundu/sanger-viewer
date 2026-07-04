@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>v19 Progressive Disclosure + Toolbar Hierarchy | sanger-viewer devlog</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-shell">
+        <a class="site-title" href="../../">sanger-viewer</a>
+        <nav class="site-nav" aria-label="Site">
+          <a href="../../blog/">Devlog</a>
+        </nav>
+      </div>
+    </header>
+    <main class="site-shell blog-entry">
+      <h1>v19 — Progressive Disclosure + Toolbar Hierarchy</h1>
+      <p><time datetime="2026-07-04">2026-07-04</time></p>
+
+      <h2>The problem</h2>
+      <p>
+        The toolbar opened as a flat wall of ~15 buttons at identical visual weight, with six separate
+        export actions (PNG, SVG, FASTA, FASTQ, QUAL, Consensus FASTA) and a Print button all sitting
+        in a row beside zoom/pan/fit/strand controls. To a first-time visitor — or even to a returning
+        user — the signal-to-noise ratio was terrible: almost everything was the same shade of grey
+        pill, nothing indicated what mattered most, and the export actions dominated the toolbar real
+        estate without offering any primary/secondary hierarchy.
+      </p>
+      <p>
+        Three independent design critiques (from the cross-agent review and the competitor research in
+        v17) all flagged the same root issue: "toolbar mixes shorthand, export verbs, and view controls
+        in one flat strip — no grouping, no disclosure, no progressive hierarchy." This unit fixes that.
+      </p>
+
+      <h2>What changed</h2>
+
+      <h3>Labelled role=group clusters</h3>
+      <p>
+        The toolbar is now divided into four labelled <code>role="group"</code> clusters, each with a
+        small all-caps label rendered via <code>.controls-group__label</code>:
+      </p>
+      <ul>
+        <li><strong>View</strong> — Zoom +, Zoom −, ← Pan, Pan →, Fit, 5′→3′</li>
+        <li><strong>Export</strong> — a single <em>Export ▾</em> toggle button that reveals the dropdown</li>
+        <li><strong>Edit</strong> — ↩ Undo, ↪ Redo</li>
+        <li><strong>Search / Q-trim / Mixed</strong> — unchanged sub-panels, now labelled</li>
+      </ul>
+      <p>
+        Each cluster is visually separated by a border and subtle raised background, creating a clear
+        spatial grouping that works in both light and dark themes via design tokens.
+      </p>
+
+      <h3>Export ▾ dropdown menu</h3>
+      <p>
+        All seven export actions (PNG, SVG, FASTA, FASTQ, QUAL, Consensus FASTA, and Print / Save as PDF)
+        are collapsed behind a single <code>Export ▾</code> toggle button. The toggle has full ARIA
+        semantics: <code>aria-haspopup="menu"</code> and <code>aria-expanded</code> (toggled on open/close).
+        The dropdown itself carries <code>role="menu"</code> and each item has <code>role="menuitem"</code>.
+      </p>
+      <p>Keyboard behaviour:</p>
+      <ul>
+        <li><kbd>Escape</kbd> closes the dropdown and returns focus to the toggle.</li>
+        <li>Clicking outside the export group closes the dropdown.</li>
+        <li>Triggering any export action closes the dropdown automatically.</li>
+        <li>Individual export items are <em>not</em> Tab-reachable when the menu is closed — only the
+            Export ▾ toggle sits in the Tab order, reducing keyboard noise for users who don't need exports.</li>
+      </ul>
+
+      <h3>setControlsDisabled update</h3>
+      <p>
+        <code>setControlsDisabled</code> now skips individual export dropdown items (they are managed as
+        a unit via the toggle button). The toggle itself is disabled during loading and enabled once a
+        trace is resident — matching the all-or-nothing semantic that makes sense for an export menu.
+        <code>setConsensusFastaButtonState</code> and <code>setPrintButtonState</code> still target
+        individual items inside the dropdown by <code>data-action</code>, so their fine-grained logic
+        is preserved.
+      </p>
+
+      <h3>New exported function: setExportMenuOpen</h3>
+      <p>
+        <code>setExportMenuOpen(controls, open)</code> is the single source of truth for the dropdown's
+        open/closed state. It flips <code>aria-expanded</code> on the toggle and toggles the
+        <code>hidden</code> attribute on the dropdown div.
+      </p>
+
+      <h2>Tests added</h2>
+      <p>
+        <code>tests/e2e/toolbar-hierarchy.e2e.test.ts</code> adds nine genuine behavioural assertions:
+      </p>
+      <ol>
+        <li>Toolbar has labelled View, Export, Edit groups (checks <code>data-group</code> attributes and visible label text).</li>
+        <li>No flat export buttons at the top level of the toolbar — the dropdown is hidden by default.</li>
+        <li>Export toggle opens the dropdown; all 7 export menuitems are enumerated by exact name.</li>
+        <li>Escape closes the dropdown.</li>
+        <li>Clicking outside the export group closes the dropdown.</li>
+        <li>After the sample auto-loads, the export toggle is enabled.</li>
+        <li>After loading a user trace, all view group buttons and the export toggle are enabled.</li>
+        <li>Export menu toggle is Tab-reachable; individual export items are NOT reachable while the menu is closed.</li>
+        <li>Export toggle has <code>aria-haspopup="menu"</code> and <code>aria-expanded</code> reflects the open state.</li>
+      </ol>
+      <p>
+        All existing export tests were updated to open the export menu before clicking individual export actions.
+        The <code>downloadContent</code>, <code>downloadFastaSequence</code>, <code>downloadFastaContent</code>,
+        <code>downloadFastq</code>, and <code>clickPrint</code> helpers in six test files were updated to
+        first click <em>Export menu</em> and then the specific menuitem.
+      </p>
+
+      <h2>Accessibility</h2>
+      <ul>
+        <li>Every group has an <code>aria-label</code> on its <code>role="group"</code> element.</li>
+        <li>The export toggle has <code>aria-haspopup="menu"</code> and <code>aria-expanded</code>.</li>
+        <li>The dropdown uses <code>role="menu"</code> with <code>role="menuitem"</code> children.</li>
+        <li>Escape closes the dropdown and returns focus to the toggle button.</li>
+        <li>The group labels are <code>aria-hidden="true"</code> decorative labels — the group's
+            <code>aria-label</code> is the accessible name.</li>
+        <li>All existing <code>:focus-visible</code> rings apply to the new toggle button.</li>
+      </ul>
+
+      <h2>Light/dark theme</h2>
+      <p>
+        All new CSS uses existing design tokens exclusively:
+        <code>--color-surface</code>, <code>--color-surface-raised</code>, <code>--color-border</code>,
+        <code>--color-border-strong</code>, <code>--color-accent-bg</code>, <code>--color-accent-border</code>,
+        <code>--color-brand</code>. No hard-coded colours were added. The dropdown box-shadow uses
+        <code>rgba(0,0,0,…)</code> which adapts naturally across themes.
+      </p>
+
+      <h2>Preserved features</h2>
+      <p>
+        Zero export logic was changed. All <code>data-action</code> attributes on the export buttons
+        are unchanged, so the action dispatch in <code>TraceViewer.ts</code> required no modification
+        to the export handlers themselves. The undo/redo, search, Q-trim, and mixed-base controls are
+        structurally unchanged — they are now wrapped in labelled groups but otherwise identical.
+      </p>
+
+      <h2>Next</h2>
+      <p>
+        The remaining acceptance criteria from the UI redesign issue (#19): ORF/restriction as a
+        visual track, automated a11y contrast checks, and the README/discoverability improvements.
+      </p>
+    </main>
+  </body>
+</html>

@@ -181,8 +181,16 @@ test.describe('interaction latency budgets', () => {
 
   test('Zoom+ on synth-large-3kbp completes within 300 ms', async ({ page }) => {
     await loadFixture(page, FIX.large)
-    const elapsed = await measureInteraction(page, () =>
-      page.getByRole('button', { name: 'Zoom +' }).click(),
+    const canvas = page.locator('[data-testid="chromatogram-canvas"]')
+    const previousSpp = await canvas.getAttribute('data-viewport-spp')
+    const elapsed = await measureInteractionUntil(
+      () => page.getByRole('button', { name: 'Zoom +' }).click(),
+      async () => {
+        await page.waitForFunction((prev) => {
+          const el = document.querySelector('[data-testid="chromatogram-canvas"]')
+          return (el as HTMLCanvasElement | null)?.getAttribute('data-viewport-spp') !== prev
+        }, previousSpp)
+      },
     )
     expect(elapsed, `zoom time ${elapsed} ms exceeds 300 ms budget`).toBeLessThan(300)
   })

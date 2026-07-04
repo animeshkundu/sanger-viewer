@@ -111,7 +111,10 @@ async function clickAndWaitForViewportStartChange(
 async function downloadContent(page: Page, buttonName: string): Promise<string> {
   const [download] = await Promise.all([
     page.waitForEvent('download'),
-    page.getByRole('button', { name: buttonName }).click(),
+    (async () => {
+      await page.getByRole('button', { name: 'Export menu' }).click()
+      await page.getByRole('menuitem', { name: buttonName }).click()
+    })(),
   ])
   const tmpPath = await download.path()
   if (!tmpPath) throw new Error(`Download path unavailable for "${buttonName}"`)
@@ -715,7 +718,7 @@ test.describe('keyboard navigation and ARIA', () => {
     await expect.poll(() => canvasInkSum(page), { timeout: 5000 }).toBeGreaterThan(INK_THRESHOLD)
   })
 
-  test('Zoom +, Zoom -, Pan, Fit, strand toggle, Export FASTA are all Tab-reachable', async ({
+  test('Zoom +, Zoom -, Pan, Fit, strand toggle, Export menu toggle are all Tab-reachable', async ({
     page,
   }) => {
     const targets = [
@@ -725,7 +728,7 @@ test.describe('keyboard navigation and ARIA', () => {
       'pan-right',
       'fit',
       'toggle-strand',
-      'export-fasta',
+      'export-menu-toggle',
     ]
     const found = new Set<string>()
     for (let i = 0; i < 40; i++) {

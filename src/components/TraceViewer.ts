@@ -3,6 +3,7 @@ import {
   createControls,
   setControlsDisabled,
   setConsensusFastaButtonState,
+  setExportMenuOpen,
   setMixedSummary,
   setMixedThresholdDisplay,
   setSearchEmptyState,
@@ -1301,12 +1302,26 @@ export function createTraceViewer(): HTMLDivElement {
     const trimMode = target.getAttribute('data-trim-mode') as 'full' | 'trimmed' | null
     const trace = renderer.getCurrentTrace()
 
+    if (action === 'export-menu-toggle') {
+      const toggle = controls.querySelector<HTMLButtonElement>('[data-action="export-menu-toggle"]')
+      const isOpen = toggle?.getAttribute('aria-expanded') === 'true'
+      setExportMenuOpen(controls, !isOpen)
+      return
+    }
+
     if (action === 'zoom-in') renderer.zoom(0.75)
     if (action === 'zoom-out') renderer.zoom(1.25)
     if (action === 'pan-left') renderer.panPixels(-80)
     if (action === 'pan-right') renderer.panPixels(80)
     if (action === 'fit') renderer.fitToScreen()
 
+    // Close the export menu after any export action is triggered.
+    if (action && action.startsWith('export-') && action !== 'export-menu-toggle') {
+      setExportMenuOpen(controls, false)
+    }
+    if (action === 'print') {
+      setExportMenuOpen(controls, false)
+    }
     if (action === 'share-view') {
       const permalinkState = getPermalinkState()
       if (!permalinkState) {
@@ -1494,6 +1509,15 @@ export function createTraceViewer(): HTMLDivElement {
 
   controls.addEventListener('keydown', (event) => {
     const target = event.target as HTMLElement
+    if (event.key === 'Escape') {
+      const dropdown = controls.querySelector<HTMLElement>('.export-menu__dropdown')
+      if (dropdown && !dropdown.hasAttribute('hidden')) {
+        event.preventDefault()
+        setExportMenuOpen(controls, false)
+        controls.querySelector<HTMLButtonElement>('[data-action="export-menu-toggle"]')?.focus()
+        return
+      }
+    }
     if (target !== searchInput) return
     if (event.key === 'Enter') {
       event.preventDefault()
@@ -1503,6 +1527,17 @@ export function createTraceViewer(): HTMLDivElement {
       event.preventDefault()
       resetSearchState()
       refreshSequence()
+    }
+  })
+
+  // Close the export dropdown when clicking outside of it.
+  document.addEventListener('click', (event) => {
+    const dropdown = controls.querySelector<HTMLElement>('.export-menu__dropdown')
+    if (dropdown && !dropdown.hasAttribute('hidden')) {
+      const exportGroup = controls.querySelector<HTMLElement>('[data-group="export"]')
+      if (exportGroup && !exportGroup.contains(event.target as Node)) {
+        setExportMenuOpen(controls, false)
+      }
     }
   })
 

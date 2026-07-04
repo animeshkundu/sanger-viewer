@@ -139,7 +139,8 @@ test.describe('Multi-trace workspace', () => {
     await expect(page.locator('#status')).toContainText('Loaded')
 
     const download = page.waitForEvent('download')
-    await page.getByRole('button', { name: 'Export SVG' }).click()
+    await page.getByRole('button', { name: 'Export menu' }).click()
+    await page.getByRole('menuitem', { name: 'Export SVG' }).click()
     const dl = await download
     expect(dl.suggestedFilename()).toMatch(/\.svg$/)
   })
@@ -150,7 +151,8 @@ test.describe('Multi-trace workspace', () => {
     await expect(page.locator('#status')).toContainText('Loaded')
 
     const download = page.waitForEvent('download')
-    await page.getByRole('button', { name: 'Export SVG' }).click()
+    await page.getByRole('button', { name: 'Export menu' }).click()
+    await page.getByRole('menuitem', { name: 'Export SVG' }).click()
     const dl = await download
 
     const stream = await dl.createReadStream()
