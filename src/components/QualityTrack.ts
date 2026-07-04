@@ -96,7 +96,8 @@ export function createQualityTrack(): QualityTrackHandle {
     const cssVars = getComputedStyle(document.documentElement)
     for (const bar of bars) {
       const color = cssVars.getPropertyValue(bar.cssVar).trim() || '#94a3b8'
-      const x = Math.round(bar.x) - Math.floor(BAR_WIDTH / 2)
+      const centeredX = Math.round(bar.x) - Math.floor(BAR_WIDTH / 2)
+      const x = Math.max(0, Math.min(width - BAR_WIDTH, centeredX))
       const y = height - bar.height
       ctx.fillStyle = color
       ctx.fillRect(x, y, BAR_WIDTH, bar.height)
@@ -116,6 +117,24 @@ export function createQualityTrack(): QualityTrackHandle {
   const clear = () => {
     lastModel = null
     draw(null)
+  }
+
+  const handleThemeChange = () => {
+    draw(lastModel)
+  }
+
+  if (typeof window !== 'undefined') {
+    const themeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+    themeMediaQuery.addEventListener('change', handleThemeChange)
+  }
+  if (typeof MutationObserver !== 'undefined') {
+    const themeObserver = new MutationObserver((mutations) => {
+      if (mutations.length > 0) handleThemeChange()
+    })
+    themeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class', 'data-theme', 'style'],
+    })
   }
 
   setVisible(true)
