@@ -52,13 +52,81 @@ export function createCloneScreenPanel(
   root.setAttribute('role', 'region')
   root.setAttribute('aria-label', 'Clone screen — stacked trace comparison')
   root.setAttribute('data-testid', 'clone-screen-panel')
+  root.setAttribute('tabindex', '0')
 
   const elements: CloneScreenPanelElements = {
     root,
     onCursorChange,
     _state: { result: null, fileNames: [], cursorPos: 0 },
   }
+
+  // Wire root-level event handlers ONCE so they never accumulate across repaints.
+  // Button-specific handlers are attached to freshly-created button elements in
+  // _paint() and are naturally discarded by replaceChildren() on each repaint.
+
+  root.addEventListener('click', (e) => {
+    const target = e.target as HTMLElement
+    const posStr = target.getAttribute('data-pos')
+    if (posStr !== null && target.classList.contains('clone-screen__base')) {
+      _moveCursor(elements, Number(posStr))
+    }
+  })
+
+  root.addEventListener('keydown', (e) => {
+    const { result, cursorPos } = elements._state
+    if (!result) return
+    const { mismatchIndices, length } = result
+    switch (e.key) {
+      case 'ArrowLeft':
+        e.preventDefault()
+        _moveCursor(elements, cursorPos - 1)
+        break
+      case 'ArrowRight':
+        e.preventDefault()
+        _moveCursor(elements, cursorPos + 1)
+        break
+      case '[':
+      case 'BracketLeft': {
+        e.preventDefault()
+        const p = prevMismatch(mismatchIndices, cursorPos)
+        if (p !== null) _moveCursor(elements, p)
+        break
+      }
+      case ']':
+      case 'BracketRight': {
+        e.preventDefault()
+        const n = nextMismatch(mismatchIndices, cursorPos)
+        if (n !== null) _moveCursor(elements, n)
+        break
+      }
+      case 'Home':
+        e.preventDefault()
+        _moveCursor(elements, mismatchIndices.length > 0 ? mismatchIndices[0] : 0)
+        break
+      case 'End':
+        e.preventDefault()
+        _moveCursor(elements, mismatchIndices.length > 0 ? mismatchIndices[mismatchIndices.length - 1] : length - 1)
+        break
+      default:
+        break
+    }
+  })
+
   return elements
+}
+
+/**
+ * Move the cursor to newPos, clamping to valid range.
+ * Reads state dynamically so it is safe to call from handlers wired once.
+ */
+function _moveCursor(elements: CloneScreenPanelElements, newPos: number): void {
+  const { result } = elements._state
+  if (!result) return
+  const clamped = clampCursor(newPos, result.length)
+  if (clamped === elements._state.cursorPos) return
+  elements._state.cursorPos = clamped
+  elements.onCursorChange(clamped)
+  _paint(elements)
 }
 
 // ── Rendering ──────────────────────────────────────────────────────────────────
@@ -152,6 +220,44 @@ function _paint(elements: CloneScreenPanelElements): void {
   exportBtn.setAttribute('aria-label', 'Copy mismatch report to clipboard (tab-separated)')
   exportBtn.textContent = 'Copy report'
   exportBtn.disabled = mCount === 0
+
+  // Button handlers are safe to attach here — each paint creates fresh button
+  // elements and replaceChildren() below discards the previous ones with theirs.
+  prevBtn.addEventListener('click', () => {
+    const p = prevMismatch(elements._state.result?.mismatchIndices ?? [], elements._state.cursorPos)
+    if (p !== null) _moveCursor(elements, p)
+  })
+  nextBtn.addEventListener('click', () => {
+    const n = nextMismatch(elements._state.result?.mismatchIndices ?? [], elements._state.cursorPos)
+    if (n !== null) _moveCursor(elements, n)
+  })
+  exportBtn.addEventListener('click', () => {
+    const { result: r, fileNames: fn } = elements._state
+    if (!r) return
+    const report = buildMismatchReport(r, fn)
+    if (!report) return
+    void (async () => {
+      try {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(report)
+        } else {
+          const textarea = document.createElement('textarea')
+          textarea.value = report
+          textarea.style.cssText = 'position:fixed;opacity:0'
+          document.body.appendChild(textarea)
+          textarea.focus()
+          textarea.select()
+          document.execCommand('copy')
+          document.body.removeChild(textarea)
+        }
+        exportBtn.textContent = 'Copied!'
+        setTimeout(() => { exportBtn.textContent = 'Copy report' }, 2000)
+      } catch {
+        exportBtn.textContent = 'Copy failed'
+        setTimeout(() => { exportBtn.textContent = 'Copy report' }, 2000)
+      }
+    })()
+  })
 
   nav.append(prevBtn, nextBtn, exportBtn)
   header.append(summary, nav)
@@ -247,9 +353,6 @@ function _paint(elements: CloneScreenPanelElements): void {
   hint.textContent = '← → move cursor · [ ] jump mismatches · Home End first/last mismatch'
 
   elements.root.replaceChildren(header, cursorInfo, grid, hint)
-
-  // ── Event wiring ─────────────────────────────────────────────────────────────
-  _wireEvents(elements, result, fileNames, prevBtn, nextBtn, exportBtn, columns)
 }
 
 function _updateCursorInfo(
@@ -265,120 +368,4 @@ function _updateCursorInfo(
   }
   const baseParts = bases.map((b, i) => `${fileNames[i] ?? `T${i + 1}`}: ${b}`).join(' · ')
   el.textContent = `Position ${pos1} — ${baseParts}`
-}
-
-function _wireEvents(
-  elements: CloneScreenPanelElements,
-  result: StackedViewResult,
-  fileNames: string[],
-  prevBtn: HTMLButtonElement,
-  nextBtn: HTMLButtonElement,
-  exportBtn: HTMLButtonElement,
-  columns: import('../cloneScreen/stackedViewer').StackedColumn[],
-): void {
-  const { mismatchIndices, length } = result
-
-  const moveCursor = (newPos: number) => {
-    const clamped = clampCursor(newPos, length)
-    if (clamped === elements._state.cursorPos) return
-    elements._state.cursorPos = clamped
-    elements.onCursorChange(clamped)
-    _paint(elements)
-  }
-
-  prevBtn.addEventListener('click', () => {
-    const p = prevMismatch(mismatchIndices, elements._state.cursorPos)
-    if (p !== null) moveCursor(p)
-  })
-
-  nextBtn.addEventListener('click', () => {
-    const n = nextMismatch(mismatchIndices, elements._state.cursorPos)
-    if (n !== null) moveCursor(n)
-  })
-
-  exportBtn.addEventListener('click', async () => {
-    const report = buildMismatchReport(result, fileNames)
-    if (!report) return
-    try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(report)
-      } else {
-        const textarea = document.createElement('textarea')
-        textarea.value = report
-        textarea.style.cssText = 'position:fixed;opacity:0'
-        document.body.appendChild(textarea)
-        textarea.focus()
-        textarea.select()
-        document.execCommand('copy')
-        document.body.removeChild(textarea)
-      }
-      exportBtn.textContent = 'Copied!'
-      setTimeout(() => { exportBtn.textContent = 'Copy report' }, 2000)
-    } catch {
-      exportBtn.textContent = 'Copy failed'
-      setTimeout(() => { exportBtn.textContent = 'Copy report' }, 2000)
-    }
-  })
-
-  // Click on a base cell → move cursor
-  elements.root.addEventListener('click', (e) => {
-    const target = e.target as HTMLElement
-    const posStr = target.getAttribute('data-pos')
-    if (posStr !== null && target.classList.contains('clone-screen__base')) {
-      moveCursor(Number(posStr))
-    }
-  })
-
-  // Keyboard navigation: the section itself handles arrow keys when focused
-  elements.root.setAttribute('tabindex', '0')
-  elements.root.addEventListener('keydown', (e) => {
-    const cur = elements._state.cursorPos
-    switch (e.key) {
-      case 'ArrowLeft':
-        e.preventDefault()
-        moveCursor(cur - 1)
-        break
-      case 'ArrowRight':
-        e.preventDefault()
-        moveCursor(cur + 1)
-        break
-      case '[':
-      case 'BracketLeft': {
-        e.preventDefault()
-        const p = prevMismatch(mismatchIndices, cur)
-        if (p !== null) moveCursor(p)
-        break
-      }
-      case ']':
-      case 'BracketRight': {
-        e.preventDefault()
-        const n = nextMismatch(mismatchIndices, cur)
-        if (n !== null) moveCursor(n)
-        break
-      }
-      case 'Home':
-        e.preventDefault()
-        if (mismatchIndices.length > 0) moveCursor(mismatchIndices[0])
-        else moveCursor(0)
-        break
-      case 'End':
-        e.preventDefault()
-        if (mismatchIndices.length > 0) moveCursor(mismatchIndices[mismatchIndices.length - 1])
-        else moveCursor(length - 1)
-        break
-      default:
-        break
-    }
-  })
-
-  // Sync cursor info after base cells are rendered
-  const cursorInfoEl = elements.root.querySelector<HTMLElement>('[data-testid="clone-screen-cursor-info"]')
-  if (cursorInfoEl && columns[elements._state.cursorPos]) {
-    _updateCursorInfo(
-      cursorInfoEl,
-      elements._state.cursorPos,
-      columns[elements._state.cursorPos].bases,
-      fileNames,
-    )
-  }
 }

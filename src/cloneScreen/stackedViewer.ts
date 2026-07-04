@@ -136,18 +136,18 @@ export function clampCursor(pos: number, length: number): number {
  * Build a tab-separated mismatch report string.
  *
  * Format:
- *   Position\tTrace1\tTrace2\t...
- *   1\tA\tC\t...
+ *   Position\tConsensus\tTrace1\tTrace2\t...
+ *   1\tY\tC\tT\t...
  *
  * Only mismatch columns are included. Positions are 1-based.
  * Returns an empty string when there are no mismatches.
  */
 export function buildMismatchReport(result: StackedViewResult, fileNames: string[]): string {
   if (result.mismatchIndices.length === 0) return ''
-  const header = ['Position', ...fileNames].join('\t')
+  const header = ['Position', 'Consensus', ...fileNames].join('\t')
   const rows = result.mismatchIndices.map((i) => {
     const col = result.columns[i]
-    return [String(i + 1), ...col.bases].join('\t')
+    return [String(i + 1), col.consensusBase, ...col.bases].join('\t')
   })
   return [header, ...rows].join('\n') + '\n'
 }

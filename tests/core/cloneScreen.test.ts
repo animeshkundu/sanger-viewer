@@ -281,24 +281,25 @@ describe('buildMismatchReport', () => {
 
   it('EXACT: TSV report for known 2-trace mismatch pair', () => {
     // seqA=ACGT, seqB=ATGA → mismatches at 0-based [1,3] → 1-based [2,4]
+    // Consensus: pos 1 C vs T → IUPAC Y; pos 3 T vs A → IUPAC W
     const r = computeStackedView(['ACGT', 'ATGA'])
     const report = buildMismatchReport(r, ['trace_A.ab1', 'trace_B.scf'])
     const lines = report.trimEnd().split('\n')
-    expect(lines[0]).toBe('Position\ttrace_A.ab1\ttrace_B.scf')
-    expect(lines[1]).toBe('2\tC\tT')
-    expect(lines[2]).toBe('4\tT\tA')
+    expect(lines[0]).toBe('Position\tConsensus\ttrace_A.ab1\ttrace_B.scf')
+    expect(lines[1]).toBe('2\tY\tC\tT')
+    expect(lines[2]).toBe('4\tW\tT\tA')
     expect(lines).toHaveLength(3)
     expect(report.endsWith('\n')).toBe(true)
   })
 
-  it('EXACT: 3-trace TSV report header includes all file names', () => {
+  it('EXACT: 3-trace TSV report header includes Consensus and all file names', () => {
     const r = computeStackedView(['ACGTACGT', 'ATGTACGA', 'ACGTACGT'])
     const report = buildMismatchReport(r, ['a.ab1', 'b.ab1', 'c.ab1'])
     const lines = report.trimEnd().split('\n')
-    expect(lines[0]).toBe('Position\ta.ab1\tb.ab1\tc.ab1')
-    // Line 1: mismatch at pos 1 (0-based) → position 2 (1-based), bases C,T,C
-    expect(lines[1]).toBe('2\tC\tT\tC')
-    // Line 2: mismatch at pos 7 (0-based) → position 8 (1-based), bases T,A,T
-    expect(lines[2]).toBe('8\tT\tA\tT')
+    expect(lines[0]).toBe('Position\tConsensus\ta.ab1\tb.ab1\tc.ab1')
+    // Line 1: mismatch at pos 1 (0-based) → position 2 (1-based), consensus C (plurality), bases C,T,C
+    expect(lines[1]).toBe('2\tC\tC\tT\tC')
+    // Line 2: mismatch at pos 7 (0-based) → position 8 (1-based), consensus T (plurality), bases T,A,T
+    expect(lines[2]).toBe('8\tT\tT\tA\tT')
   })
 })

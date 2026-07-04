@@ -197,4 +197,29 @@ test.describe('Clone-screen stacked viewer', () => {
     const bp = parseInt(bpMatch![1], 10)
     expect(bp).toBeGreaterThan(0)
   })
+
+  // ── Test 16: EXACT — listeners not accumulated across repaints ────────────────
+  test('EXACT: many cursor moves then one keypress moves exactly one position (no listener leak)', async ({ page }) => {
+    await loadTrace(page, FIXTURE_A)
+    await loadTrace(page, FIXTURE_A)
+    const panel = page.locator('[data-testid="clone-screen-panel"]')
+    const cursorInfo = page.locator('[data-testid="clone-screen-cursor-info"]')
+
+    await panel.focus()
+
+    // Move forward 5 positions — each move triggers a full repaint.
+    // If root handlers were re-registered each paint, subsequent presses would jump > 1.
+    for (let i = 0; i < 5; i++) {
+      await page.keyboard.press('ArrowRight')
+    }
+    await expect(cursorInfo).toContainText('Position 6')
+
+    // ONE ArrowLeft must move exactly one position back.
+    await page.keyboard.press('ArrowLeft')
+    await expect(cursorInfo).toContainText('Position 5')
+
+    // ONE ArrowRight must move exactly one position forward.
+    await page.keyboard.press('ArrowRight')
+    await expect(cursorInfo).toContainText('Position 6')
+  })
 })
