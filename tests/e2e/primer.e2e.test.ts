@@ -17,6 +17,7 @@ import path from 'node:path'
 import { test, expect } from '@playwright/test'
 
 const FIXTURE_A = path.resolve(process.cwd(), 'fixtures/ab1/310.ab1')
+const FIXTURE_B = path.resolve(process.cwd(), 'fixtures/ab1/3100.ab1')
 
 /** Primer sequences that bind the bundled sample.ab1 trace with ≤2 mismatches. */
 const PRIMER_FWD = 'TGATNTTNAC'   // first 10 bases of the sample trace (from sample.test.ts)
@@ -140,7 +141,7 @@ test.describe('Primer design + in-silico PCR', () => {
     await expect(page.locator('[data-testid="primer-status"]')).not.toBeEmpty()
 
     // Load a second trace — workspace changes → primer panel should clear
-    await page.setInputFiles('#file-input', FIXTURE_A)
+    await page.setInputFiles('#file-input', FIXTURE_B)
     await expect(page.locator('#status')).toContainText('Loaded')
 
     // Status should be cleared (panel reset)
