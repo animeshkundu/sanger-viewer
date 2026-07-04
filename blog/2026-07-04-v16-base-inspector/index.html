@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>2026-07-04 — v16 keyboard base inspector | sanger-viewer devlog</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-shell">
+        <a class="site-title" href="../../">sanger-viewer</a>
+        <nav class="site-nav" aria-label="Site">
+          <a href="../">Devlog</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="site-shell blog-entry">
+      <p><a href="../">← Back to devlog</a></p>
+      <h1>2026-07-04 — v16 keyboard base inspector</h1>
+      <p><time datetime="2026-07-04">July 4, 2026</time></p>
+
+      <p>
+        FU-1 is now implemented for real: every focusable base in the sequence panel can open a
+        keyboard-accessible inspector that reports exact base metadata without touching the existing
+        pointer tooltip behavior.
+      </p>
+
+      <h2>What shipped</h2>
+      <ul>
+        <li>New <code>BaseInspector</code> component with dialog semantics and explicit base metadata fields.</li>
+        <li>Sequence spans now expose dialog intent/state (<code>aria-haspopup</code>, <code>aria-expanded</code>, <code>aria-describedby</code>).</li>
+        <li>Inspector open triggers: focus, Enter, and Space on a base span.</li>
+        <li>Inspector close triggers: Escape and focus leaving the sequence panel.</li>
+        <li>Inspector values are pulled from the currently displayed trace, so edits/mixed-base/reverse-complement views stay truthful.</li>
+        <li>Theme-aware inspector tokens and styles added for light/dark parity; hover tooltip remains unchanged.</li>
+      </ul>
+
+      <h2>Verification added</h2>
+      <ul>
+        <li>
+          <code>tests/core/baseInspector.test.ts</code> validates exact value formatting and amplitude
+          computation for canonical and ambiguous base calls.
+        </li>
+        <li>
+          <code>tests/e2e/base-inspector.e2e.test.ts</code> asserts exact position/base/PHRED/peak-amplitude values
+          for a known fixture base, ARIA role/label/linkage, Escape close, focusout close, Enter/Space open behavior,
+          dark-mode operation, and tooltip <code>peak:</code> regression coverage.
+        </li>
+      </ul>
+    </main>
+  </body>
+</html>

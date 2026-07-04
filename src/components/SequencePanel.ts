@@ -111,6 +111,8 @@ export function renderSequence(
     span.textContent = base
     span.tabIndex = 0
     span.setAttribute('role', 'button')
+    span.setAttribute('aria-haspopup', 'dialog')
+    span.setAttribute('aria-expanded', 'false')
     span.setAttribute('aria-label', `${base} at position ${absolute + 1}${editedIndices?.has(absolute) ? ' (edited)' : ''}`)
     span.dataset.baseIndex = String(absolute)
     applySpanClasses(span, absolute, visibleMatches)
@@ -144,4 +146,3 @@ export function renderSequence(
   panel.appendChild(fragment)
   panel.setAttribute('data-ambiguous-visible-count', String(ambiguousVisibleCount))
 }
-

@@ -13,6 +13,7 @@ import {
   setUndoRedoState
 } from './Controls'
 import { createTooltip, hideTooltip, showTooltip } from './Tooltip'
+import { createBaseInspector, getBaseInspectorInfo, hideBaseInspector, showBaseInspector } from './BaseInspector'
 import { createSequencePanel, renderSequence } from './SequencePanel'
 import { createPositionReadout, updatePositionReadout } from './PositionReadout'
 import { createMetadataPanel, updateMetadataPanel } from './MetadataPanel'
@@ -158,6 +159,7 @@ export function createTraceViewer(): HTMLDivElement {
   const sequencePanel = createSequencePanel()
   const readout = createPositionReadout()
   const tooltip = createTooltip()
+  const baseInspector = createBaseInspector()
   const metadataPanel = createMetadataPanel()
   const workspaceBar = createWorkspaceBar()
   const annotationTrack = createAnnotationTrack((feature) => {
@@ -167,7 +169,7 @@ export function createTraceViewer(): HTMLDivElement {
   const qualityTrack = createQualityTrack()
   const canvasWrap = root.querySelector<HTMLElement>('.canvas-wrap')!
   root.insertBefore(annotationTrack.element, canvasWrap)
-  root.append(qualityTrack.element, controls, workspaceBar, readout, sequencePanel, metadataPanel, tooltip)
+  root.append(qualityTrack.element, controls, workspaceBar, readout, sequencePanel, baseInspector, metadataPanel, tooltip)
 
   const fileInput = root.querySelector<HTMLInputElement>('#file-input')!
   const fileInputExtra = root.querySelector<HTMLInputElement>('#file-input-extra')!
@@ -220,6 +222,8 @@ export function createTraceViewer(): HTMLDivElement {
   let activeSlotId: string | null = null
   const editModel = new BaseEditModel()
   let editingIndex: number = -1  // display index of the span currently in "edit mode" (-1 = none)
+  let inspectorDisplayIndex: number | null = null
+  let inspectorActiveSpan: HTMLElement | null = null
   setMixedThresholdDisplay(controls, mixedBaseThreshold)
   setMixedSummary(controls, 0)
   setUndoRedoState(controls, false, false)
@@ -503,11 +507,59 @@ export function createTraceViewer(): HTMLDivElement {
     })
   }
 
+  const clearBaseInspectorSpanState = () => {
+    if (inspectorActiveSpan) {
+      inspectorActiveSpan.setAttribute('aria-expanded', 'false')
+      inspectorActiveSpan.removeAttribute('aria-describedby')
+      inspectorActiveSpan = null
+    }
+  }
+
+  const closeBaseInspector = () => {
+    inspectorDisplayIndex = null
+    clearBaseInspectorSpanState()
+    hideBaseInspector(baseInspector)
+  }
+
+  const syncBaseInspector = () => {
+    clearBaseInspectorSpanState()
+    const displayIndex = inspectorDisplayIndex
+    if (displayIndex === null) {
+      hideBaseInspector(baseInspector)
+      return
+    }
+    const trace = renderer.getCurrentTrace()
+    if (!trace) {
+      closeBaseInspector()
+      return
+    }
+    const info = getBaseInspectorInfo(trace, displayIndex)
+    if (!info) {
+      closeBaseInspector()
+      return
+    }
+    showBaseInspector(baseInspector, info)
+    const activeSpan = sequencePanel.querySelector<HTMLElement>(`span[data-base-index="${displayIndex}"]`)
+    if (activeSpan) {
+      inspectorActiveSpan = activeSpan
+      activeSpan.setAttribute('aria-expanded', 'true')
+      activeSpan.setAttribute('aria-describedby', 'base-inspector')
+    }
+  }
+
+  const openBaseInspector = (displayIndex: number) => {
+    inspectorDisplayIndex = displayIndex
+    selectedBaseIndex = displayIndex
+    hoveredBaseIndex = null
+    hideTooltip(tooltip)
+    syncBaseInspector()
+  }
+
   const refreshSequence = () => {
     const trace = renderer.getCurrentTrace()
     if (!trace) return
     const activeMatch = getActiveDisplayMatch()
-    const selectedIndex = hoveredBaseIndex ?? selectedBaseIndex ?? -1
+    const selectedIndex = inspectorDisplayIndex ?? hoveredBaseIndex ?? selectedBaseIndex ?? -1
     // Map forward-strand edited indices to display-strand coordinates.
     const fwdEdited = editModel.editedIndices
     const displayEdited = fwdEdited.size === 0
@@ -528,9 +580,18 @@ export function createTraceViewer(): HTMLDivElement {
       editedIndices: displayEdited,
       editingIndex,
     })
+    syncBaseInspector()
   }
 
   const inspectBase = (clientX: number, clientY: number, select = false) => {
+    // Suppress hover interactions while the keyboard inspector is open so hover
+    // pointer events cannot re-render or re-open the tooltip.
+    if (!select && inspectorDisplayIndex !== null) {
+      hoveredBaseIndex = null
+      hideTooltip(tooltip)
+      return
+    }
+
     const hit = renderer.hitTest(clientX)
     if (!hit) {
       if (!select) {
@@ -620,6 +681,7 @@ export function createTraceViewer(): HTMLDivElement {
     editModel.reset()
     setUndoRedoState(controls, false, false)
     hideTooltip(tooltip)
+    closeBaseInspector()
     setStrandToggleState(controls, false)
     setMixedThresholdDisplay(controls, mixedBaseThreshold)
     setMixedSummary(controls, 0)
@@ -667,6 +729,7 @@ export function createTraceViewer(): HTMLDivElement {
       setState('loaded', msg)
     } else {
       // Evicted slot — show the file name but indicate it needs reloading.
+      closeBaseInspector()
       updateMetadataPanel(metadataPanel, null)
       clearRenderPanels()
       setState('error', `${slot.fileName} was evicted from memory — please re-open the file`)
@@ -1102,6 +1165,7 @@ export function createTraceViewer(): HTMLDivElement {
   }
 
   // Double-click on a base span → enter editing mode for that position.
+  // (Keyboard Enter/Space is reserved for the base inspector path.)
   // We do NOT call refreshSequence() here: instead we update the span's CSS class
   // directly on the existing DOM node so the focused element stays in the DOM and
   // subsequent keyboard events are captured by our delegated keydown handler.
@@ -1115,7 +1179,15 @@ export function createTraceViewer(): HTMLDivElement {
     target.focus()
   })
 
-  // Keyboard: Enter or Space on a focused span also enters editing mode.
+  sequencePanel.addEventListener('focusin', (event) => {
+    if (!rawTrace) return
+    const target = event.target as HTMLElement
+    const idxStr = target.dataset.baseIndex
+    if (idxStr === undefined) return
+    openBaseInspector(Number(idxStr))
+  })
+
+  // Keyboard: Enter or Space on a focused span opens the base inspector.
   sequencePanel.addEventListener('keydown', (event) => {
     if (!rawTrace) return
     const target = event.target as HTMLElement
@@ -1125,13 +1197,13 @@ export function createTraceViewer(): HTMLDivElement {
 
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault()
-      editingIndex = displayIdx
-      setSpanEditingClass(displayIdx, true)
+      openBaseInspector(displayIdx)
       return
     }
 
     if (event.key === 'Escape') {
       event.preventDefault()
+      closeBaseInspector()
       editingIndex = -1
       setSpanEditingClass(-1, false)
       return
@@ -1168,6 +1240,7 @@ export function createTraceViewer(): HTMLDivElement {
   sequencePanel.addEventListener('focusout', (event) => {
     const related = (event as FocusEvent).relatedTarget as Node | null
     if (!sequencePanel.contains(related)) {
+      closeBaseInspector()
       editingIndex = -1
       // Remove editing highlight from the current span without a full re-render.
       setSpanEditingClass(-1, false)
