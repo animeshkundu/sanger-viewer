@@ -3,6 +3,7 @@ import path from 'node:path'
 import { test, expect, type Page } from '@playwright/test'
 
 const MAX_TABS_TO_FILE_INPUT = 15
+type Rgb = [number, number, number]
 
 async function tabToFileInput(page: Page) {
   for (let i = 0; i < MAX_TABS_TO_FILE_INPUT; i++) {
@@ -17,6 +18,58 @@ async function waitForInitialSampleLoad(page: Page) {
   await page.goto('')
   await expect(page.locator('#status')).toContainText('Loaded sample.ab1 (868 bases)')
   await expect(page.locator('#sample-ribbon')).toBeVisible()
+}
+
+function parseCssColor(color: string): Rgb {
+  const trimmed = color.trim().toLowerCase()
+  if (trimmed.startsWith('#')) {
+    if (trimmed.length === 4) {
+      return [
+        Number.parseInt(trimmed[1] + trimmed[1], 16),
+        Number.parseInt(trimmed[2] + trimmed[2], 16),
+        Number.parseInt(trimmed[3] + trimmed[3], 16),
+      ]
+    }
+    if (trimmed.length === 7) {
+      return [
+        Number.parseInt(trimmed.slice(1, 3), 16),
+        Number.parseInt(trimmed.slice(3, 5), 16),
+        Number.parseInt(trimmed.slice(5, 7), 16),
+      ]
+    }
+  }
+
+  const rgbMatch = trimmed.match(/rgba?\((\d+)[,\s]+(\d+)[,\s]+(\d+)/)
+  if (rgbMatch) {
+    return [Number(rgbMatch[1]), Number(rgbMatch[2]), Number(rgbMatch[3])]
+  }
+
+  throw new Error(`Unsupported CSS color format: ${color}`)
+}
+
+function relativeLuminance([r, g, b]: Rgb): number {
+  const toLinear = (channel: number) => {
+    const sRgb = channel / 255
+    return sRgb <= 0.03928 ? sRgb / 12.92 : ((sRgb + 0.055) / 1.055) ** 2.4
+  }
+  return 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b)
+}
+
+function contrastRatio(foreground: string, background: string): number {
+  const l1 = relativeLuminance(parseCssColor(foreground))
+  const l2 = relativeLuminance(parseCssColor(background))
+  const [lighter, darker] = l1 >= l2 ? [l1, l2] : [l2, l1]
+  return (lighter + 0.05) / (darker + 0.05)
+}
+
+function saturation(color: string): number {
+  const [r, g, b] = parseCssColor(color).map((value) => value / 255)
+  const max = Math.max(r, g, b)
+  const min = Math.min(r, g, b)
+  if (max === min) return 0
+  const lightness = (max + min) / 2
+  const delta = max - min
+  return delta / (1 - Math.abs(2 * lightness - 1))
 }
 
 test('shows the bundled sample trace on first load', async ({ page }) => {
@@ -206,13 +259,45 @@ test('dark mode uses correct design token surface color', async ({ page }) => {
   expect(pixel).toBe('rgb(30, 41, 59)')
 })
 
+test('light and dark token contrast ratios meet accessibility thresholds', async ({ page }) => {
+  const getPalette = () => page.evaluate(() => {
+    const styles = getComputedStyle(document.documentElement)
+    return {
+      surface: styles.getPropertyValue('--color-surface').trim(),
+      helperText: styles.getPropertyValue('--color-text-muted').trim(),
+      uiBorder: styles.getPropertyValue('--color-border-strong').trim(),
+      focusRing: styles.getPropertyValue('--color-focus-ring').trim(),
+      brand: styles.getPropertyValue('--color-brand').trim(),
+    }
+  })
+
+  await page.emulateMedia({ colorScheme: 'light' })
+  await page.goto('')
+  const lightPalette = await getPalette()
+
+  await page.emulateMedia({ colorScheme: 'dark' })
+  await page.goto('')
+  const darkPalette = await getPalette()
+
+  expect(contrastRatio(lightPalette.helperText, lightPalette.surface)).toBeGreaterThanOrEqual(4.5)
+  expect(contrastRatio(darkPalette.helperText, darkPalette.surface)).toBeGreaterThanOrEqual(4.5)
+
+  expect(contrastRatio(lightPalette.uiBorder, lightPalette.surface)).toBeGreaterThanOrEqual(3.0)
+  expect(contrastRatio(darkPalette.uiBorder, darkPalette.surface)).toBeGreaterThanOrEqual(3.0)
+
+  expect(contrastRatio(lightPalette.focusRing, lightPalette.surface)).toBeGreaterThanOrEqual(3.0)
+  expect(contrastRatio(darkPalette.focusRing, darkPalette.surface)).toBeGreaterThanOrEqual(3.0)
+
+  expect(saturation(darkPalette.brand)).toBeLessThan(saturation(lightPalette.brand))
+})
+
 test('new devlog entry is listed on blog index', async ({ page }) => {
   await page.goto('/blog/')
   await expect(
-    page.getByRole('link', { name: /first impression/i })
+    page.getByRole('link', { name: /annotation lanes \+ dark-mode accessibility/i })
   ).toBeVisible()
 
-  await page.getByRole('link', { name: /first impression/i }).click()
-  await expect(page).toHaveURL(/\/blog\/2026-07-04-v18-first-impression\/$/)
-  await expect(page.getByRole('heading', { name: /first impression/i })).toBeVisible()
+  await page.getByRole('link', { name: /annotation lanes \+ dark-mode accessibility/i }).click()
+  await expect(page).toHaveURL(/\/blog\/2026-07-04-v22-annotation-a11y\/$/)
+  await expect(page.getByRole('heading', { name: /annotation lanes \+ dark-mode accessibility/i })).toBeVisible()
 })
