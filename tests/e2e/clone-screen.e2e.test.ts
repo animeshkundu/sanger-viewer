@@ -209,7 +209,7 @@ test.describe('Clone-screen stacked viewer', () => {
 
     // Move forward 5 positions — each move triggers a full repaint.
     // If root handlers were re-registered each paint, subsequent presses would jump > 1.
-    for (let i = 0; i < 5; i++) {
+    for (let step = 0; step < 5; step++) {
       await page.keyboard.press('ArrowRight')
     }
     await expect(cursorInfo).toContainText('Position 6')
