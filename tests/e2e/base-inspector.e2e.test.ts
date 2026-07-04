@@ -115,12 +115,10 @@ test('tooltip is hidden when keyboard inspector opens', { tag: ['@desktop'] }, a
 
   // Focus a rendered sequence base via keyboard — tooltip must be dismissed, inspector must appear.
   const target = page.locator(`.sequence-panel span[data-base-index="${KNOWN_INDEX}"]`)
-  await target.scrollIntoViewIfNeeded()
-  await expect(target).toBeVisible()
-  await target.evaluate(() =>
-    new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
+  await target.waitFor({ state: 'visible' })
   await expect(target).toHaveAttribute('tabindex', '0')
   await target.focus()
+  await target.press('Enter')
   await expect(page.locator('.tooltip')).toBeHidden()
   await expect(page.locator('#base-inspector')).toBeVisible()
 })
