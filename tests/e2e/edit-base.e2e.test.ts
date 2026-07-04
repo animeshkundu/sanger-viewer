@@ -99,7 +99,9 @@ test('undo reverts the edited base and removes .edited-base class', async ({ pag
   await loadFixture(page)
 
   const firstSpan = page.locator('.sequence-panel span[data-base-index]').first()
-  const displayIndex = Number(await firstSpan.getAttribute('data-base-index'))
+  const baseIndexAttr0 = await firstSpan.getAttribute('data-base-index')
+  expect(baseIndexAttr0).not.toBeNull()
+  const displayIndex = Number(baseIndexAttr0)
   const originalBase = (await firstSpan.textContent()) ?? ''
 
   // Edit the base.
@@ -121,7 +123,9 @@ test('redo re-applies the undone edit', async ({ page }) => {
   await loadFixture(page)
 
   const firstSpan = page.locator('.sequence-panel span[data-base-index]').first()
-  const displayIndex = Number(await firstSpan.getAttribute('data-base-index'))
+  const baseIndexAttr1 = await firstSpan.getAttribute('data-base-index')
+  expect(baseIndexAttr1).not.toBeNull()
+  const displayIndex = Number(baseIndexAttr1)
   const originalBase = (await firstSpan.textContent()) ?? ''
 
   // Edit → undo → redo.
@@ -141,7 +145,9 @@ test('Ctrl+Z undoes and Ctrl+Shift+Z redoes via keyboard shortcuts', async ({ pa
   await loadFixture(page)
 
   const firstSpan = page.locator('.sequence-panel span[data-base-index]').first()
-  const displayIndex = Number(await firstSpan.getAttribute('data-base-index'))
+  const baseIndexAttr2 = await firstSpan.getAttribute('data-base-index')
+  expect(baseIndexAttr2).not.toBeNull()
+  const displayIndex = Number(baseIndexAttr2)
   const originalBase = (await firstSpan.textContent()) ?? ''
 
   // Apply an edit.

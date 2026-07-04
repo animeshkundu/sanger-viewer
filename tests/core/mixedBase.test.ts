@@ -3,6 +3,7 @@ import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import type { TraceData } from '../../src/types/trace'
 import { callMixedBases } from '../../src/calling/mixedBase'
+import { BaseEditModel } from '../../src/editing/BaseEditModel'
 import { parseTrace } from '../../src/parsers'
 
 function makeSyntheticTrace(): TraceData {
@@ -70,5 +71,57 @@ describe('callMixedBases', () => {
     expect(result.ambiguousCount).toBe(result.ambiguousIndices.length)
     expect(result.ambiguousIndices.slice(0, 6)).toEqual([0, 1, 2, 3, 4, 5])
     expect(result.baseCalls.slice(0, 6)).toEqual(['S', 'S', 'S', 'K', 'K', 'W'])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Edit-model integration: explicit edits must survive callMixedBases re-pin
+// ---------------------------------------------------------------------------
+// This mirrors the logic in buildDisplayTrace(): apply edits → callMixedBases
+// (which overwrites edited positions with IUPAC codes) → re-pin edited positions
+// back on top.  An explicit user edit MUST win over a signal-derived IUPAC code.
+
+describe('callMixedBases + BaseEditModel — edit persistence', () => {
+  it('explicit user edit at an ambiguous position wins over the IUPAC code', () => {
+    // The synthetic trace has position 4 (peak at sample 5, A=80 C=40).
+    // At threshold 0.4, ratio = 40/80 = 0.50 → callMixedBases assigns 'M'.
+    const trace = makeSyntheticTrace()
+
+    // Confirm the baseline: without any edit, position 4 is called 'M'.
+    const baseline = callMixedBases(trace, 0.4)
+    expect(baseline.baseCalls[4]).toBe('M')
+    expect(baseline.ambiguousIndices).toContain(4)
+
+    // User edits position 4 (forward-strand) to 'G'.
+    const editModel = new BaseEditModel()
+    editModel.apply(4, 'G', trace.baseCalls[4])
+
+    // Step 1 (as buildDisplayTrace does): apply edits before callMixedBases.
+    // Only baseCalls and sequence are updated here; channels/peakPositions are unchanged
+    // because callMixedBases derives its IUPAC calls from raw signal, not baseCalls.
+    const editedBaseCalls = editModel.applyToBaseCalls(trace.baseCalls)
+    const editedTrace: TraceData = { ...trace, baseCalls: editedBaseCalls, sequence: editedBaseCalls.join('') }
+
+    // Step 2: callMixedBases runs on the edited trace.
+    // It reads channel amplitudes — not baseCalls — so it still finds A≈C at
+    // position 4's peak and overwrites the edited 'G' with 'M'.
+    const mixedResult = callMixedBases(editedTrace, 0.4)
+    expect(mixedResult.baseCalls[4]).toBe('M')  // overwritten by mixed-base caller
+
+    // Step 3 (re-pin): restore the user's explicit edit on top of the IUPAC call.
+    const pinnedBaseCalls = mixedResult.baseCalls.slice()
+    const editedDisplayIndices = new Set(editModel.editedIndices)
+    for (const idx of editedDisplayIndices) {
+      pinnedBaseCalls[idx] = editedBaseCalls[idx]
+    }
+    const nonEditedAmbiguous = mixedResult.ambiguousIndices.filter(i => !editedDisplayIndices.has(i))
+
+    // After re-pin, the user's 'G' must be present — not 'M'.
+    expect(pinnedBaseCalls[4]).toBe('G')
+    // The re-pinned position is removed from the ambiguous set.
+    expect(nonEditedAmbiguous).not.toContain(4)
+    // Other genuinely ambiguous positions (0–3 and 5) are unaffected.
+    expect(pinnedBaseCalls[0]).toBe('R')
+    expect(pinnedBaseCalls[5]).toBe('K')
   })
 })
