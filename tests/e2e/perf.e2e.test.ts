@@ -62,6 +62,28 @@ async function measureInteractionUntil(action: () => Promise<void>, settle: () =
   return Date.now() - t0
 }
 
+/** Return the median of a numeric array (sorted in-place copy). */
+function median(samples: number[]): number {
+  const sorted = [...samples].sort((a, b) => a - b)
+  const mid = Math.floor(sorted.length / 2)
+  return sorted.length % 2 === 1 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
+}
+
+/**
+ * Run `action` N times with a 50 ms repaint wait each time and return the
+ * median wall-clock time.  Using the median instead of a single sample makes
+ * CI-runner jitter (a one-off slow sample) unable to fail a genuinely fast
+ * interaction.  N=5 gives a stable central-tendency estimate with minimal
+ * extra test time (~250 ms extra for a 50 ms interaction).
+ */
+async function measureInteractionMedian(page: Page, action: () => Promise<void>, n = 5): Promise<number> {
+  const samples: number[] = []
+  for (let i = 0; i < n; i++) {
+    samples.push(await measureInteraction(page, action))
+  }
+  return median(samples)
+}
+
 async function getSequenceText(page: Page): Promise<string> {
   return page.locator('.sequence-panel').textContent().then((text) => text ?? '')
 }
@@ -145,6 +167,9 @@ test.describe('first-render budgets', () => {
 // on the large synthetic fixture (stress test). The 3 kbp Pan← path keeps a
 // slightly higher 325 ms cap so CI jitter does not fail a still-substantially-
 // improved interaction at ~300 ms while remaining far below a half-second.
+//
+// All interaction-latency budget assertions use the MEDIAN of 5 samples so
+// that a single slow CI-runner sample cannot fail a genuinely fast interaction.
 // ---------------------------------------------------------------------------
 
 test.describe('interaction latency budgets', () => {
@@ -155,64 +180,71 @@ test.describe('interaction latency budgets', () => {
     await expect(page.locator('#status')).toContainText('Loaded', { timeout: 10_000 })
   }
 
-  test('Zoom+ on 3100.ab1 completes within 200 ms', async ({ page }) => {
+  test('Zoom+ on 3100.ab1 completes within 200 ms (median of 5)', async ({ page }) => {
     await loadFixture(page, FIX.existing)
-    const elapsed = await measureInteraction(page, () =>
+    const med = await measureInteractionMedian(page, () =>
       page.getByRole('button', { name: 'Zoom +' }).click(),
     )
-    expect(elapsed, `zoom time ${elapsed} ms exceeds 200 ms budget`).toBeLessThan(200)
+    expect(med, `zoom median ${med} ms exceeds 200 ms budget`).toBeLessThan(200)
   })
 
-  test('Pan← on 3100.ab1 completes within 250 ms', async ({ page }) => {
+  test('Pan← on 3100.ab1 completes within 250 ms (median of 5)', async ({ page }) => {
     await loadFixture(page, FIX.existing)
-    const elapsed = await measureInteraction(page, () =>
+    const med = await measureInteractionMedian(page, () =>
       page.getByRole('button', { name: '← Pan' }).click(),
     )
-    expect(elapsed, `pan time ${elapsed} ms exceeds 250 ms budget`).toBeLessThan(250)
+    expect(med, `pan median ${med} ms exceeds 250 ms budget`).toBeLessThan(250)
   })
 
-  test('Wheel zoom on 3100.ab1 completes within 200 ms', async ({ page }) => {
+  test('Wheel zoom on 3100.ab1 completes within 200 ms (median of 5)', async ({ page }) => {
     await loadFixture(page, FIX.existing)
     const canvas = page.locator('[data-testid="chromatogram-canvas"]')
     const box = await canvas.boundingBox()
     if (!box) throw new Error('Canvas not visible')
 
-    const elapsed = await measureInteraction(page, () =>
+    const med = await measureInteractionMedian(page, () =>
       page.mouse.wheel(0, -100),
     )
-    expect(elapsed, `wheel time ${elapsed} ms exceeds 200 ms budget`).toBeLessThan(200)
+    expect(med, `wheel median ${med} ms exceeds 200 ms budget`).toBeLessThan(200)
   })
 
-  test('Zoom+ on synth-large-3kbp completes within 300 ms', async ({ page }) => {
+  test('Zoom+ on synth-large-3kbp completes within 300 ms (median of 5)', async ({ page }) => {
     await loadFixture(page, FIX.large)
     const canvas = page.locator('[data-testid="chromatogram-canvas"]')
-    const previousSpp = await canvas.getAttribute('data-viewport-spp')
-    const elapsed = await measureInteractionUntil(
-      () => page.getByRole('button', { name: 'Zoom +' }).click(),
-      async () => {
-        await page.waitForFunction((prev) => {
-          const el = document.querySelector('[data-testid="chromatogram-canvas"]')
-          return (el as HTMLCanvasElement | null)?.getAttribute('data-viewport-spp') !== prev
-        }, previousSpp)
-      },
-    )
-    expect(elapsed, `zoom time ${elapsed} ms exceeds 300 ms budget`).toBeLessThan(300)
+
+    // Re-capture SPP before each sample because the attribute changes on every zoom.
+    const samples: number[] = []
+    for (let i = 0; i < 5; i++) {
+      const previousSpp = await canvas.getAttribute('data-viewport-spp')
+      const elapsed = await measureInteractionUntil(
+        () => page.getByRole('button', { name: 'Zoom +' }).click(),
+        async () => {
+          await page.waitForFunction((prev) => {
+            const el = document.querySelector('[data-testid="chromatogram-canvas"]')
+            return (el as HTMLCanvasElement | null)?.getAttribute('data-viewport-spp') !== prev
+          }, previousSpp)
+        },
+      )
+      samples.push(elapsed)
+    }
+    const med = median(samples)
+    expect(med, `zoom median ${med} ms exceeds 300 ms budget`).toBeLessThan(300)
   })
 
-  test('Pan← on synth-large-3kbp completes within 325 ms', async ({ page }) => {
+  test('Pan← on synth-large-3kbp completes within 325 ms (median of 5)', async ({ page }) => {
     await loadFixture(page, FIX.large)
-    const elapsed = await measureInteraction(page, () =>
+    const med = await measureInteractionMedian(page, () =>
       page.getByRole('button', { name: '← Pan' }).click(),
     )
-    expect(elapsed, `pan time ${elapsed} ms exceeds 325 ms budget`).toBeLessThan(325)
+    expect(med, `pan median ${med} ms exceeds 325 ms budget`).toBeLessThan(325)
   })
 
-  test('Zoom+ on synth-longread-5kbp completes within 400 ms', async ({ page }) => {
+  test('Zoom+ on synth-longread-5kbp completes within 400 ms (median of 5)', async ({ page }) => {
     await loadFixture(page, FIX.longread)
-    const elapsed = await measureInteraction(page, () =>
+    const med = await measureInteractionMedian(page, () =>
       page.getByRole('button', { name: 'Zoom +' }).click(),
     )
-    expect(elapsed, `zoom time ${elapsed} ms exceeds 400 ms budget`).toBeLessThan(400)
+    expect(med, `zoom median ${med} ms exceeds 400 ms budget`).toBeLessThan(400)
   })
 })
 
