@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>2026-07-03 — quality track + FASTQ/QUAL polish | sanger-viewer devlog</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-shell">
+        <a class="site-title" href="../../">sanger-viewer</a>
+        <nav class="site-nav" aria-label="Site">
+          <a href="../">Devlog</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="site-shell blog-entry">
+      <h1>2026-07-03 — per-base quality track + FASTQ/QUAL exactness (v14)</h1>
+
+      <p>
+        Today’s slice finishes the quality story: a dedicated per-base quality bar track now sits under the trace,
+        and export coverage was tightened with exact-value assertions for FASTQ and QUAL all-trimmed edge cases.
+      </p>
+
+      <h2>Per-base quality track</h2>
+      <p>
+        A new quality track renders one bar per visible base, aligned to each called peak. Bar height scales with
+        PHRED score and colors are tiered (poor/fair/good/excellent) via theme tokens, so the track reads cleanly
+        in both light and dark mode. The section is keyboard and screen-reader friendly and includes a toggle to
+        collapse/expand the track without affecting sequence/export state.
+      </p>
+
+      <h2>Export consistency</h2>
+      <p>
+        FASTQ and QUAL export already flowed through the editable-base pipeline; this pass keeps that contract tight
+        by asserting exact bytes for known outputs, including the all-trimmed case where sequence/quality bodies are
+        intentionally empty after the header line.
+      </p>
+
+      <h2>Validation</h2>
+      <p>
+        The new layout unit tests assert exact x/height/tier mapping, including reverse-complement coordinate
+        alignment. E2E checks verify the quality track is accessible/toggleable and that rendered bar heights
+        at sampled x-positions match expected PHRED-derived values (not just a generic canvas ink sum).
+      </p>
+    </main>
+  </body>
+</html>

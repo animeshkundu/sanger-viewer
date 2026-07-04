@@ -18,6 +18,7 @@ import { createPositionReadout, updatePositionReadout } from './PositionReadout'
 import { createMetadataPanel, updateMetadataPanel } from './MetadataPanel'
 import { createWorkspaceBar, renderWorkspaceBar } from './WorkspaceBar'
 import { createAnnotationTrack } from './AnnotationTrack'
+import { createQualityTrack } from './QualityTrack'
 import { downloadBlob } from '../export/png'
 import { toFasta } from '../export/fasta'
 import { toFastq, toQual } from '../export/fastq'
@@ -163,9 +164,10 @@ export function createTraceViewer(): HTMLDivElement {
     renderer.focusBaseRange(feature.start, feature.end)
     refreshReadout()
   })
+  const qualityTrack = createQualityTrack()
   const canvasWrap = root.querySelector<HTMLElement>('.canvas-wrap')!
   root.insertBefore(annotationTrack.element, canvasWrap)
-  root.append(controls, workspaceBar, readout, sequencePanel, metadataPanel, tooltip)
+  root.append(qualityTrack.element, controls, workspaceBar, readout, sequencePanel, metadataPanel, tooltip)
 
   const fileInput = root.querySelector<HTMLInputElement>('#file-input')!
   const fileInputExtra = root.querySelector<HTMLInputElement>('#file-input-extra')!
@@ -181,12 +183,13 @@ export function createTraceViewer(): HTMLDivElement {
   const successText = root.querySelector<HTMLElement>('#success-text')!
   const sampleBtn = root.querySelector<HTMLButtonElement>('#sample-load-btn')!
   const searchInput = controls.querySelector<HTMLInputElement>('#search-input')!
-  const canvas = root.querySelector<HTMLCanvasElement>('canvas')!
+  const canvas = root.querySelector<HTMLCanvasElement>('[data-testid="chromatogram-canvas"]')!
   canvas.style.touchAction = 'none'
 
   const renderer = new ChromatogramCanvas(canvas)
   const rootDisconnectObserver = new MutationObserver(() => {
     if (!root.isConnected) {
+      qualityTrack.destroy()
       renderer.destroy()
       document.removeEventListener('keydown', undoRedoKeyHandler)
       rootDisconnectObserver.disconnect()
@@ -387,6 +390,7 @@ export function createTraceViewer(): HTMLDivElement {
     setTrimSummary(controls, result)
     // Re-render sequence panel with new trim info
     refreshSequence()
+    refreshQualityTrack()
   }
 
   /** rAF-throttled trim recompute (for slider drag). */
@@ -446,6 +450,23 @@ export function createTraceViewer(): HTMLDivElement {
     const vp = renderer.getViewportInfo()
     updatePositionReadout(readout, vp.start, vp.end)
     refreshAnnotationTrack()
+    refreshQualityTrack()
+  }
+
+  const refreshQualityTrack = () => {
+    const trace = renderer.getCurrentTrace()
+    if (!trace) {
+      qualityTrack.clear()
+      return
+    }
+    const viewport = renderer.getViewportState()
+    qualityTrack.render({
+      trace,
+      startSample: viewport.startSample,
+      samplesPerPixel: viewport.samplesPerPixel,
+      trim: trimResult,
+      mode: trimSettings.mode,
+    })
   }
 
   const refreshAnnotationTrack = () => {
@@ -579,6 +600,7 @@ export function createTraceViewer(): HTMLDivElement {
     renderer.clearTrace()
     annotationFeatures = []
     annotationTrack.clear()
+    qualityTrack.clear()
     readout.textContent = 'Position: -'
     sequencePanel.textContent = 'Load a trace to inspect sequence'
   }
