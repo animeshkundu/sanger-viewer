@@ -820,7 +820,6 @@ export function createTraceViewer(): HTMLDivElement {
     trimResult = null
     mixedBaseThreshold = DEFAULT_MIXED_BASE_THRESHOLD
     mixedBaseResult = null
-    searchState = { query: '', matches: [], activeIndex: -1 }
     traceSource = source
     sampleRibbonDismissed = false
     editingIndex = -1
