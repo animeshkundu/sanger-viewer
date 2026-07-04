@@ -11,7 +11,8 @@ import {
   setStrandToggleState,
   setTrimSummary,
   setTrimMode,
-  setUndoRedoState
+  setUndoRedoState,
+  setPrintButtonState
 } from './Controls'
 import { createTooltip, hideTooltip, showTooltip } from './Tooltip'
 import { createBaseInspector, getBaseInspectorInfo, hideBaseInspector, showBaseInspector } from './BaseInspector'
@@ -27,6 +28,7 @@ import { toFasta } from '../export/fasta'
 import { toFastq, toQual } from '../export/fastq'
 import { exportSvg } from '../export/svg'
 import { computeConsensus, toConsensusFasta } from '../consensus/consensus'
+import { buildPrintSection, type PrintSectionData } from '../export/print'
 import { reverseComplementTrace, iupacComplement } from '../revcomp'
 import { mottTrim, DEFAULT_TRIM_SETTINGS } from '../quality/mottTrim'
 import { callMixedBases, DEFAULT_MIXED_BASE_THRESHOLD, type MixedBaseResult } from '../calling/mixedBase'
@@ -459,13 +461,16 @@ export function createTraceViewer(): HTMLDivElement {
       errorText.textContent = message
       status.textContent = message
       setControlsDisabled(controls, false)
+      setPrintButtonState(controls, false)
     } else if (state === 'loaded') {
       successText.textContent = message
       status.textContent = message
       setControlsDisabled(controls, false)
+      setPrintButtonState(controls, true)
     } else {
       status.textContent = 'No trace loaded.'
       setControlsDisabled(controls, false)
+      setPrintButtonState(controls, false)
     }
     syncSearchUi(false)
     syncSampleRibbon()
@@ -1032,6 +1037,45 @@ export function createTraceViewer(): HTMLDivElement {
         const fasta = toConsensusFasta(result, fileNames)
         downloadBlob(new Blob([fasta], { type: 'text/plain' }), 'consensus.fasta')
       }
+    }
+
+    if (action === 'print' && trace) {
+      // Collect visible sequence from the sequence-panel spans.
+      const seqSpans = Array.from(sequencePanel.querySelectorAll<HTMLSpanElement>('[data-base-index]'))
+      const visibleSequence = seqSpans.map((s) => s.textContent ?? '').join('')
+
+      // Capture canvas snapshots at the current zoom window.
+      const chromatogramDataUrl = canvas.toDataURL('image/png')
+      const qualCanvas = qualityTrack.element.querySelector<HTMLCanvasElement>('[data-testid="quality-track-canvas"]')
+      const qualVisible = qualityTrack.element.getAttribute('data-visible') !== 'false'
+      const qualityDataUrl = qualCanvas && qualVisible ? qualCanvas.toDataURL('image/png') : null
+
+      const printData: PrintSectionData = {
+        fileName: trace.fileName,
+        totalBases: trace.baseCalls.length,
+        isRevcomp,
+        trimMode: trimSettings.mode,
+        trimmedBp:
+          trimResult?.status === 'ok'
+            ? trimResult.trimEnd - trimResult.trimStart
+            : null,
+        meanQuality:
+          trimResult?.status === 'ok' && Number.isFinite(trimResult.meanQuality)
+            ? trimResult.meanQuality
+            : null,
+        visibleSequence,
+        annotationCount: annotationFeatures.length,
+        chromatogramDataUrl,
+        qualityDataUrl,
+      }
+
+      const printEl = buildPrintSection(printData)
+      document.body.appendChild(printEl)
+      // Remove the print overlay when the print dialog is closed.
+      window.addEventListener('afterprint', () => {
+        if (printEl.parentNode) printEl.parentNode.removeChild(printEl)
+      }, { once: true })
+      window.print()
     }
 
     if (action === 'undo' && rawTrace) {

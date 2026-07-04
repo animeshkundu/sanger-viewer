@@ -1232,3 +1232,118 @@ canvas {
   border-radius: 2px;
   font-weight: 700;
 }
+
+/* ─── Print / PDF view ───────────────────────────────────────────── */
+
+/*
+ * #print-view is appended to <body> when the "Print / Save as PDF" action is
+ * triggered and removed after the print dialog closes (via `afterprint`).
+ * It is invisible on-screen (display:none) and shown only by @media print.
+ */
+#print-view {
+  display: none;
+}
+
+@media print {
+  /* Hide every top-level body child except the print view. */
+  body > :not(#print-view) {
+    display: none !important;
+  }
+
+  #print-view {
+    display: block;
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 11pt;
+    color: #000;
+    background: #fff;
+  }
+
+  @page {
+    size: A4 landscape;
+    margin: 1.5cm 1.8cm;
+  }
+
+  /* ── Print header ── */
+  .print-header {
+    border-bottom: 2pt solid #000;
+    padding-bottom: 6pt;
+    margin-bottom: 12pt;
+    page-break-inside: avoid;
+  }
+
+  .print-header__title {
+    font-size: 16pt;
+    font-weight: bold;
+    margin: 0 0 6pt;
+  }
+
+  .print-header__meta {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    column-gap: 12pt;
+    row-gap: 2pt;
+    margin: 0;
+    font-size: 9pt;
+  }
+
+  .print-header__term {
+    color: #444;
+    font-weight: bold;
+    margin: 0;
+  }
+
+  .print-header__def {
+    margin: 0;
+    font-family: 'Courier New', Courier, monospace;
+  }
+
+  /* ── Section headings ── */
+  .print-section__heading {
+    font-size: 10pt;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #444;
+    margin: 10pt 0 4pt;
+    border-bottom: 0.5pt solid #ccc;
+    padding-bottom: 2pt;
+  }
+
+  /* ── Chromatogram & quality images ── */
+  .print-chromatogram,
+  .print-quality {
+    page-break-inside: avoid;
+    margin-bottom: 6pt;
+  }
+
+  .print-chromatogram__img,
+  .print-quality__img {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+  }
+
+  /* ── Sequence ── */
+  .print-sequence {
+    page-break-inside: avoid;
+    margin-bottom: 6pt;
+  }
+
+  .print-sequence__bases {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 8.5pt;
+    white-space: pre-wrap;
+    word-break: break-all;
+    margin: 0;
+    line-height: 1.4;
+  }
+
+  /* ── Annotations ── */
+  .print-annotations {
+    page-break-inside: avoid;
+    margin-bottom: 6pt;
+    font-size: 9pt;
+    color: #333;
+  }
+}
