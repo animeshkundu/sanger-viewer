@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>2026-07-04 — v26 manual assembly controls: strand override + overlap/match tuning | sanger-viewer devlog</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-shell">
+        <a class="site-title" href="../../">sanger-viewer</a>
+        <nav class="site-nav" aria-label="Site">
+          <a href="../">Devlog</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="site-shell blog-entry">
+      <p><a href="../">← Back to devlog</a></p>
+      <h1>2026-07-04 — v26 manual assembly controls: strand override + overlap/match tuning</h1>
+      <p><time datetime="2026-07-04">July 4, 2026</time></p>
+
+      <p>
+        Until now the contig assembler was a one-shot black box: load two reads, click Assemble,
+        and hope the auto-orientation logic picks the right strand and a 20 bp minimum overlap
+        works for your amplicon. That is fine for a classic F+R Sanger pair — but the moment
+        you have an unusual run, a very short amplicon, or a re-sequenced read that was stored
+        reversed, you had no lever to pull. Today that changed.
+      </p>
+
+      <h2>What I shipped</h2>
+      <ul>
+        <li>
+          <strong>Strand A / Strand B override selects.</strong>
+          Each read can now be set to <em>Auto</em> (existing behaviour), <em>Force Forward</em>
+          (pass the sequence as-is regardless of what auto-detection would choose), or
+          <em>Force Reverse</em> (pre-apply reverse complement before the assembler sees the
+          read). This is the fix for the "I know read B came off the reverse primer but the
+          assembler keeps mis-orienting it" case.
+        </li>
+        <li>
+          <strong>Min overlap (bp) control.</strong>
+          A numeric input (range 5–200, default 20) lets you tighten the minimum overlap
+          length. Short amplicons now assemble cleanly at 10–15 bp instead of silently
+          failing at the 20 bp hard-code; long, repeat-heavy amplicons can be tightened
+          to 50+ bp to avoid spurious matches.
+        </li>
+        <li>
+          <strong>Min match % control.</strong>
+          A percentage input (range 0–100, default 0 = accept any positive-scoring overlap)
+          adds a score-quality floor. Setting it to 70 % means at least 70 % of the overlap
+          positions must contribute a positive match score — useful for rejecting chimeric
+          overlaps that only pass because the overlap region happens to be short.
+        </li>
+        <li>
+          <strong>Live re-assembly on control change.</strong>
+          Once a contig has been assembled, any change to a control immediately triggers
+          a fresh assembly pass, so you can scrub the overlap-length slider and watch the
+          consensus update in real time without pressing Assemble again.
+        </li>
+        <li>
+          <strong>Informative error messages.</strong>
+          When no qualifying overlap is found the status line now shows the exact min-overlap
+          and min-match values that were active, so there is no ambiguity about why the
+          assembly failed.
+        </li>
+      </ul>
+
+      <h2>Architecture</h2>
+      <ul>
+        <li>
+          <strong><code>src/consensus/assemblyControls.ts</code></strong> — pure TypeScript,
+          no DOM. Defines <code>AssemblyControlState</code>, <code>DEFAULT_ASSEMBLY_CONTROLS</code>,
+          <code>applyStrandOverride()</code> (reverse-complements seq + qual when
+          <code>'reverse'</code>), and <code>assembleWithControls()</code> which orchestrates
+          the full pipeline: strand pre-processing → minMatchFraction gate → <code>buildPairedContig</code>.
+          Everything is client-side; no data leaves the browser.
+        </li>
+        <li>
+          <strong><code>src/components/ContigPanel.ts</code></strong> — extended with a
+          <code>.contig-panel__controls</code> section above the action buttons, containing
+          four labelled widgets (<code>data-testid</code> anchors for tests). Added
+          <code>getAssemblyControls()</code> to read the current widget state as an
+          <code>AssemblyControlState</code> object.
+        </li>
+        <li>
+          <strong><code>src/components/TraceViewer.ts</code></strong> — <code>runContigAssembly()</code>
+          now calls <code>assembleWithControls()</code> instead of <code>buildPairedContig()</code>
+          directly, passing the controls from <code>getAssemblyControls()</code>. Change listeners
+          on all four controls fire <code>runContigAssembly()</code> when a contig is already
+          resident.
+        </li>
+      </ul>
+
+      <h2>Tests</h2>
+      <ul>
+        <li>
+          <code>tests/core/assemblyControls.test.ts</code> — exact-value unit tests:
+          <ul>
+            <li><code>applyStrandOverride</code> — exact RC sequences and reversed quality arrays for the <code>'reverse'</code> case; identity for <code>'auto'</code> and <code>'forward'</code>.</li>
+            <li><code>assembleWithControls</code> — storing a read as RC of the correct sequence, then setting <code>strandA='reverse'</code>, recovers the exact consensus <code>AAAAAACCCCCGGGGG</code> with contigLength=16, mismatchCount=0, and coverage=2 at overlap positions 6–10.</li>
+            <li><code>minMatchFraction</code> — overlap score 2/4 = 0.5 is accepted at threshold 0.5 and rejected at 0.6; exact IUPAC mismatch base K at position 10 is verified.</li>
+            <li><code>minOverlap</code> — assembly fails with minOverlap=10 on a 5-base overlap pair and succeeds at minOverlap=5.</li>
+          </ul>
+        </li>
+        <li>
+          <code>tests/e2e/assembly-controls.e2e.test.ts</code> — Playwright tests:
+          default values, option sets, range attributes, label wiring, keyboard focus,
+          assembly round-trips with min-overlap=5 and min-overlap=200, live re-assembly
+          on control change.
+        </li>
+      </ul>
+    </main>
+  </body>
+</html>

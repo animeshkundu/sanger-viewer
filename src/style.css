@@ -1621,6 +1621,52 @@ canvas {
   font-size: var(--text-xs);
 }
 
+.contig-panel__controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-contig-overlap-bg);
+  border: 1px solid var(--color-contig-border);
+  border-radius: var(--radius-sm);
+}
+
+.contig-panel__control-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 8rem;
+}
+
+.contig-panel__control-label {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.contig-panel__control-select,
+.contig-panel__control-input {
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-contig-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--text-sm);
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.contig-panel__control-select:focus-visible,
+.contig-panel__control-input:focus-visible {
+  outline: 3px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.contig-panel__control-input {
+  width: 6rem;
+  cursor: text;
+}
+
 .contig-panel__actions {
   display: flex;
   gap: var(--space-2);

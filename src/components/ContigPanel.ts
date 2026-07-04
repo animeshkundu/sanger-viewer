@@ -4,9 +4,13 @@
  * Shows a three-row display (forward read, reverse read, consensus) with
  * per-position coverage/mismatch highlighting and an export button.
  * Hidden by default; revealed only when a contig has been assembled.
+ *
+ * v26 addition: assembly-controls section (strand override selects,
+ * minOverlap and minMatch numeric inputs) above the action buttons.
  */
 
 import type { PairedContig } from '../consensus/contig'
+import { type AssemblyControlState, DEFAULT_ASSEMBLY_CONTROLS } from '../consensus/assemblyControls'
 
 /** Maximum bases to display in the sequence rows at one time. */
 const WINDOW = 80
@@ -16,6 +20,10 @@ export interface ContigPanelElements {
   assembleBtn: HTMLButtonElement
   exportBtn: HTMLButtonElement
   statusSpan: HTMLSpanElement
+  strandASelect: HTMLSelectElement
+  strandBSelect: HTMLSelectElement
+  minOverlapInput: HTMLInputElement
+  minMatchInput: HTMLInputElement
 }
 
 /**
@@ -37,6 +45,62 @@ export function createContigPanel(): ContigPanelElements {
         All computation is in-browser — nothing is uploaded.
         (Ungapped v1; gapped assembly is a planned follow-up.)
       </p>
+      <div class="contig-panel__controls" role="group" aria-label="Assembly controls">
+        <div class="contig-panel__control-group">
+          <label class="contig-panel__control-label" for="strand-a-select">Strand A</label>
+          <select
+            id="strand-a-select"
+            class="contig-panel__control-select"
+            data-testid="strand-a-select"
+            aria-label="Strand override for read A"
+          >
+            <option value="auto" selected>Auto</option>
+            <option value="forward">Force Forward</option>
+            <option value="reverse">Force Reverse</option>
+          </select>
+        </div>
+        <div class="contig-panel__control-group">
+          <label class="contig-panel__control-label" for="strand-b-select">Strand B</label>
+          <select
+            id="strand-b-select"
+            class="contig-panel__control-select"
+            data-testid="strand-b-select"
+            aria-label="Strand override for read B"
+          >
+            <option value="auto" selected>Auto</option>
+            <option value="forward">Force Forward</option>
+            <option value="reverse">Force Reverse</option>
+          </select>
+        </div>
+        <div class="contig-panel__control-group">
+          <label class="contig-panel__control-label" for="min-overlap-input">Min overlap (bp)</label>
+          <input
+            type="number"
+            id="min-overlap-input"
+            class="contig-panel__control-input"
+            data-testid="min-overlap-input"
+            min="5"
+            max="200"
+            step="1"
+            value="${DEFAULT_ASSEMBLY_CONTROLS.minOverlap}"
+            aria-label="Minimum overlap length in base pairs"
+          />
+        </div>
+        <div class="contig-panel__control-group">
+          <label class="contig-panel__control-label" for="min-match-input">Min match (%)</label>
+          <input
+            type="number"
+            id="min-match-input"
+            class="contig-panel__control-input"
+            data-testid="min-match-input"
+            min="0"
+            max="100"
+            step="1"
+            value="0"
+            aria-label="Minimum overlap match percentage (0 = any positive-scoring overlap)"
+          />
+        </div>
+      </div>
       <div class="contig-panel__actions">
         <button
           type="button"
@@ -64,11 +128,15 @@ export function createContigPanel(): ContigPanelElements {
     <div class="contig-panel__body" hidden></div>
   `
 
-  const assembleBtn = root.querySelector<HTMLButtonElement>('#assemble-btn')!
-  const exportBtn   = root.querySelector<HTMLButtonElement>('#contig-export-btn')!
-  const statusSpan  = root.querySelector<HTMLSpanElement>('#contig-status')!
+  const assembleBtn      = root.querySelector<HTMLButtonElement>('#assemble-btn')!
+  const exportBtn        = root.querySelector<HTMLButtonElement>('#contig-export-btn')!
+  const statusSpan       = root.querySelector<HTMLSpanElement>('#contig-status')!
+  const strandASelect    = root.querySelector<HTMLSelectElement>('#strand-a-select')!
+  const strandBSelect    = root.querySelector<HTMLSelectElement>('#strand-b-select')!
+  const minOverlapInput  = root.querySelector<HTMLInputElement>('#min-overlap-input')!
+  const minMatchInput    = root.querySelector<HTMLInputElement>('#min-match-input')!
 
-  return { root, assembleBtn, exportBtn, statusSpan }
+  return { root, assembleBtn, exportBtn, statusSpan, strandASelect, strandBSelect, minOverlapInput, minMatchInput }
 }
 
 /**
@@ -192,4 +260,21 @@ export function clearContigPanel(elements: ContigPanelElements): void {
   elements.exportBtn.disabled = true
   elements.statusSpan.textContent = ''
   elements.root.dataset.statusKind = 'idle'
+}
+
+/**
+ * Read the current assembly-control values from the panel UI and return them
+ * as an AssemblyControlState.  Safe to call at any time.
+ */
+export function getAssemblyControls(elements: ContigPanelElements): AssemblyControlState {
+  const strandA = (elements.strandASelect.value || 'auto') as AssemblyControlState['strandA']
+  const strandB = (elements.strandBSelect.value || 'auto') as AssemblyControlState['strandB']
+  const minOverlap = Math.max(5, Math.min(200, parseInt(elements.minOverlapInput.value, 10) || DEFAULT_ASSEMBLY_CONTROLS.minOverlap))
+  const minMatchPct = Math.max(0, Math.min(100, parseInt(elements.minMatchInput.value, 10) || 0))
+  return {
+    strandA,
+    strandB,
+    minOverlap,
+    minMatchFraction: minMatchPct / 100,
+  }
 }

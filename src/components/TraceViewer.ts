@@ -34,6 +34,7 @@ import {
   renderContigPanel,
   setContigPanelStatus,
   clearContigPanel,
+  getAssemblyControls,
   type ContigPanelElements,
 } from './ContigPanel'
 import {
@@ -52,7 +53,8 @@ import { toFastq, toQual } from '../export/fastq'
 import { exportSvg } from '../export/svg'
 import { toVariantsCsv, toVariantsVcf } from '../export/variants'
 import { computeConsensus, toConsensusFasta } from '../consensus/consensus'
-import { buildPairedContig, toContigFasta } from '../consensus/contig'
+import { toContigFasta } from '../consensus/contig'
+import { assembleWithControls } from '../consensus/assemblyControls'
 import { buildPrintSection, type PrintSectionData } from '../export/print'
 import { reverseComplementTrace, iupacComplement } from '../revcomp'
 import { mottTrim, DEFAULT_TRIM_SETTINGS } from '../quality/mottTrim'
@@ -863,22 +865,23 @@ export function createTraceViewer(): HTMLDivElement {
       return
     }
     const [slotA, slotB] = residentSlots
-    const seqA = slotA.rawTrace!.sequence
-    const seqB = slotB.rawTrace!.sequence
     const qualA = slotA.rawTrace!.qualities ? Array.from(slotA.rawTrace!.qualities) : null
     const qualB = slotB.rawTrace!.qualities ? Array.from(slotB.rawTrace!.qualities) : null
 
+    const controls = getAssemblyControls(contigPanelElements)
+
     setContigPanelStatus(contigPanelElements, 'Assembling…', 'idle')
-    const contig = buildPairedContig(
-      slotA.id, slotA.fileName, seqA, qualA,
-      slotB.id, slotB.fileName, seqB, qualB,
+    const contig = assembleWithControls(
+      { id: slotA.id, fileName: slotA.fileName, sequence: slotA.rawTrace!.sequence, qualities: qualA },
+      { id: slotB.id, fileName: slotB.fileName, sequence: slotB.rawTrace!.sequence, qualities: qualB },
+      controls,
     )
 
     if (!contig) {
       currentContig = null
       setContigPanelStatus(
         contigPanelElements,
-        'No overlap found between the two reads (minimum 20 bp required). Try loading a forward + reverse pair from the same amplicon.',
+        `No overlap found (min ${controls.minOverlap} bp, min match ${Math.round(controls.minMatchFraction * 100)} %). Try adjusting the controls or loading a forward + reverse pair from the same amplicon.`,
         'error',
       )
       return
@@ -1342,6 +1345,17 @@ export function createTraceViewer(): HTMLDivElement {
   contigPanelElements.assembleBtn.addEventListener('click', () => {
     runContigAssembly()
   })
+
+  // Live re-assembly when any control value changes (if a contig is already shown).
+  const onControlChange = () => {
+    if (currentContig !== null) {
+      runContigAssembly()
+    }
+  }
+  contigPanelElements.strandASelect.addEventListener('change', onControlChange)
+  contigPanelElements.strandBSelect.addEventListener('change', onControlChange)
+  contigPanelElements.minOverlapInput.addEventListener('change', onControlChange)
+  contigPanelElements.minMatchInput.addEventListener('change', onControlChange)
 
   contigPanelElements.exportBtn.addEventListener('click', () => {
     if (!currentContig) return
