@@ -20,8 +20,14 @@ export function createControls(): HTMLDivElement {
     <button data-action="export-qual">Export QUAL</button>
     <button data-action="export-consensus-fasta" data-testid="export-consensus-fasta" disabled>Export Consensus FASTA</button>
     <button data-action="print" data-testid="print-btn" aria-label="Print / Save as PDF" title="Print / Save as PDF" disabled>🖨 Print / Save as PDF</button>
+    <button data-action="share-link" data-testid="share-link-btn" aria-label="Share this view" title="Copy shareable permalink for this exact view">🔗 Share this view</button>
     <button data-action="undo" aria-label="Undo base edit (Ctrl+Z)" title="Undo (Ctrl+Z)" disabled>↩ Undo</button>
     <button data-action="redo" aria-label="Redo base edit (Ctrl+Shift+Z)" title="Redo (Ctrl+Shift+Z)" disabled>↪ Redo</button>
+    <p class="share-note" id="share-note">
+      Privacy: links are generated fully in your browser. Sample + view state is shareable; local trace bytes are never uploaded and must be re-opened by the recipient.
+      Very large states can exceed URL length limits.
+    </p>
+    <span id="share-feedback" class="share-feedback" role="status" aria-live="polite" aria-atomic="true"></span>
     <div class="search-controls" role="group" aria-label="Sequence search">
       <label class="search-label" for="search-input">
         <span class="search-label__text">Find:</span>

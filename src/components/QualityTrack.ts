@@ -22,6 +22,8 @@ export interface QualityTrackHandle {
   element: HTMLElement
   render: (model: QualityTrackModel | null) => void
   clear: () => void
+  setVisible: (visible: boolean) => void
+  isVisible: () => boolean
   destroy: () => void
 }
 
@@ -170,5 +172,5 @@ export function createQualityTrack(): QualityTrackHandle {
 
   setVisible(true)
   clear()
-  return { element: root, render, clear, destroy }
+  return { element: root, render, clear, setVisible, isVisible: () => visible, destroy }
 }

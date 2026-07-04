@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>2026-07-04 — v19 shareable permalinks | sanger-viewer devlog</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-shell">
+        <a class="site-title" href="../../">sanger-viewer</a>
+        <nav class="site-nav" aria-label="Site">
+          <a href="../">Devlog</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="site-shell blog-entry">
+      <p><a href="../">← Back to devlog</a></p>
+      <h1>2026-07-04 — v19 shareable permalinks</h1>
+      <p><time datetime="2026-07-04">July 4, 2026</time></p>
+      <p>
+        This slice ships the viral wedge: “Share this view” now copies a hash permalink that recreates the
+        exact sample view (zoom window, strand, search, selection, edits, trim mode, and track visibility)
+        fully client-side. No uploads, no backend, no hidden sync.
+      </p>
+      <p>
+        Permalink hydration now boots directly from URL hash state for sample traces, while local-file
+        permalinks degrade honestly with a clear “re-open local file” message because trace bytes remain private.
+        URL-size guardrails are explicit: sample + view state always shares, but oversized state is blocked with
+        user feedback instead of emitting a broken link.
+      </p>
+      <p>
+        Validation added exact-value tests for encode/decode round-trip, oversize handling, known permalink
+        state restoration (base/zoom/revcomp), and clipboard copy behavior.
+      </p>
+    </main>
+  </body>
+</html>

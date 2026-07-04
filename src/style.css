@@ -658,6 +658,25 @@ canvas {
   cursor: not-allowed;
 }
 
+.share-note {
+  margin: 0;
+  flex-basis: 100%;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: 1.45;
+}
+
+.share-feedback {
+  flex-basis: 100%;
+  min-height: 1.1rem;
+  font-size: var(--text-sm);
+  color: var(--color-success-text);
+}
+
+.share-feedback[data-status="error"] {
+  color: var(--color-error-text);
+}
+
 /* ─── Readout & sequence ─────────────────────────────────────────── */
 .position-readout {
   margin-top: 0.5rem;

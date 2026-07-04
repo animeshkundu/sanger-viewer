@@ -95,6 +95,25 @@ export class BaseEditModel {
     return new Set(this.edits.keys())
   }
 
+  /** Snapshot active edits as a sorted array for persistence. */
+  toArray(): EditEntry[] {
+    return [...this.edits.values()].sort((a, b) => a.forwardIndex - b.forwardIndex)
+  }
+
+  /** Replace active edits from persisted data and clear undo/redo history. */
+  replace(entries: readonly EditEntry[]): void {
+    this.edits.clear()
+    for (const entry of entries) {
+      this.edits.set(entry.forwardIndex, {
+        forwardIndex: entry.forwardIndex,
+        base: entry.base.toUpperCase(),
+        originalBase: entry.originalBase.toUpperCase(),
+      })
+    }
+    this.undoStack = []
+    this.redoStack = []
+  }
+
   /** True when at least one position has an active edit (different from the original base). */
   get hasEdits(): boolean {
     return this.edits.size > 0

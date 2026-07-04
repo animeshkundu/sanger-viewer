@@ -26,6 +26,8 @@ export interface TraceSlot {
   id: string
   /** Original file name (always kept, even when evicted). */
   fileName: string
+  /** How this trace can be re-opened via permalink. */
+  source: { kind: 'sample' | 'local'; value: string }
   /**
    * The parsed trace.  null when the slot has been LRU-evicted to free memory.
    * The shell (id, fileName, etc.) is preserved so the tab can still be shown.
@@ -154,6 +156,7 @@ export class TraceWorkspace {
 export function makeSlot(trace: TraceData): Omit<TraceSlot, 'id'> {
   return {
     fileName: trace.fileName,
+    source: { kind: 'local', value: trace.fileName },
     rawTrace: trace,
     isRevcomp: false,
     trimSettings: { ...DEFAULT_TRIM_SETTINGS },
