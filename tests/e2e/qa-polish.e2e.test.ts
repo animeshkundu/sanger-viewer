@@ -569,7 +569,6 @@ test.describe('quality track', () => {
       }
       return null
     })
-    expect(samplePoint, 'quality track canvas should contain at least one painted quality bar').not.toBeNull()
     if (!samplePoint) throw new Error('quality track canvas did not contain any painted quality bars')
 
     const readColor = async () =>
@@ -683,7 +682,6 @@ test.describe('FASTQ and QUAL export', () => {
   test('edited position has quality 0 in QUAL export', async ({ page }) => {
     const firstSpan = page.locator('.sequence-panel span[data-base-index]').first()
     const baseIndexAttr = await firstSpan.getAttribute('data-base-index')
-    expect(baseIndexAttr, 'sequence panel span should expose data-base-index').not.toBeNull()
     if (baseIndexAttr === null) throw new Error('sequence panel span is missing data-base-index')
     const displayIndex = Number(baseIndexAttr)
 
