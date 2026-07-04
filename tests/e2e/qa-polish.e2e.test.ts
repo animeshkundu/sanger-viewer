@@ -130,15 +130,10 @@ test.describe('render accuracy', () => {
       const canvas = page.locator('[data-testid="chromatogram-canvas"]')
       const box = await canvas.boundingBox()
       if (!box) throw new Error('Canvas not visible')
-      let tooltipVisible = false
-      for (let step = 1; step <= 10; step++) {
-        await page.mouse.move(box.x + (box.width * step) / 11, box.y + box.height / 2)
-        if (await page.locator('.tooltip').isVisible()) {
-          tooltipVisible = true
-          break
-        }
-      }
-      expect(tooltipVisible, 'tooltip did not appear during hover sweep — desktop regression').toBe(true)
+
+      // Hover the centre of the canvas (always has peak data) and await the tooltip
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+      await page.locator('.tooltip').waitFor({ state: 'visible', timeout: 3000 })
       await expect(page.locator('.tooltip')).toContainText('peak:')
     })
   }

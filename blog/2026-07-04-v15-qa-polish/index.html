@@ -101,13 +101,15 @@
         touch-specific interactions separately.
       </p>
 
-      <h3>Gap 5 — Keyboard navigation: Prev button aria-label alignment</h3>
+      <h3>Gap 5 — Search Prev/Next button label alignment <em>(fixed in this PR)</em></h3>
       <p>
-        The <code>Prev</code> button in the search bar uses <code>aria-label="Previous match"</code>
-        but the visible text is just "Prev". This creates a minor discrepancy between visual and
-        accessible labels. Not blocking, but worth tidying.
+        The <code>Prev</code> and <code>Next</code> buttons in the search bar carried
+        <code>aria-label="Previous match"</code> / <code>aria-label="Next match"</code> but
+        their visible text was just "Prev"/"Next", creating a discrepancy between what sighted
+        users and screen-reader users see. Fix: the visible text was updated to "Previous match"
+        and "Next match" respectively; the now-redundant <code>aria-label</code> attributes were
+        removed so the accessible name is derived from the visible label.
       </p>
-      <p><strong>Follow-up FU-2:</strong> Align visible button text and <code>aria-label</code> for Search Prev/Next to use "Previous match" / "Next match" as both visible and accessible label, or add a <code>title</code> attribute.</p>
 
       <h2>Follow-up items</h2>
       <dl>
@@ -117,12 +119,7 @@
           <code>aria-live="polite"</code> region echoing position, PHRED, and channel amplitudes
           for the currently focused peak. Scope: medium (~1 day). Unblocked after this PR.
         </dd>
-        <dt><strong>FU-2 — Search button label consistency</strong></dt>
-        <dd>
-          Change "Prev" visible label to "Previous" or add explicit <code>aria-label</code>
-          everywhere visible text is abbreviated. Scope: trivial (&lt;1 hour).
-        </dd>
-        <dt><strong>FU-3 — Touch tooltip equivalent</strong></dt>
+        <dt><strong>FU-2 — Touch tooltip equivalent</strong></dt>
         <dd>
           On touch devices show peak metadata in a persistent bottom-sheet on long-press or via a
           dedicated "peak info" button that appears while a base is selected. Scope: medium. Depends
@@ -162,20 +159,22 @@
           <code>expect.poll(…).toBeGreaterThan(0)</code> so the assertion waits for the RAF-deferred
           draw to update the attribute.
         </dd>
-        <dt><strong>Prev-nav button locator (post-review correction)</strong></dt>
+        <dt><strong>Prev-nav button locator + product fix (post-review)</strong></dt>
         <dd>
-          The test clicked <code>getByRole('button', { name: 'Prev' })</code> but the Search Prev
-          button carries <code>aria-label="Previous match"</code>; Playwright resolves accessible
-          names from <code>aria-label</code>, so the locator never matched. Fix: changed the locator
-          to <code>getByRole('button', { name: 'Previous match' })</code>.
+          The test clicked <code>getByRole('button', { name: 'Prev' })</code>, which never matched
+          because Playwright resolves accessible names from <code>aria-label</code>. Root cause was
+          a real product inconsistency (Gap 5): visible text "Prev"/"Next" vs
+          <code>aria-label="Previous match"/"Next match"</code>. Fix: updated the button visible
+          text in <code>src/components/Controls.ts</code> to "Previous match" and "Next match"
+          (dropping the now-redundant <code>aria-label</code>), and updated the test locator to use
+          the real accessible name.
         </dd>
-        <dt><strong>Tooltip test.skip desktop masking (post-review correction)</strong></dt>
+        <dt><strong>Tooltip hover deterministic (post-review)</strong></dt>
         <dd>
-          <code>test.skip(!tooltipVisible, …)</code> silently skipped the test on desktop if the
-          hover sweep happened to miss the tooltip, creating false-green CI and hiding real
-          regressions. Fix: the skip is now gated on the Playwright <code>isMobile</code> fixture
-          (tablet only); on desktop the test requires <code>tooltipVisible === true</code> and
-          asserts the <code>.tooltip</code> content, so any desktop regression will fail loudly.
+          Replaced the polling loop with a deterministic
+          <code>page.mouse.move(centre)</code> + <code>waitFor({ state: 'visible', timeout: 3000 })</code>.
+          Tablet gets an unconditional early <code>test.skip</code> via <code>isMobile</code>; on
+          desktop a failure to show the tooltip within 3 s is a hard assertion failure, not a skip.
         </dd>
       </dl>
 
