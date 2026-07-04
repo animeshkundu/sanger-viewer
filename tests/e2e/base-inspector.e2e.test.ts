@@ -103,3 +103,42 @@ test('hover tooltip still renders peak data text', { tag: ['@desktop'] }, async 
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
   await expect(page.locator('.tooltip')).toContainText('peak:')
 })
+
+test('only the focused span carries active ARIA attributes — other spans remain inactive', async ({ page }) => {
+  await loadFixture(page)
+  const span0 = page.locator(`.sequence-panel span[data-base-index="0"]`)
+  const span1 = page.locator(`.sequence-panel span[data-base-index="1"]`)
+
+  // Focus span 0 — it should become active; span 1 must stay inactive
+  await span0.focus()
+  await expect(span0).toHaveAttribute('aria-expanded', 'true')
+  await expect(span0).toHaveAttribute('aria-describedby', 'base-inspector')
+  await expect(span1).toHaveAttribute('aria-expanded', 'false')
+  await expect(span1).not.toHaveAttribute('aria-describedby')
+
+  // Move focus to span 1 — span 1 becomes active, span 0 must be cleared
+  await span1.focus()
+  await expect(span1).toHaveAttribute('aria-expanded', 'true')
+  await expect(span1).toHaveAttribute('aria-describedby', 'base-inspector')
+  await expect(span0).toHaveAttribute('aria-expanded', 'false')
+  await expect(span0).not.toHaveAttribute('aria-describedby')
+})
+
+test('tooltip is hidden when keyboard inspector opens', { tag: ['@desktop'] }, async ({ page, isMobile }) => {
+  test.skip(isMobile, 'tablet/touch project does not support mouse hover checks')
+  await loadFixture(page)
+
+  // Show the hover tooltip via mouse
+  const canvas = page.locator('[data-testid="chromatogram-canvas"]')
+  const box = await canvas.boundingBox()
+  if (!box) throw new Error('Canvas not visible')
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  await page.locator('.tooltip').waitFor({ state: 'visible', timeout: 3000 })
+  await expect(page.locator('.tooltip')).toContainText('peak:')
+
+  // Focus a sequence base via keyboard — tooltip must be dismissed, inspector must appear
+  const target = page.locator(`.sequence-panel span[data-base-index="${KNOWN_INDEX}"]`)
+  await target.focus()
+  await expect(page.locator('.tooltip')).toBeHidden()
+  await expect(page.locator('#base-inspector')).toBeVisible()
+})
