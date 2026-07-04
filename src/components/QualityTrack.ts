@@ -96,7 +96,7 @@ export function createQualityTrack(): QualityTrackHandle {
     canvas.setAttribute('data-bar-count', String(bars.length))
     canvas.setAttribute('data-track-height', String(MAX_QUALITY_BAR_HEIGHT))
 
-    const barWidth = Math.max(1, Math.min(BAR_WIDTH, width))
+    const barWidth = Math.min(BAR_WIDTH, Math.max(1, width))
     const cssVars = getComputedStyle(document.documentElement)
     for (const bar of bars) {
       const color = cssVars.getPropertyValue(bar.cssVar).trim() || '#94a3b8'
@@ -136,7 +136,6 @@ export function createQualityTrack(): QualityTrackHandle {
       const shouldRedraw = mutations.some(
         (mutation) =>
           mutation.type === 'attributes'
-          && mutation.target === document.documentElement
           && (mutation.attributeName === 'class'
             || mutation.attributeName === 'data-theme'
             || mutation.attributeName === 'style'),
