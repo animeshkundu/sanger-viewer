@@ -9,7 +9,8 @@ import {
   setSearchSummary,
   setStrandToggleState,
   setTrimSummary,
-  setTrimMode
+  setTrimMode,
+  setUndoRedoState
 } from './Controls'
 import { createTooltip, hideTooltip, showTooltip } from './Tooltip'
 import { createSequencePanel, renderSequence } from './SequencePanel'
@@ -19,8 +20,9 @@ import { createWorkspaceBar, renderWorkspaceBar } from './WorkspaceBar'
 import { createAnnotationTrack } from './AnnotationTrack'
 import { downloadBlob } from '../export/png'
 import { toFasta } from '../export/fasta'
+import { toFastq, toQual } from '../export/fastq'
 import { exportSvg } from '../export/svg'
-import { reverseComplementTrace } from '../revcomp'
+import { reverseComplementTrace, iupacComplement } from '../revcomp'
 import { mottTrim, DEFAULT_TRIM_SETTINGS } from '../quality/mottTrim'
 import { callMixedBases, DEFAULT_MIXED_BASE_THRESHOLD, type MixedBaseResult } from '../calling/mixedBase'
 import {
@@ -32,6 +34,7 @@ import {
 import { TraceWorkspace, makeSlot } from '../workspace/TraceWorkspace'
 import { buildAnnotationFeatures, filterAnnotationFeaturesByRange, type AnnotationFeature } from '../annotations'
 import { mapSampleViewportToBaseRange } from '../render/viewport'
+import { BaseEditModel } from '../editing'
 import type { TrimResult, TrimSettings } from '../quality/mottTrim'
 import type { TraceData } from '../types/trace'
 
@@ -185,6 +188,7 @@ export function createTraceViewer(): HTMLDivElement {
   const rootDisconnectObserver = new MutationObserver(() => {
     if (!root.isConnected) {
       renderer.destroy()
+      document.removeEventListener('keydown', undoRedoKeyHandler)
       rootDisconnectObserver.disconnect()
     }
   })
@@ -211,8 +215,11 @@ export function createTraceViewer(): HTMLDivElement {
   let annotationFeatures: AnnotationFeature[] = []
   const workspace = new TraceWorkspace(5)
   let activeSlotId: string | null = null
+  const editModel = new BaseEditModel()
+  let editingIndex: number = -1  // display index of the span currently in "edit mode" (-1 = none)
   setMixedThresholdDisplay(controls, mixedBaseThreshold)
   setMixedSummary(controls, 0)
+  setUndoRedoState(controls, false, false)
 
   const getDisplaySearchMatches = () =>
     rawTrace ? mapCanonicalMatchesToDisplay(searchState.matches, rawTrace.baseCalls.length, isRevcomp) : []
@@ -300,8 +307,51 @@ export function createTraceViewer(): HTMLDivElement {
 
   const buildDisplayTrace = (): TraceData | null => {
     if (!rawTrace) return null
-    const strandTrace = isRevcomp ? reverseComplementTrace(rawTrace) : rawTrace
+    // Short-circuit when no edits are active to avoid O(n) baseCalls clone/join on
+    // every zoom/pan/search/trim recompute.
+    let editedRaw: TraceData
+    if (editModel.hasEdits) {
+      // Apply base edits (forward-strand) before revcomp so all downstream consumers
+      // (search, revcomp, mixed-base, FASTA/FASTQ) see the edited sequence.
+      const editedBaseCalls = editModel.applyToBaseCalls(rawTrace.baseCalls)
+      const editedQualities = editModel.applyToQualities(rawTrace.qualities)
+      editedRaw = {
+        ...rawTrace,
+        baseCalls: editedBaseCalls,
+        qualities: editedQualities,
+        sequence: editedBaseCalls.join(''),
+      }
+    } else {
+      editedRaw = rawTrace
+    }
+    const strandTrace = isRevcomp ? reverseComplementTrace(editedRaw) : editedRaw
     mixedBaseResult = callMixedBases(strandTrace, mixedBaseThreshold)
+
+    // Re-pin manually edited positions after mixed-base calling: callMixedBases derives calls
+    // from raw signal and can overwrite a manual edit with an IUPAC ambiguity code.
+    // The user's explicit edit takes priority over the signal-derived call.
+    if (editModel.hasEdits) {
+      const pinnedBaseCalls = mixedBaseResult.baseCalls.slice()
+      const len = pinnedBaseCalls.length
+      const editedDisplayIndices = new Set<number>()
+      for (const forwardIdx of editModel.editedIndices) {
+        const displayIdx = isRevcomp ? len - 1 - forwardIdx : forwardIdx
+        if (displayIdx >= 0 && displayIdx < len) {
+          // strandTrace.baseCalls already carries the edited base in display orientation
+          // (applied before reverseComplementTrace, so it is correctly complemented).
+          pinnedBaseCalls[displayIdx] = strandTrace.baseCalls[displayIdx]
+          editedDisplayIndices.add(displayIdx)
+        }
+      }
+      const nonEditedAmbiguousIndices = mixedBaseResult.ambiguousIndices.filter(i => !editedDisplayIndices.has(i))
+      mixedBaseResult = {
+        baseCalls: pinnedBaseCalls,
+        sequence: pinnedBaseCalls.join(''),
+        ambiguousIndices: nonEditedAmbiguousIndices,
+        ambiguousCount: nonEditedAmbiguousIndices.length,
+      }
+    }
+
     setMixedSummary(controls, mixedBaseResult.ambiguousCount)
     annotationFeatures = buildAnnotationFeatures(mixedBaseResult.sequence)
     return {
@@ -437,6 +487,15 @@ export function createTraceViewer(): HTMLDivElement {
     if (!trace) return
     const activeMatch = getActiveDisplayMatch()
     const selectedIndex = hoveredBaseIndex ?? selectedBaseIndex ?? -1
+    // Map forward-strand edited indices to display-strand coordinates.
+    const fwdEdited = editModel.editedIndices
+    const displayEdited = fwdEdited.size === 0
+      ? fwdEdited
+      : new Set(
+          [...fwdEdited].map((i) =>
+            isRevcomp ? (rawTrace!.baseCalls.length - 1 - i) : i,
+          ),
+        )
     renderSequence(sequencePanel, trace, {
       selectedIndex,
       anchorIndex: selectedIndex >= 0 ? selectedIndex : activeMatch?.start ?? -1,
@@ -445,6 +504,8 @@ export function createTraceViewer(): HTMLDivElement {
       matches: getDisplaySearchMatches(),
       activeMatchIndex: searchState.activeIndex,
       ambiguousIndices: mixedBaseResult?.ambiguousIndices ?? [],
+      editedIndices: displayEdited,
+      editingIndex,
     })
   }
 
@@ -533,6 +594,9 @@ export function createTraceViewer(): HTMLDivElement {
     searchState = { query: '', matches: [], activeIndex: -1 }
     selectedBaseIndex = null
     hoveredBaseIndex = null
+    editingIndex = -1
+    editModel.reset()
+    setUndoRedoState(controls, false, false)
     hideTooltip(tooltip)
     setStrandToggleState(controls, false)
     setMixedThresholdDisplay(controls, mixedBaseThreshold)
@@ -607,8 +671,11 @@ export function createTraceViewer(): HTMLDivElement {
       mixedBaseThreshold = DEFAULT_MIXED_BASE_THRESHOLD
       mixedBaseResult = null
       searchState = { query: '', matches: [], activeIndex: -1 }
+      editingIndex = -1
+      editModel.reset()
       setStrandToggleState(controls, false)
       setMixedThresholdDisplay(controls, mixedBaseThreshold)
+      setUndoRedoState(controls, false, false)
       hideTooltip(tooltip)
       updateMetadataPanel(metadataPanel, trace.metadata)
       applyDisplayTrace()
@@ -649,8 +716,11 @@ export function createTraceViewer(): HTMLDivElement {
       mixedBaseThreshold = DEFAULT_MIXED_BASE_THRESHOLD
       mixedBaseResult = null
       searchState = { query: '', matches: [], activeIndex: -1 }
+      editingIndex = -1
+      editModel.reset()
       setStrandToggleState(controls, false)
       setMixedThresholdDisplay(controls, mixedBaseThreshold)
+      setUndoRedoState(controls, false, false)
       hideTooltip(tooltip)
       updateMetadataPanel(metadataPanel, trace.metadata)
       applyDisplayTrace()
@@ -749,7 +819,9 @@ export function createTraceViewer(): HTMLDivElement {
     }
     if (action === 'export-svg' && rawTrace) {
       const vp = renderer.getViewportState()
-      const displayTrace = isRevcomp ? reverseComplementTrace(rawTrace) : rawTrace
+      // Use the renderer's current trace (which already has edits + revcomp applied)
+      // so SVG exports are consistent with FASTA/FASTQ/canvas output.
+      const displayTrace = trace ?? (isRevcomp ? reverseComplementTrace(rawTrace) : rawTrace)
       const vWidth = canvas.clientWidth || 1200
       const vHeight = canvas.clientHeight || 400
       const svg = exportSvg(displayTrace, {
@@ -784,6 +856,34 @@ export function createTraceViewer(): HTMLDivElement {
       const suffix = [isRevcomp ? '-revcomp' : '', trimSettings.mode === 'trimmed' ? '-trimmed' : ''].filter(Boolean).join('')
       const fasta = new Blob([toFasta(trace, isRevcomp, trimResult, trimSettings.mode)], { type: 'text/plain' })
       downloadBlob(fasta, `${trace.fileName.replace(/\.[^.]+$/, '')}${suffix}.fasta`)
+    }
+
+    if (action === 'export-fastq' && trace) {
+      const suffix = [isRevcomp ? '-revcomp' : '', trimSettings.mode === 'trimmed' ? '-trimmed' : ''].filter(Boolean).join('')
+      const fastq = new Blob([toFastq(trace, isRevcomp, trimResult, trimSettings.mode)], { type: 'text/plain' })
+      downloadBlob(fastq, `${trace.fileName.replace(/\.[^.]+$/, '')}${suffix}.fastq`)
+    }
+
+    if (action === 'export-qual' && trace) {
+      const suffix = [isRevcomp ? '-revcomp' : '', trimSettings.mode === 'trimmed' ? '-trimmed' : ''].filter(Boolean).join('')
+      const qual = new Blob([toQual(trace, isRevcomp, trimResult, trimSettings.mode)], { type: 'text/plain' })
+      downloadBlob(qual, `${trace.fileName.replace(/\.[^.]+$/, '')}${suffix}.qual`)
+    }
+
+    if (action === 'undo' && rawTrace) {
+      editModel.undo()
+      editingIndex = -1
+      setUndoRedoState(controls, editModel.canUndo, editModel.canRedo)
+      applyDisplayTrace(true)
+      refreshSequence()
+    }
+
+    if (action === 'redo' && rawTrace) {
+      editModel.redo()
+      editingIndex = -1
+      setUndoRedoState(controls, editModel.canUndo, editModel.canRedo)
+      applyDisplayTrace(true)
+      refreshSequence()
     }
 
     // Trim mode toggle (Full / Trimmed buttons)
@@ -929,6 +1029,159 @@ export function createTraceViewer(): HTMLDivElement {
     hideTooltip(tooltip)
     refreshSequence()
   })
+
+  // ── Sequence panel editing ────────────────────────────────────────────────
+
+  /** Valid IUPAC base characters (uppercase). */
+  const IUPAC_BASES = new Set('ACGTNRYSWKMBVDH')
+
+  /**
+   * Convert a display-strand index to a forward-strand index.
+   * When isRevcomp is true the display order is reversed relative to the raw trace.
+   */
+  const displayToForwardIndex = (displayIdx: number): number => {
+    if (!rawTrace) return displayIdx
+    return isRevcomp ? rawTrace.baseCalls.length - 1 - displayIdx : displayIdx
+  }
+
+  /**
+   * Directly update the CSS class of a span to show/hide the editing highlight.
+   * This mutates the existing DOM node (no full re-render) so focus is preserved.
+   */
+  const setSpanEditingClass = (displayIdx: number, active: boolean) => {
+    sequencePanel.querySelectorAll<HTMLElement>('.editing').forEach((el) => el.classList.remove('editing'))
+    if (active) {
+      const span = sequencePanel.querySelector<HTMLElement>(`[data-base-index="${displayIdx}"]`)
+      span?.classList.add('editing')
+    }
+  }
+
+  /**
+   * Apply an edit at the given display index.
+   * Handles coordinate mapping for revcomp and commits to the edit model.
+   * A full re-render is triggered AFTER the edit so the span reflects the new base
+   * and .edited-base class; focus is moved to the updated span.
+   */
+  const applyBaseEdit = (displayIdx: number, newBase: string) => {
+    if (!rawTrace) return
+    const forwardIdx = displayToForwardIndex(displayIdx)
+    const originalBase = rawTrace.baseCalls[forwardIdx]
+    if (originalBase === undefined) return
+    // On revcomp strand the stored base is complemented so it reads correctly forward.
+    const storedBase = isRevcomp ? iupacComplement(newBase) : newBase
+    editModel.apply(forwardIdx, storedBase, originalBase)
+    setUndoRedoState(controls, editModel.canUndo, editModel.canRedo)
+    editingIndex = -1
+    applyDisplayTrace(true)
+    refreshSequence()
+    // Refocus the span at the same display index after re-render.
+    const updatedSpan = sequencePanel.querySelector<HTMLElement>(`[data-base-index="${displayIdx}"]`)
+    updatedSpan?.focus()
+  }
+
+  // Double-click on a base span → enter editing mode for that position.
+  // We do NOT call refreshSequence() here: instead we update the span's CSS class
+  // directly on the existing DOM node so the focused element stays in the DOM and
+  // subsequent keyboard events are captured by our delegated keydown handler.
+  sequencePanel.addEventListener('dblclick', (event) => {
+    if (!rawTrace) return
+    const target = event.target as HTMLElement
+    const idxStr = target.dataset.baseIndex
+    if (idxStr === undefined) return
+    editingIndex = Number(idxStr)
+    setSpanEditingClass(editingIndex, true)
+    target.focus()
+  })
+
+  // Keyboard: Enter or Space on a focused span also enters editing mode.
+  sequencePanel.addEventListener('keydown', (event) => {
+    if (!rawTrace) return
+    const target = event.target as HTMLElement
+    const idxStr = target.dataset.baseIndex
+    if (idxStr === undefined) return
+    const displayIdx = Number(idxStr)
+
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault()
+      editingIndex = displayIdx
+      setSpanEditingClass(displayIdx, true)
+      return
+    }
+
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      editingIndex = -1
+      setSpanEditingClass(-1, false)
+      return
+    }
+
+    if (event.key === 'Delete' || event.key === 'Backspace') {
+      event.preventDefault()
+      // Revert the base to its original (raw trace) value.
+      const forwardIdx = displayToForwardIndex(displayIdx)
+      const originalBase = rawTrace.baseCalls[forwardIdx]
+      if (originalBase !== undefined) {
+        editModel.apply(forwardIdx, originalBase, originalBase)
+        setUndoRedoState(controls, editModel.canUndo, editModel.canRedo)
+        editingIndex = -1
+        applyDisplayTrace(true)
+        refreshSequence()
+        const refreshedSpan = sequencePanel.querySelector<HTMLElement>(`[data-base-index="${displayIdx}"]`)
+        refreshedSpan?.focus()
+      }
+      return
+    }
+
+    // Single character: apply edit only when explicitly in edit mode for this span.
+    if (editingIndex === displayIdx && event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      const upper = event.key.toUpperCase()
+      if (IUPAC_BASES.has(upper)) {
+        event.preventDefault()
+        applyBaseEdit(displayIdx, upper)
+      }
+    }
+  })
+
+  // Cancel editing mode when focus leaves the sequence panel entirely.
+  sequencePanel.addEventListener('focusout', (event) => {
+    const related = (event as FocusEvent).relatedTarget as Node | null
+    if (!sequencePanel.contains(related)) {
+      editingIndex = -1
+      // Remove editing highlight from the current span without a full re-render.
+      setSpanEditingClass(-1, false)
+    }
+  })
+
+  // Global keyboard shortcuts: Ctrl+Z (undo), Ctrl+Shift+Z / Ctrl+Y (redo).
+  // Registered on document (not root) so the shortcuts work even after a refreshSequence()
+  // call returns focus to body (e.g. after undoing an edit while focus was on a span).
+  const undoRedoKeyHandler = (event: KeyboardEvent) => {
+    if (!rawTrace) return
+    // KeyboardEvent.target is EventTarget | null; guard before accessing element properties.
+    const target = event.target
+    if (!(target instanceof HTMLElement)) return
+    // Do not intercept inside text inputs such as the search box.
+    if (target === searchInput || target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
+    const key = event.key.toLowerCase()
+    if ((event.ctrlKey || event.metaKey) && key === 'z' && !event.shiftKey) {
+      if (!editModel.canUndo) return
+      event.preventDefault()
+      editModel.undo()
+      editingIndex = -1
+      setUndoRedoState(controls, editModel.canUndo, editModel.canRedo)
+      applyDisplayTrace(true)
+      refreshSequence()
+    } else if ((event.ctrlKey || event.metaKey) && ((key === 'z' && event.shiftKey) || key === 'y')) {
+      if (!editModel.canRedo) return
+      event.preventDefault()
+      editModel.redo()
+      editingIndex = -1
+      setUndoRedoState(controls, editModel.canUndo, editModel.canRedo)
+      applyDisplayTrace(true)
+      refreshSequence()
+    }
+  }
+  document.addEventListener('keydown', undoRedoKeyHandler)
 
   syncSearchUi(false)
   return root

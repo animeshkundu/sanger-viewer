@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>2026-07-03 — editable base calls + FASTQ export | sanger-viewer devlog</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-shell">
+        <a class="site-title" href="../../">sanger-viewer</a>
+        <nav class="site-nav" aria-label="Site">
+          <a href="../">Devlog</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="site-shell blog-entry">
+      <h1>2026-07-03 — editable base calls with undo/redo + FASTQ/QUAL export (v13)</h1>
+
+      <p>
+        Today's push adds the first of two professional-parity editing features: in-place editable base
+        calls with a full undo/redo stack, plus FASTQ and Phred .qual export so edited sequences can flow
+        directly into downstream tools.
+      </p>
+
+      <h2>Editable base calls</h2>
+      <p>
+        Every base span in the sequence panel is now an interactive element
+        (<code>tabindex="0" role="button"</code>). Double-clicking a span — or focusing it and pressing
+        Enter/Space — activates edit mode for that position. Type any IUPAC character
+        (A, C, G, T, N, R, Y, S, W, K, M, B, V, D, H) to replace the called base.
+        Pressing Delete or Backspace reverts the position to the original raw-trace base.
+        Pressing Escape cancels without committing.
+      </p>
+      <p>
+        Edits are stored in a pure-TypeScript <code>BaseEditModel</code> keyed on forward-strand indices.
+        When the reverse-complement view is active, the display index is mapped back to the forward-strand
+        coordinate automatically and the stored base is IUPAC-complemented so it reads correctly in both
+        orientations. Edited bases are highlighted in amber (<code>.edited-base</code>) with matching
+        colours in both light and dark themes.
+      </p>
+
+      <h2>Propagation</h2>
+      <p>
+        Because edits are applied inside <code>buildDisplayTrace()</code> — before the revcomp and
+        mixed-base steps — every downstream consumer automatically sees the corrected sequence:
+      </p>
+      <ul>
+        <li><strong>Sequence panel</strong> — rendered text reflects edits immediately.</li>
+        <li><strong>Find/search</strong> — IUPAC motif search runs against the edited sequence.</li>
+        <li><strong>Reverse complement</strong> — strand flip correctly maps the edited forward sequence.</li>
+        <li><strong>Mixed-base calling</strong> — re-runs on the edited basecalls.</li>
+        <li><strong>FASTA export</strong> — exported sequence contains the edited bases.</li>
+        <li><strong>FASTQ export</strong> — edited positions carry Phred score 0 (encoded <code>!</code> in Phred+33).</li>
+        <li><strong>QUAL export</strong> — integer quality file also uses 0 at edited positions.</li>
+      </ul>
+
+      <h2>Undo/redo</h2>
+      <p>
+        The <code>BaseEditModel</code> maintains separate undo and redo stacks as full snapshots of the
+        edits map. Undo (Ctrl+Z / ⌘Z) pops the stack and restores the previous state; redo
+        (Ctrl+Shift+Z / ⌘Shift+Z or Ctrl+Y) reapplies it. Making a new edit clears the redo stack.
+        Toolbar buttons — <em>↩ Undo</em> and <em>↪ Redo</em> — reflect the current stack depth:
+        they are disabled at stack ends so the user always has visual feedback about what's available.
+      </p>
+
+      <h2>FASTQ and QUAL export</h2>
+      <p>
+        Two new export buttons — <em>Export FASTQ</em> and <em>Export QUAL</em> — sit alongside the
+        existing FASTA and PNG/SVG buttons. <code>toFastq()</code> produces a standard four-line FASTQ
+        record (one record per file, no line-wrapping of sequence or quality). <code>toQual()</code>
+        emits the NCBI/FASTA-style Phred .qual format with 60 integer scores per line.
+        Both functions respect the current strand, trim mode, and edits in the same way as
+        <code>toFasta()</code>.
+      </p>
+
+      <h2>Accessibility</h2>
+      <p>
+        Every span carries an <code>aria-label</code> like <em>"G at position 42 (edited)"</em> so
+        screen readers announce the base, its 1-based position, and whether it has been modified.
+        Focus is preserved across an edit cycle: after typing a replacement, the span at the same
+        display index is re-focused automatically. The undo/redo buttons expose
+        <code>aria-label</code> with keyboard-shortcut hints in their titles.
+      </p>
+
+      <h2>Tests</h2>
+      <p>
+        <code>tests/core/editModel.test.ts</code> covers 27 exact-value assertions across every
+        state transition: basic substitution, applying the original base to clear an edit, multi-position
+        edits, canUndo/canRedo booleans at each step, multiple undo/redo cycles, quality sentinel
+        substitution, and reset behaviour.
+      </p>
+      <p>
+        <code>tests/core/fastq-export.test.ts</code> asserts exact FASTQ record bytes — the
+        <code>@header</code>, sequence, <code>+</code> separator, and Phred+33-encoded quality string —
+        for known inputs, including the sentinel <code>!</code> character, the maximum <code>~</code>
+        (score 93), the revcomp header suffix, and trimmed-mode slicing.
+      </p>
+      <p>
+        <code>tests/e2e/edit-base.e2e.test.ts</code> runs nine Playwright scenarios: editing a base
+        and asserting the new character and <code>.edited-base</code> class in the panel; asserting
+        the FASTQ export contains the edit at the correct sequence position with quality <code>!</code>;
+        undo/redo via toolbar buttons; Ctrl+Z / Ctrl+Shift+Z keyboard shortcuts; disabled-state checks
+        on undo/redo buttons; basic FASTQ file validity; and accessibility attribute assertions.
+      </p>
+    </main>
+  </body>
+</html>

@@ -10,6 +10,8 @@ interface RenderSequenceOptions {
   matches?: SubsequenceMatch[]
   activeMatchIndex?: number
   ambiguousIndices?: number[]
+  editedIndices?: Set<number>
+  editingIndex?: number
 }
 
 export function createSequencePanel(): HTMLDivElement {
@@ -43,6 +45,8 @@ export function renderSequence(
     matches = [],
     activeMatchIndex = -1,
     ambiguousIndices = [],
+    editedIndices,
+    editingIndex = -1,
   }: RenderSequenceOptions = {},
 ): void {
   panel.innerHTML = ''
@@ -92,7 +96,25 @@ export function renderSequence(
       span.dataset.ambiguous = 'true'
       ambiguousVisibleCount += 1
     }
+    if (editedIndices?.has(absolute)) {
+      classes.push('edited-base')
+      span.dataset.edited = 'true'
+    }
+    if (absolute === editingIndex) {
+      classes.push('editing')
+    }
     if (classes.length) span.className = classes.join(' ')
+  }
+
+  const buildSpan = (base: string, absolute: number, visibleMatches: SubsequenceMatch[]) => {
+    const span = document.createElement('span')
+    span.textContent = base
+    span.tabIndex = 0
+    span.setAttribute('role', 'button')
+    span.setAttribute('aria-label', `${base} at position ${absolute + 1}${editedIndices?.has(absolute) ? ' (edited)' : ''}`)
+    span.dataset.baseIndex = String(absolute)
+    applySpanClasses(span, absolute, visibleMatches)
+    return span
   }
 
   if (inTrimmedMode) {
@@ -105,11 +127,8 @@ export function renderSequence(
     const visibleMatches = getWindowMatches(windowStart, windowEnd)
 
     trace.baseCalls.slice(windowStart, windowEnd).forEach((base, idx) => {
-      const span = document.createElement('span')
       const absolute = windowStart + idx
-      span.textContent = base
-      applySpanClasses(span, absolute, visibleMatches)
-      fragment.appendChild(span)
+      fragment.appendChild(buildSpan(base, absolute, visibleMatches))
     })
   } else {
     // Full mode: ±120 around selected, but mark trimmed bases.
@@ -117,14 +136,12 @@ export function renderSequence(
     const end = anchor >= 0 ? Math.min(trace.baseCalls.length, anchor + 120) : Math.min(trace.baseCalls.length, 240)
     const visibleMatches = getWindowMatches(start, end)
     trace.baseCalls.slice(start, end).forEach((base, idx) => {
-      const span = document.createElement('span')
       const absolute = start + idx
-      span.textContent = base
-      applySpanClasses(span, absolute, visibleMatches)
-      fragment.appendChild(span)
+      fragment.appendChild(buildSpan(base, absolute, visibleMatches))
     })
   }
 
   panel.appendChild(fragment)
   panel.setAttribute('data-ambiguous-visible-count', String(ambiguousVisibleCount))
 }
+
