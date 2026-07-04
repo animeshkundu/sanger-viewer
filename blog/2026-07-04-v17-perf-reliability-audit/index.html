@@ -172,11 +172,12 @@
 
         <dt><strong><code>buildDisplayTrace()</code> makes revcomp and edit effectively “full rebuild” actions</strong></dt>
         <dd>
-          <code>src/components/TraceViewer.ts:315-382</code> replays the whole derived-trace
-          pipeline every time strand or edits change: apply edit model, maybe reverse-complement,
-          rerun <code>callMixedBases()</code>, rebuild annotation features, re-trim, resync
-          search, repaint canvas, rerender sequence panel. That is why reverse-complement lands
-          at 54.8/63.4 ms and single-base edit lands at 70.9/80.9 ms.
+          <code>src/components/TraceViewer.ts:315-369</code> rebuilds the derived display trace
+          (apply edit model, maybe reverse-complement, rerun <code>callMixedBases()</code>,
+          rebuild annotation features), <code>372-382</code> pushes that trace back through the
+          renderer, and <code>385-398</code> immediately retrims and rerenders the sequence/quality
+          panels. That full chain runs on every strand toggle and edit, which is why
+          reverse-complement lands at 54.8/63.4 ms and single-base edit lands at 70.9/80.9 ms.
         </dd>
 
         <dt><strong><code>renderSequence()</code> still throws away and rebuilds DOM</strong></dt>
@@ -227,7 +228,7 @@
           <tr>
             <td>Edit + search</td>
             <td>Fail</td>
-            <td>After editing visible positions 6, 9, and 12 to create the unique 12-mer <code>SSSKKAWRARRA</code>, FASTA export contained the edited motif but search returned <code>0</code> matches.</td>
+            <td>After changing 1-indexed visible position 6 from <code>W→A</code>, position 9 from <code>M→A</code>, and position 12 from <code>T→A</code> to create the unique 12-mer <code>SSSKKAWRARRA</code>, FASTA export contained the edited motif but search returned <code>0</code> matches.</td>
           </tr>
           <tr>
             <td>Active search + mixed-base recompute</td>
@@ -246,13 +247,15 @@
       <dl>
         <dt><strong>Gap R1 — Search runs against raw sequence, not displayed sequence</strong></dt>
         <dd>
-          Repro A: load <code>3100.ab1</code>, edit visible positions 6/9/12 so the first 12 bases
-          become <code>SSSKKAWRARRA</code>, then search for that exact 12-mer. Result: the sequence
+          Repro A: load <code>3100.ab1</code>, change 1-indexed visible position 6 from <code>W→A</code>,
+          position 9 from <code>M→A</code>, and position 12 from <code>T→A</code> so the first
+          12 bases become <code>SSSKKAWRARRA</code>, then search for that exact 12-mer. Result: the sequence
           panel and FASTA export both show the edited motif, but search returns 0 matches. Repro B:
           search for <code>RRTCA</code>, then lower the mixed-base threshold to <code>0.10</code>.
           The visible motif at the active locus changes to <code>RRKKR</code>, but the search counter
           remains at 7. Root cause is visible in <code>src/components/TraceViewer.ts:286-299</code>:
-          <code>applySearchQuery()</code> calls <code>findSubsequenceMatches(rawTrace.sequence, ...)</code>
+          <code>applySearchQuery()</code> calls
+          <code>findSubsequenceMatches(rawTrace.sequence, normalizedQuery)</code>
           instead of the currently displayed trace sequence.
         </dd>
 
