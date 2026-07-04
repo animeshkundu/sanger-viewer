@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>2026-07-04 — v18 print / PDF-friendly export | sanger-viewer devlog</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-shell">
+        <a class="site-title" href="../../">sanger-viewer</a>
+        <nav class="site-nav" aria-label="Site">
+          <a href="../">Devlog</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="site-shell blog-entry">
+      <p><a href="../">← Back to devlog</a></p>
+      <h1>2026-07-04 — v18 print / PDF-friendly export</h1>
+      <p><time datetime="2026-07-04">July 4, 2026</time></p>
+
+      <p>
+        Unit C ships: a "Print / Save as PDF" action renders the active view — respecting the current
+        zoom window, reverse-complement state, trim mode, and visible quality track — through a clean
+        print stylesheet tuned for the browser's native print-to-PDF dialog.
+      </p>
+
+      <h2>What shipped</h2>
+      <ul>
+        <li>
+          New pure module <code>src/export/print.ts</code> — <code>buildPrintSection()</code> assembles
+          a self-contained <code>&lt;section id="print-view"&gt;</code> element containing:
+          a metadata header (file name, total length, strand, trim mode, mean quality, ISO date),
+          a raster PNG snapshot of the chromatogram canvas at the current zoom window,
+          a raster PNG snapshot of the quality-bar track (when visible),
+          the currently visible sequence window as monospaced text, and
+          an annotation summary when features are in view.
+        </li>
+        <li>
+          New <em>🖨 Print / Save as PDF</em> button in the toolbar — enabled only when a trace
+          is loaded; captures canvas data URLs synchronously, appends <code>#print-view</code>
+          to <code>document.body</code>, calls <code>window.print()</code>, then removes the
+          overlay via an <code>afterprint</code> listener so the live DOM is not polluted.
+        </li>
+        <li>
+          <code>@media print</code> block added to <code>src/style.css</code>: hides all direct
+          children of <code>&lt;body&gt;</code> except <code>#print-view</code>; applies A4-landscape
+          page setup (<code>@page</code>), serif body type, and width-100% image blocks for the
+          chromatogram and quality-track snapshots.
+        </li>
+        <li>
+          Light and dark theme parity: the print CSS forces white background / black text regardless
+          of the active colour scheme, so the PDF output is always paper-legible.
+        </li>
+      </ul>
+
+      <h2>Design rationale</h2>
+      <p>
+        The viewer already captures canvas state correctly (zoom window, revcomp, trim).
+        Reusing <code>canvas.toDataURL()</code> means the print snapshot is pixel-for-pixel
+        identical to what the user sees on screen — no re-render path to maintain.
+        The <code>afterprint</code> event cleans up without race conditions: it fires only
+        after the print dialog closes, so the DOM snapshot is always available for inspection
+        (and for the Playwright test, which mocks <code>window.print</code> to prevent the
+        native dialog from blocking).
+      </p>
+
+      <h2>Verification added</h2>
+      <ul>
+        <li>
+          <code>tests/e2e/print.e2e.test.ts</code> — 6 E2E tests with exact-value assertions:
+          <ul>
+            <li>Button disabled before a trace loads; enabled once loaded.</li>
+            <li>
+              Metadata header contains the exact file name (<code>310.ab1</code>),
+              length formatted as <code>\d+ bp</code>, today's ISO date, and correct
+              strand / trim labels.
+            </li>
+            <li>
+              Sequence text starts with the known first base <code>"T"</code>
+              (cross-checked against base-inspector fixture constants) and contains
+              only valid IUPAC characters.
+            </li>
+            <li>Chromatogram and quality-track images are valid PNG data URLs.</li>
+            <li>Strand label flips to "Reverse complement (3′→5′)" after toggling the strand.</li>
+            <li>Trim label updates to "Trimmed" after switching to trimmed mode.</li>
+            <li>Annotation section is present when the fixture contains annotations.</li>
+            <li><code>@media print</code> CSS rule is verified to exist in the loaded stylesheet.</li>
+            <li>All content assertions also pass in dark mode.</li>
+          </ul>
+        </li>
+      </ul>
+    </main>
+  </body>
+</html>
