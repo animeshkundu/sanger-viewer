@@ -4,9 +4,9 @@ Browser-native Sanger trace viewer for `.ab1` and `.scf` files — zero install,
 
 **Live demo:** https://animeshkundu.github.io/sanger-viewer/
 
-![Rendered chromatogram showing the loaded sample trace with colored peaks, quality track, sequence panel, and PNG/SVG/FASTA export controls](docs/rendered-trace.png)
+![Animated walkthrough showing open → rendered trace → share permalink → analyze flow](docs/hero-open-render-share-analyze.gif)
 
-> The screenshot shows the current viewer after loading the built-in sample trace. The deployed app still opens to file/sample choice today; the auto-loaded first-impression pass is shipping separately.
+sanger-viewer is a private-by-default, browser-native Sanger workbench: open a trace instantly (including auto-loaded sample first impression), inspect and edit with confidence, share exact view state via client-side permalink hashes, and run reference alignment, variant review, contig assembly, and primer/in-silico PCR analysis — all in-browser, with trace data staying on your machine.
 
 ## Why use it
 

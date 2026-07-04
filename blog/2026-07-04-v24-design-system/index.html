@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>2026-07-04 — v24 design-system cohesion + launch readiness | sanger-viewer devlog</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-shell">
+        <a class="site-title" href="../../">sanger-viewer</a>
+        <nav class="site-nav" aria-label="Site">
+          <a href="../">Devlog</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="site-shell blog-entry">
+      <p><a href="../">← Back to devlog</a></p>
+      <h1>2026-07-04 — v24 design-system cohesion + launch readiness</h1>
+      <p><time datetime="2026-07-04">July 4, 2026</time></p>
+
+      <p>
+        This pass closes cohesion gaps across the shipped app: token fallbacks are now first-class
+        variables, reference/variant tokens live in the primary token block, transition timing is
+        standardized on <code>--transition-fast</code>, focus rings are consistently 3 px in the
+        action-heavy contig/primer surfaces, and spinners now respect reduced-motion preferences.
+        For launch-readiness, README now leads with an animated open → render → share → analyze hero
+        GIF and a one-paragraph product pitch that keeps the privacy promise explicit: all parsing,
+        rendering, sharing state, and analysis stay in-browser.
+      </p>
+
+      <h2>What changed</h2>
+      <ul>
+        <li>
+          <strong>Token cohesion (<code>src/style.css</code>).</strong> Added explicit
+          <code>--color-hover</code>, <code>--color-accent</code>, <code>--color-accent-muted</code>,
+          <code>--color-error</code>, and <code>--color-error-muted</code> for light+dark themes and removed
+          ad-hoc fallback literals from workspace-bar styles.
+        </li>
+        <li>
+          <strong>Single source of token truth (<code>src/style.css</code>).</strong> Moved Reference Panel and
+          Variant Table token declarations into the main light/dark token blocks and removed the appended
+          duplicate <code>:root</code> section.
+        </li>
+        <li>
+          <strong>Motion + focus consistency (<code>src/style.css</code>).</strong> Replaced remaining
+          hard-coded <code>0.12s</code>/<code>0.1s</code> transitions with <code>var(--transition-fast)</code>,
+          aligned key component focus outlines to 3 px <code>--color-focus-ring</code>, and added a
+          <code>prefers-reduced-motion</code> spinner guard.
+        </li>
+        <li>
+          <strong>Launch-ready README hero (<code>README.md</code>, <code>docs/hero-open-render-share-analyze.gif</code>).</strong>
+          Added an animated hero GIF and concise pitch paragraph for first-time visitors.
+        </li>
+      </ul>
+
+      <h2>Spec grounding</h2>
+      <ul>
+        <li><a href="../../docs/specs/01-shareable-permalinks.md"><code>docs/specs/01-shareable-permalinks.md</code></a> (share flow messaging + privacy language)</li>
+        <li><a href="../../docs/specs/07-reference-alignment.md"><code>docs/specs/07-reference-alignment.md</code></a> + <a href="../../docs/specs/08-variant-calling-review.md"><code>08-variant-calling-review.md</code></a> (reference/variant surfaces themed coherently)</li>
+        <li><a href="../../docs/specs/05-paired-read-contig-assembly.md"><code>docs/specs/05-paired-read-contig-assembly.md</code></a> + <a href="../../docs/specs/09-primer-design-and-tm.md"><code>09-primer-design-and-tm.md</code></a> + <a href="../../docs/specs/10-in-silico-pcr.md"><code>10-in-silico-pcr.md</code></a> (contig/primer focus-state parity)</li>
+      </ul>
+
+      <h2>Tests</h2>
+      <table>
+        <caption class="sr-only">v24 cohesion assertions</caption>
+        <thead>
+          <tr><th>File</th><th>Assertion</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>tests/e2e/permalink.e2e.test.ts</code></td>
+            <td>Share button focus ring width is exact <code>3px</code> in light and dark modes.</td>
+          </tr>
+          <tr>
+            <td><code>tests/e2e/ux-a11y.e2e.test.ts</code></td>
+            <td>With reduced motion enabled, loading spinner computes to <code>animation-name: none</code> and <code>animation-duration: 0s</code>.</td>
+          </tr>
+        </tbody>
+      </table>
+    </main>
+  </body>
+</html>

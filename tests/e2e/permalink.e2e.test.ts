@@ -71,6 +71,6 @@ for (const colorScheme of ['light', 'dark'] as const) {
     const shareButton = page.getByRole('button', { name: 'Share this view' })
     await shareButton.focus()
     const outlineWidth = await shareButton.evaluate((node) => getComputedStyle(node).outlineWidth)
-    expect(outlineWidth).not.toBe('0px')
+    expect(outlineWidth).toBe('3px')
   })
 }

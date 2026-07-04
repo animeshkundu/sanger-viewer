@@ -112,6 +112,29 @@ test('shows loading indicator then success banner after file load', async ({ pag
   await expect(page.locator('#sample-ribbon')).toBeHidden()
 })
 
+test('spinner respects reduced-motion preference', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  const sample = await fs.readFile(path.resolve(process.cwd(), 'public/sample.ab1'))
+  await page.route('**/sample.ab1', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 300))
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/octet-stream',
+      body: sample,
+    })
+  })
+  await page.goto('')
+  await expect(page.locator('#loading-banner')).toBeVisible()
+  const spinner = page.locator('#loading-banner .spinner')
+  await expect(spinner).toBeVisible()
+  const spinnerStyle = await spinner.evaluate((node) => ({
+    animationName: getComputedStyle(node).animationName,
+    animationDuration: getComputedStyle(node).animationDuration,
+  }))
+  expect(spinnerStyle.animationName).toBe('none')
+  expect(spinnerStyle.animationDuration).toBe('0s')
+})
+
 test('shows error banner for invalid file and does not crash', async ({ page }) => {
   await waitForInitialSampleLoad(page)
 
