@@ -205,5 +205,5 @@ test('spans in sequence panel have data-base-index and role=button for a11y', as
   await loadFixture(page)
   const spans = page.locator('.sequence-panel span[data-base-index]')
   await expect(spans.first()).toHaveAttribute('role', 'button')
-  await expect(spans.first()).toHaveAttribute('data-base-index')
+  await expect(spans.first()).toHaveAttribute('data-base-index', /^\d+$/)
 })

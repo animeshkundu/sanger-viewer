@@ -1157,7 +1157,9 @@ export function createTraceViewer(): HTMLDivElement {
   // call returns focus to body (e.g. after undoing an edit while focus was on a span).
   const undoRedoKeyHandler = (event: KeyboardEvent) => {
     if (!rawTrace) return
-    const target = event.target as HTMLElement
+    // KeyboardEvent.target is EventTarget | null; guard before accessing element properties.
+    const target = event.target
+    if (!(target instanceof HTMLElement)) return
     // Do not intercept inside text inputs such as the search box.
     if (target === searchInput || target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
     const key = event.key.toLowerCase()
