@@ -647,7 +647,7 @@ export function createTraceViewer(): HTMLDivElement {
 
   const refreshAnnotationTrack = () => {
     const trace = renderer.getCurrentTrace()
-    if (!trace) {
+    if (!trace || annotationFeatures.length === 0) {
       annotationTrack.clear()
       return
     }
