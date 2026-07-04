@@ -18,6 +18,7 @@ export function createControls(): HTMLDivElement {
     <button data-action="export-fasta">Export FASTA</button>
     <button data-action="export-fastq">Export FASTQ</button>
     <button data-action="export-qual">Export QUAL</button>
+    <button data-action="export-consensus-fasta" data-testid="export-consensus-fasta" disabled>Export Consensus FASTA</button>
     <button data-action="undo" aria-label="Undo base edit (Ctrl+Z)" title="Undo (Ctrl+Z)" disabled>↩ Undo</button>
     <button data-action="redo" aria-label="Redo base edit (Ctrl+Shift+Z)" title="Redo (Ctrl+Shift+Z)" disabled>↪ Redo</button>
     <div class="search-controls" role="group" aria-label="Sequence search">
@@ -191,4 +192,13 @@ export function setUndoRedoState(controls: HTMLDivElement, canUndo: boolean, can
   const redoBtn = controls.querySelector<HTMLButtonElement>('[data-action="redo"]')
   if (undoBtn) undoBtn.disabled = !canUndo
   if (redoBtn) redoBtn.disabled = !canRedo
+}
+
+/**
+ * Enable or disable the "Export Consensus FASTA" button.
+ * The button should be enabled only when at least 2 resident (non-evicted) traces are loaded.
+ */
+export function setConsensusFastaButtonState(controls: HTMLDivElement, enabled: boolean): void {
+  const btn = controls.querySelector<HTMLButtonElement>('[data-action="export-consensus-fasta"]')
+  if (btn) btn.disabled = !enabled
 }

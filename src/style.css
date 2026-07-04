@@ -94,6 +94,16 @@
   --color-qual-fair: #f59e0b;
   --color-qual-good: #22c55e;
   --color-qual-excellent: #2563eb;
+
+  /* Consensus row */
+  --color-consensus-bg:           #f0fdf4;
+  --color-consensus-border:       #86efac;
+  --color-consensus-summary-fg:   #166534;
+  --color-consensus-seq-bg:       #ffffff;
+  --color-consensus-base-fg:      #0f172a;
+  --color-consensus-mismatch-bg:  #fef9c3;
+  --color-consensus-mismatch-fg:  #713f12;
+  --color-consensus-mismatch-border: #eab308;
 }
 
 /* ── Dark palette ── */
@@ -159,6 +169,16 @@
     --color-qual-fair: #fbbf24;
     --color-qual-good: #4ade80;
     --color-qual-excellent: #60a5fa;
+
+    /* Consensus row */
+    --color-consensus-bg:           #0d2a1a;
+    --color-consensus-border:       #4ade80;
+    --color-consensus-summary-fg:   #86efac;
+    --color-consensus-seq-bg:       #1e293b;
+    --color-consensus-base-fg:      #f1f5f9;
+    --color-consensus-mismatch-bg:  #422006;
+    --color-consensus-mismatch-fg:  #fef08a;
+    --color-consensus-mismatch-border: #ca8a04;
   }
 }
 
@@ -1139,4 +1159,53 @@ canvas {
   background: var(--color-accent-muted, rgba(59,130,246,0.10));
   color: var(--color-accent, #3b82f6);
   border-color: var(--color-accent, #3b82f6);
+}
+
+/* ─── Consensus row ─────────────────────────────────────────────── */
+
+.consensus-row {
+  background: var(--color-consensus-bg);
+  border: 1px solid var(--color-consensus-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  margin: var(--space-2) 0;
+  font-size: var(--text-sm);
+}
+
+.consensus-row.hidden {
+  display: none;
+}
+
+.consensus-row__summary {
+  color: var(--color-consensus-summary-fg);
+  font-weight: 600;
+  margin-bottom: var(--space-2);
+}
+
+.consensus-row__seq {
+  background: var(--color-consensus-seq-bg);
+  border: 1px solid var(--color-consensus-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  letter-spacing: 0.05em;
+  overflow-x: auto;
+  white-space: nowrap;
+  display: flex;
+  flex-wrap: nowrap;
+}
+
+.consensus-base {
+  display: inline-block;
+  color: var(--color-consensus-base-fg);
+  min-width: 1ch;
+}
+
+.consensus-base--mismatch {
+  background: var(--color-consensus-mismatch-bg);
+  color: var(--color-consensus-mismatch-fg);
+  border-bottom: 2px solid var(--color-consensus-mismatch-border);
+  border-radius: 2px;
+  font-weight: 700;
 }

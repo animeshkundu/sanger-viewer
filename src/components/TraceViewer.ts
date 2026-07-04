@@ -2,6 +2,7 @@ import { ChromatogramCanvas } from '../render/ChromatogramCanvas'
 import {
   createControls,
   setControlsDisabled,
+  setConsensusFastaButtonState,
   setMixedSummary,
   setMixedThresholdDisplay,
   setSearchEmptyState,
@@ -20,10 +21,12 @@ import { createMetadataPanel, updateMetadataPanel } from './MetadataPanel'
 import { createWorkspaceBar, renderWorkspaceBar } from './WorkspaceBar'
 import { createAnnotationTrack } from './AnnotationTrack'
 import { createQualityTrack } from './QualityTrack'
+import { createConsensusRow, renderConsensusRow, hideConsensusRow } from './ConsensusRow'
 import { downloadBlob } from '../export/png'
 import { toFasta } from '../export/fasta'
 import { toFastq, toQual } from '../export/fastq'
 import { exportSvg } from '../export/svg'
+import { computeConsensus, toConsensusFasta } from '../consensus/consensus'
 import { reverseComplementTrace, iupacComplement } from '../revcomp'
 import { mottTrim, DEFAULT_TRIM_SETTINGS } from '../quality/mottTrim'
 import { callMixedBases, DEFAULT_MIXED_BASE_THRESHOLD, type MixedBaseResult } from '../calling/mixedBase'
@@ -167,9 +170,10 @@ export function createTraceViewer(): HTMLDivElement {
     refreshReadout()
   })
   const qualityTrack = createQualityTrack()
+  const consensusRow = createConsensusRow()
   const canvasWrap = root.querySelector<HTMLElement>('.canvas-wrap')!
   root.insertBefore(annotationTrack.element, canvasWrap)
-  root.append(qualityTrack.element, controls, workspaceBar, readout, sequencePanel, baseInspector, metadataPanel, tooltip)
+  root.append(qualityTrack.element, controls, workspaceBar, readout, sequencePanel, baseInspector, metadataPanel, consensusRow, tooltip)
 
   const fileInput = root.querySelector<HTMLInputElement>('#file-input')!
   const fileInputExtra = root.querySelector<HTMLInputElement>('#file-input-extra')!
@@ -632,6 +636,25 @@ export function createTraceViewer(): HTMLDivElement {
   }
 
   /**
+   * Recompute and render the consensus row from all resident (non-evicted) slots.
+   * Shows the row only when ≥ 2 traces are resident; hides it otherwise.
+   * Also manages the enabled/disabled state of the "Export Consensus FASTA" button.
+   */
+  const refreshConsensus = () => {
+    const residentSlots = workspace.getAll().filter((s) => s.rawTrace !== null)
+    if (residentSlots.length < 2) {
+      hideConsensusRow(consensusRow)
+      setConsensusFastaButtonState(controls, false)
+      return
+    }
+    const sequences = residentSlots.map((s) => s.rawTrace!.sequence)
+    const fileNames = residentSlots.map((s) => s.fileName)
+    const result = computeConsensus(sequences)
+    renderConsensusRow(consensusRow, result, fileNames)
+    setConsensusFastaButtonState(controls, true)
+  }
+
+  /**
    * Save the currently active slot's per-slot state back into the workspace
    * so it is correctly restored when switching back later.
    */
@@ -690,12 +713,11 @@ export function createTraceViewer(): HTMLDivElement {
   }
 
   syncWorkspaceBar()
+  refreshConsensus()
 
   /**
    * Activate a workspace slot: save the current slot, switch to the new one,
    * and restore all per-slot state (trace, strand, trim, search, viewport).
-   */
-  const switchToSlot = (id: string, saveOutgoing = true) => {
     cancelMixedBaseRecompute()
     if (saveOutgoing) saveCurrentSlot()
     workspace.activate(id)
@@ -736,6 +758,7 @@ export function createTraceViewer(): HTMLDivElement {
     }
 
     syncWorkspaceBar()
+    refreshConsensus()
   }
 
   const load = async (file: File) => {
@@ -768,12 +791,14 @@ export function createTraceViewer(): HTMLDivElement {
       const newId = workspace.add(slot)
       activeSlotId = newId
       syncWorkspaceBar()
+      refreshConsensus()
       const msg = `Loaded ${trace.fileName} (${trace.baseCalls.length} bases)`
       setState('loaded', msg)
     } catch (error) {
       clearDisplayedTrace()
       activeSlotId = null
       syncWorkspaceBar()
+      refreshConsensus()
       const msg = error instanceof Error ? error.message : 'Failed to parse file'
       setState('error', msg)
     }
@@ -813,12 +838,14 @@ export function createTraceViewer(): HTMLDivElement {
       const newId = workspace.add(slot)
       activeSlotId = newId
       syncWorkspaceBar()
+      refreshConsensus()
       const msg = `Loaded ${trace.fileName} (${trace.baseCalls.length} bases)`
       setState('loaded', msg)
     } catch (error) {
       clearDisplayedTrace()
       activeSlotId = null
       syncWorkspaceBar()
+      refreshConsensus()
       const msg = error instanceof Error ? error.message : 'Failed to load sample'
       setState('error', msg)
     }
@@ -876,9 +903,11 @@ export function createTraceViewer(): HTMLDivElement {
         clearDisplayedTrace()
         setState('empty')
         syncWorkspaceBar()
+        refreshConsensus()
       }
     } else {
       syncWorkspaceBar()
+      refreshConsensus()
     }
   })
 
@@ -953,6 +982,17 @@ export function createTraceViewer(): HTMLDivElement {
       const suffix = [isRevcomp ? '-revcomp' : '', trimSettings.mode === 'trimmed' ? '-trimmed' : ''].filter(Boolean).join('')
       const qual = new Blob([toQual(trace, isRevcomp, trimResult, trimSettings.mode)], { type: 'text/plain' })
       downloadBlob(qual, `${trace.fileName.replace(/\.[^.]+$/, '')}${suffix}.qual`)
+    }
+
+    if (action === 'export-consensus-fasta') {
+      const residentSlots = workspace.getAll().filter((s) => s.rawTrace !== null)
+      if (residentSlots.length >= 2) {
+        const sequences = residentSlots.map((s) => s.rawTrace!.sequence)
+        const fileNames = residentSlots.map((s) => s.fileName)
+        const result = computeConsensus(sequences)
+        const fasta = toConsensusFasta(result, fileNames)
+        downloadBlob(new Blob([fasta], { type: 'text/plain' }), 'consensus.fasta')
+      }
     }
 
     if (action === 'undo' && rawTrace) {
