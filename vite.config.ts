@@ -31,7 +31,6 @@ export default defineConfig(({ command }) => ({
         blogToolbarHierarchyEntry: fileURLToPath(new URL('./blog/2026-07-04-v19-toolbar-hierarchy/index.html', import.meta.url)),
         blogPerfHarnessEntry: fileURLToPath(new URL('./blog/2026-07-04-v19-perf-harness/index.html', import.meta.url)),
         blogPerfHotPathsEntry: fileURLToPath(new URL('./blog/2026-07-04-v20-perf-hot-paths/index.html', import.meta.url))
-        blogToolbarHierarchyEntry: fileURLToPath(new URL('./blog/2026-07-04-v19-toolbar-hierarchy/index.html', import.meta.url))
       }
     }
   },
