@@ -4,6 +4,70 @@ import { test, expect, type Page } from '@playwright/test'
 
 const MAX_TABS_TO_FILE_INPUT = 15
 
+function parseHexColor(input: string): [number, number, number] {
+  const color = input.trim().toLowerCase()
+  if (!color.startsWith('#')) {
+    throw new Error(`Expected hex color, got "${input}"`)
+  }
+  const raw = color.slice(1)
+  const full = raw.length === 3
+    ? raw.split('').map((part) => `${part}${part}`).join('')
+    : raw
+  if (!/^[0-9a-f]{6}$/.test(full)) {
+    throw new Error(`Unsupported hex color "${input}"`)
+  }
+  return [
+    Number.parseInt(full.slice(0, 2), 16),
+    Number.parseInt(full.slice(2, 4), 16),
+    Number.parseInt(full.slice(4, 6), 16),
+  ]
+}
+
+function relativeLuminance([red, green, blue]: [number, number, number]): number {
+  const toLinear = (channel: number) => {
+    const normalized = channel / 255
+    if (normalized <= 0.03928) return normalized / 12.92
+    return ((normalized + 0.055) / 1.055) ** 2.4
+  }
+  const r = toLinear(red)
+  const g = toLinear(green)
+  const b = toLinear(blue)
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b
+}
+
+function contrastRatio(foreground: string, background: string): number {
+  const fg = relativeLuminance(parseHexColor(foreground))
+  const bg = relativeLuminance(parseHexColor(background))
+  const lighter = Math.max(fg, bg)
+  const darker = Math.min(fg, bg)
+  return (lighter + 0.05) / (darker + 0.05)
+}
+
+function parseRgbColor(input: string): [number, number, number] {
+  const match = input.trim().match(/^rgb\(\s*(\d+),\s*(\d+),\s*(\d+)\s*\)$/i)
+  if (!match) throw new Error(`Expected rgb() color, got "${input}"`)
+  return [Number(match[1]), Number(match[2]), Number(match[3])]
+}
+
+function contrastRatioRgbVsHex(foreground: [number, number, number], background: string): number {
+  const fg = relativeLuminance(foreground)
+  const bg = relativeLuminance(parseHexColor(background))
+  const lighter = Math.max(fg, bg)
+  const darker = Math.min(fg, bg)
+  return (lighter + 0.05) / (darker + 0.05)
+}
+
+function saturationPercent(color: string): number {
+  const [red, green, blue] = parseHexColor(color).map((value) => value / 255)
+  const max = Math.max(red, green, blue)
+  const min = Math.min(red, green, blue)
+  if (max === min) return 0
+  const lightness = (max + min) / 2
+  const delta = max - min
+  const saturation = lightness > 0.5 ? delta / (2 - max - min) : delta / (max + min)
+  return saturation * 100
+}
+
 async function tabToFileInput(page: Page) {
   for (let i = 0; i < MAX_TABS_TO_FILE_INPUT; i++) {
     await page.keyboard.press('Tab')
@@ -161,6 +225,48 @@ test('keyboard focus order is logical and focus rings are visible', { tag: ['@de
   expect(refreshedHeaderFocusOutline).not.toBe('0px')
 })
 
+test('light/dark token contrast and focus ring contrast meet accessibility thresholds', { tag: ['@desktop'] }, async ({ page, isMobile }) => {
+  test.skip(isMobile, 'tablet/touch project does not support keyboard focus testing')
+
+  for (const colorScheme of ['light', 'dark'] as const) {
+    await page.emulateMedia({ colorScheme })
+    await waitForInitialSampleLoad(page)
+
+    const tokens = await page.evaluate(() => {
+      const root = getComputedStyle(document.documentElement)
+      return {
+        bg: root.getPropertyValue('--color-bg').trim(),
+        surface: root.getPropertyValue('--color-surface').trim(),
+        text: root.getPropertyValue('--color-text').trim(),
+        textMuted: root.getPropertyValue('--color-text-muted').trim(),
+        border: root.getPropertyValue('--color-border').trim(),
+        focusRing: root.getPropertyValue('--color-focus-ring').trim(),
+        brand: root.getPropertyValue('--color-brand').trim(),
+      }
+    })
+
+    expect(contrastRatio(tokens.text, tokens.bg)).toBeGreaterThanOrEqual(4.5)
+    expect(contrastRatio(tokens.textMuted, tokens.surface)).toBeGreaterThanOrEqual(4.5)
+
+    if (colorScheme === 'dark') {
+      expect(contrastRatio(tokens.border, tokens.surface)).toBeGreaterThanOrEqual(3)
+      expect(contrastRatio(tokens.focusRing, tokens.bg)).toBeGreaterThanOrEqual(3)
+      expect(saturationPercent(tokens.brand)).toBeLessThanOrEqual(80)
+    }
+
+    await tabToFileInput(page)
+    const focusedStyles = await page.locator('.dropzone-header__label').evaluate((node: Element) => {
+      const style = window.getComputedStyle(node)
+      return {
+        width: Number.parseFloat(style.outlineWidth),
+        color: style.outlineColor,
+      }
+    })
+    expect(focusedStyles.width).toBeGreaterThanOrEqual(2)
+    expect(contrastRatioRgbVsHex(parseRgbColor(focusedStyles.color), tokens.bg)).toBeGreaterThanOrEqual(3)
+  }
+})
+
 test('drag-drop shows dragging class then clears it', async ({ page }) => {
   await waitForInitialSampleLoad(page)
   const dropzone = page.locator('[data-testid="dropzone"]')
@@ -209,10 +315,10 @@ test('dark mode uses correct design token surface color', async ({ page }) => {
 test('new devlog entry is listed on blog index', async ({ page }) => {
   await page.goto('/blog/')
   await expect(
-    page.getByRole('link', { name: /first impression/i })
+    page.getByRole('link', { name: /annotation lanes \+ dark-mode accessibility pass/i })
   ).toBeVisible()
 
-  await page.getByRole('link', { name: /first impression/i }).click()
-  await expect(page).toHaveURL(/\/blog\/2026-07-04-v18-first-impression\/$/)
-  await expect(page.getByRole('heading', { name: /first impression/i })).toBeVisible()
+  await page.getByRole('link', { name: /annotation lanes \+ dark-mode accessibility pass/i }).click()
+  await expect(page).toHaveURL(/\/blog\/2026-07-04-v22-annotation-a11y-pass\/$/)
+  await expect(page.getByRole('heading', { name: /annotation lanes \+ dark-mode accessibility pass/i })).toBeVisible()
 })

@@ -47,6 +47,8 @@ function getFeatureAriaLabel(feature: AnnotationFeature): string {
 export function createAnnotationTrack(onActivate: (feature: AnnotationFeature) => void): AnnotationTrackHandle {
   const root = document.createElement('section')
   root.className = 'annotation-track'
+  root.classList.add('hidden')
+  root.hidden = true
   root.setAttribute('data-testid', 'annotation-track')
   root.setAttribute('role', 'region')
   root.setAttribute('aria-label', 'Annotation track')
@@ -166,6 +168,8 @@ export function createAnnotationTrack(onActivate: (feature: AnnotationFeature) =
   })
 
   const render = (model: AnnotationTrackModel) => {
+    root.classList.remove('hidden')
+    root.hidden = false
     root.setAttribute('data-total-count', String(model.totalCount))
     root.setAttribute('data-visible-count', String(model.visibleFeatures.length))
     root.setAttribute('data-visible-range', `${model.visibleRange.start}:${model.visibleRange.end}`)
@@ -225,6 +229,8 @@ export function createAnnotationTrack(onActivate: (feature: AnnotationFeature) =
 
   const clear = () => {
     render({ visibleFeatures: [], visibleRange: { start: 0, end: 0 }, totalCount: 0 })
+    root.classList.add('hidden')
+    root.hidden = true
   }
 
   clear()

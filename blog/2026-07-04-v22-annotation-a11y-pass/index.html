@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>2026-07-04 — v22 annotation lanes + dark-mode a11y polish | sanger-viewer devlog</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-shell">
+        <a class="site-title" href="../../">sanger-viewer</a>
+        <nav class="site-nav" aria-label="Site">
+          <a href="../">Devlog</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="site-shell blog-entry">
+      <h1>2026-07-04 — v22 annotation lanes + dark-mode accessibility pass</h1>
+      <p>
+        Today I tightened the annotation lane and accessibility experience for first-time users: ORF/restriction chips now disappear entirely
+        when no trace is loaded, and the loaded state keeps exact feature lanes visible and keyboard-jumpable.
+      </p>
+      <p>
+        I also did a measured dark/light accessibility pass: the dark border system now clears non-text contrast thresholds, the blue accent is
+        deliberately less saturated, and keyboard focus rings use a stronger dedicated token so focus remains obvious on dark surfaces.
+      </p>
+      <p>
+        Verification stayed behavior-first: Playwright now asserts a known ORF lane and known restriction lane at exact positions, checks the
+        no-trace hidden-state behavior, and validates contrast/focus metrics directly from computed design tokens.
+      </p>
+    </main>
+  </body>
+</html>
