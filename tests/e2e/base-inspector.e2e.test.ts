@@ -109,13 +109,16 @@ test('tooltip is hidden when keyboard inspector opens', { tag: ['@desktop'] }, a
   const canvas = page.locator('[data-testid="chromatogram-canvas"]')
   const box = await canvas.boundingBox()
   if (!box) throw new Error('Canvas not visible')
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  await page.mouse.move(box.x + 8, box.y + box.height / 2)
   await page.locator('.tooltip').waitFor({ state: 'visible', timeout: 3000 })
   await expect(page.locator('.tooltip')).toContainText('peak:')
 
-  // Focus a sequence base via keyboard — tooltip must be dismissed, inspector must appear
+  // Focus a rendered sequence base via keyboard — tooltip must be dismissed, inspector must appear.
   const target = page.locator(`.sequence-panel span[data-base-index="${KNOWN_INDEX}"]`)
+  await target.waitFor({ state: 'visible' })
+  await expect(target).toHaveAttribute('tabindex', '0')
   await target.focus()
+  await target.press('Enter')
   await expect(page.locator('.tooltip')).toBeHidden()
   await expect(page.locator('#base-inspector')).toBeVisible()
 })

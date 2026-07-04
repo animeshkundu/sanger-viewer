@@ -584,6 +584,14 @@ export function createTraceViewer(): HTMLDivElement {
   }
 
   const inspectBase = (clientX: number, clientY: number, select = false) => {
+    // Suppress hover interactions while the keyboard inspector is open so hover
+    // pointer events cannot re-render or re-open the tooltip.
+    if (!select && inspectorDisplayIndex !== null) {
+      hoveredBaseIndex = null
+      hideTooltip(tooltip)
+      return
+    }
+
     const hit = renderer.hitTest(clientX)
     if (!hit) {
       if (!select) {
@@ -594,12 +602,6 @@ export function createTraceViewer(): HTMLDivElement {
       return
     }
 
-    // Suppress hover tooltip while the keyboard inspector is open so they don't overlap.
-    if (!select && inspectorDisplayIndex !== null) {
-      hoveredBaseIndex = hit.index
-      refreshSequence()
-      return
-    }
     showTooltip(tooltip, hit, clientX, clientY)
     if (select) {
       selectedBaseIndex = hit.index
