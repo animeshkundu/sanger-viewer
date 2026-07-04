@@ -15,6 +15,7 @@
 
 import path from 'node:path'
 import { test, expect } from '@playwright/test'
+import { openSidebarTab } from './helpers/sidebar'
 
 const FIXTURE_A = path.resolve(process.cwd(), 'fixtures/ab1/310.ab1')
 const FIXTURE_B = path.resolve(process.cwd(), 'fixtures/ab1/3100.ab1')
@@ -28,6 +29,7 @@ test.describe('Primer design + in-silico PCR', () => {
     await page.goto('')
     await page.setInputFiles('#file-input', FIXTURE_A)
     await expect(page.locator('#status')).toContainText('Loaded')
+    await openSidebarTab(page, 'analyze')
   })
 
   // ── Test 1: Panel visibility ───────────────────────────────────────────────

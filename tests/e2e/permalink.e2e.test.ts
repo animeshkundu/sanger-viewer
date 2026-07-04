@@ -1,6 +1,7 @@
 import path from 'node:path'
 import { test, expect } from '@playwright/test'
 import { encodePermalinkState } from '../../src/workspace/permalink'
+import { openSidebarTab } from './helpers/sidebar'
 
 test('known permalink opens exact sample view state', async ({ page }) => {
   const encoded = encodePermalinkState(
@@ -47,6 +48,9 @@ test('share button copies permalink and performs no network requests', async ({ 
   await page.setInputFiles('#file-input', path.resolve(process.cwd(), 'fixtures/ab1/310.ab1'))
   await expect(page.locator('#status')).toContainText('Loaded')
 
+  // Open the Share tab so the "Share this view" button is reachable.
+  await openSidebarTab(page, 'share')
+
   const requests: string[] = []
   page.on('request', (request) => {
     requests.push(`${request.method()} ${request.url()}`)
@@ -68,6 +72,8 @@ for (const colorScheme of ['light', 'dark'] as const) {
     await page.goto('')
     await page.setInputFiles('#file-input', path.resolve(process.cwd(), 'fixtures/ab1/310.ab1'))
     await expect(page.locator('#status')).toContainText('Loaded')
+    // Open the Share tab so the share button is visible and focusable.
+    await openSidebarTab(page, 'share')
     const shareButton = page.getByRole('button', { name: 'Share this view' })
     await shareButton.focus()
     const outlineWidth = await shareButton.evaluate((node) => getComputedStyle(node).outlineWidth)

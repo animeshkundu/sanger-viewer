@@ -11,6 +11,7 @@
 
 import path from 'node:path'
 import { test, expect } from '@playwright/test'
+import { openSidebarTab } from './helpers/sidebar'
 
 function fixturePath(rel: string) {
   return path.resolve(process.cwd(), rel)
@@ -47,6 +48,9 @@ test.describe('Multi-trace consensus view', () => {
 
     await page.setInputFiles('#file-input-extra', FIXTURE_B)
     await expect(page.locator('#status')).toContainText('Loaded')
+
+    // Open the Analyze tab so the consensus row (which lives in the sidebar) is reachable.
+    await openSidebarTab(page, 'analyze')
 
     // Consensus row should now be visible.
     const row = page.locator('[data-testid="consensus-row"]')
@@ -129,7 +133,8 @@ test.describe('Multi-trace consensus view', () => {
     await page.setInputFiles('#file-input-extra', FIXTURE_B)
     await expect(page.locator('#status')).toContainText('Loaded')
 
-    // Consensus row visible.
+    // Open the Analyze tab so the consensus row is reachable, then verify it is visible.
+    await openSidebarTab(page, 'analyze')
     await expect(page.locator('[data-testid="consensus-row"]')).toBeVisible()
 
     // Close the first tab.
@@ -151,6 +156,9 @@ test.describe('Multi-trace consensus view', () => {
 
     await page.setInputFiles('#file-input-extra', FIXTURE_B)
     await expect(page.locator('#status')).toContainText('Loaded')
+
+    // Open the Analyze tab so the consensus row (and its base spans) are reachable.
+    await openSidebarTab(page, 'analyze')
 
     // At least one base span with the mismatch class must be present.
     const mismatchSpans = page.locator('.consensus-base--mismatch')
