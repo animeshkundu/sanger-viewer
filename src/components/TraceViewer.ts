@@ -343,12 +343,12 @@ export function createTraceViewer(): HTMLDivElement {
           editedDisplayIndices.add(displayIdx)
         }
       }
-      const cleanAmbiguous = mixedBaseResult.ambiguousIndices.filter(i => !editedDisplayIndices.has(i))
+      const nonEditedAmbiguousIndices = mixedBaseResult.ambiguousIndices.filter(i => !editedDisplayIndices.has(i))
       mixedBaseResult = {
         baseCalls: pinnedBaseCalls,
         sequence: pinnedBaseCalls.join(''),
-        ambiguousIndices: cleanAmbiguous,
-        ambiguousCount: cleanAmbiguous.length,
+        ambiguousIndices: nonEditedAmbiguousIndices,
+        ambiguousCount: nonEditedAmbiguousIndices.length,
       }
     }
 

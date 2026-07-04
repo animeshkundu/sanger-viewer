@@ -118,7 +118,7 @@ describe('exportSvg', () => {
       sequence: 'ANGTA',
     })
     const svg = exportSvg(edited)
-    // The SVG must contain the edited base 'N' as a text label.
-    expect(svg).toContain('>N<')
+    // The SVG must contain the edited base 'N' as a text element label.
+    expect(svg).toContain('>N</text>')
   })
 })
