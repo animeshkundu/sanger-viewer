@@ -33,7 +33,7 @@ This is the line between “viewer” and “workspace.” FinchTV and Chromas s
 
 ## Technical shape
 - Use a deterministic overlap-first assembly model sized for short Sanger reads.
-- Score overlap with sequence agreement plus quality weighting rather than sequence identity alone.
+- Require a configurable minimum overlap window and minimum overlap-confidence floor before auto-assembling, and score overlap with sequence agreement plus quality weighting rather than sequence identity alone.
 - Preserve both source reads as first-class objects linked to the derived contig.
 - Keep the derived contig serializable for snapshots, permalinks, and later reference alignment.
 

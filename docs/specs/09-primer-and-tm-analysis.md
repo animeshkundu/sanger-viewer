@@ -30,7 +30,7 @@ Primer context is usually split across separate calculators and notebooks. Foldi
 ## Technical shape
 - Treat primers as named lightweight sequence annotations with derived metrics.
 - Reuse search/alignment infrastructure for binding-site detection.
-- Keep Tm calculation deterministic and documented so results are stable across sessions and exports.
+- Keep Tm calculation deterministic and documented by standardizing on a published nearest-neighbor model with explicit salt/default assumptions, and surface when a simpler fallback estimate is being shown.
 - Persist primers with the workspace and reuse them in in-silico-PCR.
 
 ## Validation

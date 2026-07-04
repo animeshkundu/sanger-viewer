@@ -30,7 +30,7 @@ Chromas is remembered for blunt batch throughput. A browser-native batch queue c
 - Queue must support sort, filter, and keyboard row navigation.
 
 ## Technical shape
-- Build a batch job model separate from the current five-slot active workspace, but allow promotion from queue row to active workspace tab.
+- Build a batch job model separate from the current five-slot active workspace, but allow promotion from queue row to active workspace tab; the queue is the durable holding area so batch import is not constrained by the live viewer-tab cap.
 - Keep parsing worker-based and throttle concurrency to protect UI responsiveness.
 - Reuse existing metadata/quality derivations rather than recomputing in a parallel pipeline.
 - Persist queue manifests via the session system.

@@ -32,7 +32,7 @@ Reference-aware review is a major leap beyond basic viewers and unlocks variant 
 - Failed or low-confidence alignments must explain why and offer orientation retry.
 
 ## Technical shape
-- Keep the algorithm bounded for browser use on short reads and plasmid-sized references.
+- Use semi-global alignment as the default mode for trace/contig vs reference review so clipped read ends stay explicit, with local alignment reserved for explicit rescue/low-overlap workflows.
 - Preserve original read coordinates and expose a reversible mapping to reference coordinates.
 - Treat the reference as an imported local artifact unless it is a known public URL source.
 - Make the alignment object reusable by variant, primer, and in-silico-PCR features.
