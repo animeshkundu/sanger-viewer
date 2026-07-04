@@ -162,13 +162,27 @@
           <code>expect.poll(…).toBeGreaterThan(0)</code> so the assertion waits for the RAF-deferred
           draw to update the attribute.
         </dd>
+        <dt><strong>Prev-nav button locator (post-review correction)</strong></dt>
+        <dd>
+          The test clicked <code>getByRole('button', { name: 'Prev' })</code> but the Search Prev
+          button carries <code>aria-label="Previous match"</code>; Playwright resolves accessible
+          names from <code>aria-label</code>, so the locator never matched. Fix: changed the locator
+          to <code>getByRole('button', { name: 'Previous match' })</code>.
+        </dd>
+        <dt><strong>Tooltip test.skip desktop masking (post-review correction)</strong></dt>
+        <dd>
+          <code>test.skip(!tooltipVisible, …)</code> silently skipped the test on desktop if the
+          hover sweep happened to miss the tooltip, creating false-green CI and hiding real
+          regressions. Fix: the skip is now gated on the Playwright <code>isMobile</code> fixture
+          (tablet only); on desktop the test requires <code>tooltipVisible === true</code> and
+          asserts the <code>.tooltip</code> content, so any desktop regression will fail loudly.
+        </dd>
       </dl>
 
       <h2>Validation</h2>
       <p>
         All 150 unit tests, 14 existing E2E suites, and the corrected <code>qa-polish.e2e.test.ts</code>
-        pass on both desktop Chrome and emulated iPad Chromium (65 passed, 3 skipped — the tablet
-        tooltip skips are intentional and pre-existing). Build produces the expected 16 HTML pages.
+        pass on both desktop Chrome and emulated iPad Chromium. Build produces the expected 16 HTML pages.
         No secrets or regressions introduced.
       </p>
     </main>

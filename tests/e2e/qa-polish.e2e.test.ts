@@ -115,13 +115,18 @@ async function fastaSeqLines(content: string): Promise<string> {
 
 test.describe('render accuracy', () => {
   for (const [label, fixture] of [['310.ab1', FIXTURE_310], ['3100.ab1', FIXTURE_3100]] as const) {
-    test(`canvas is non-blank and tooltip shows peak: data for ${label}`, async ({ page }) => {
+    test(`canvas is non-blank and tooltip shows peak: data for ${label}`, async ({ page, isMobile }) => {
       await loadFixture(page, fixture)
       await expect
         .poll(() => canvasInkSum(page), { timeout: 5000 })
         .toBeGreaterThan(INK_THRESHOLD)
 
-      // Tooltip peak: on hover — sweep across the canvas until it appears
+      // Tooltip peak: on hover — skip on tablet (no hover events on touch)
+      if (isMobile) {
+        test.skip(true, 'tooltip requires hover — not available on touch/tablet')
+        return
+      }
+
       const canvas = page.locator('[data-testid="chromatogram-canvas"]')
       const box = await canvas.boundingBox()
       if (!box) throw new Error('Canvas not visible')
@@ -133,10 +138,8 @@ test.describe('render accuracy', () => {
           break
         }
       }
-      test.skip(!tooltipVisible, 'tooltip not shown — desktop only') // graceful skip on tablet
-      if (tooltipVisible) {
-        await expect(page.locator('.tooltip')).toContainText('peak:')
-      }
+      expect(tooltipVisible, 'tooltip did not appear during hover sweep — desktop regression').toBe(true)
+      await expect(page.locator('.tooltip')).toContainText('peak:')
     })
   }
 })
@@ -303,7 +306,7 @@ test.describe('IUPAC find / search', () => {
     await page.getByRole('button', { name: 'Next match' }).click()
     await expect(page.locator('#search-summary')).toHaveText('2 matches · 2 of 2')
 
-    await page.getByRole('button', { name: 'Prev' }).click()
+    await page.getByRole('button', { name: 'Previous match' }).click()
     await expect(page.locator('#search-summary')).toHaveText('2 matches · 1 of 2')
   })
 
