@@ -1405,7 +1405,6 @@ canvas {
   font-weight: 600;
   margin-bottom: var(--space-3);
   font-size: var(--text-sm);
-  data-testid: contig-summary;
 }
 
 .contig-panel__rows {

@@ -16,7 +16,8 @@
 
 /** Expand an IUPAC base to the set of canonical bases it represents. */
 const IUPAC_EXPANSIONS: Record<string, string[]> = {
-  A: ['A'], C: ['C'], G: ['G'], T: ['T'], U: ['T'],
+  A: ['A'], C: ['C'], G: ['G'], T: ['T'],
+  U: ['T'], // uracil treated as thymine for RNA-origin read compatibility
   M: ['A', 'C'], R: ['A', 'G'], W: ['A', 'T'],
   S: ['C', 'G'], Y: ['C', 'T'], K: ['G', 'T'],
   V: ['A', 'C', 'G'], H: ['A', 'C', 'T'],

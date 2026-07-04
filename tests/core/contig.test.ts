@@ -60,7 +60,6 @@ describe('scoreOverlap', () => {
   })
 
   it('scores N positions as 0 (neutral)', () => {
-    expect(scoreOverlap('ANNA', 'ACCA')).toBe(2)  // A+A=2, N=0, N=0, A+A skip (oops — recount)
     // A vs A = +1, N vs C = 0, N vs C = 0, A vs A = +1 → 2
     expect(scoreOverlap('ANNA', 'ACCA')).toBe(2)
   })
