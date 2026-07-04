@@ -45,6 +45,10 @@ export interface TraceSlot {
   mixedBaseResult: MixedBaseResult | null
   /** Chromatogram viewport state. */
   viewport: { startSample: number; samplesPerPixel: number }
+  /** Whether this slot came from the bundled sample trace or a user file. */
+  source: 'sample' | 'user'
+  /** Whether the sample-state ribbon has been dismissed for this slot. */
+  sampleRibbonDismissed: boolean
 }
 
 let _idCounter = 0
@@ -151,7 +155,7 @@ export class TraceWorkspace {
 }
 
 /** Build a fresh slot from a loaded trace with default per-slot state. */
-export function makeSlot(trace: TraceData): Omit<TraceSlot, 'id'> {
+export function makeSlot(trace: TraceData, source: 'sample' | 'user' = 'user'): Omit<TraceSlot, 'id'> {
   return {
     fileName: trace.fileName,
     rawTrace: trace,
@@ -162,5 +166,7 @@ export function makeSlot(trace: TraceData): Omit<TraceSlot, 'id'> {
     mixedBaseThreshold: DEFAULT_MIXED_BASE_THRESHOLD,
     mixedBaseResult: null,
     viewport: { startSample: 0, samplesPerPixel: Math.max(1, trace.sampleCount / 300) },
+    source,
+    sampleRibbonDismissed: false,
   }
 }

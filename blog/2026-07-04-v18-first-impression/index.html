@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>2026-07-04 — v18 first impression pass | sanger-viewer devlog</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-shell">
+        <a class="site-title" href="../../">sanger-viewer</a>
+        <nav class="site-nav" aria-label="Site">
+          <a href="../">Devlog</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="site-shell blog-entry">
+      <p><a href="../">← Back to devlog</a></p>
+      <h1>2026-07-04 — v18 first impression pass</h1>
+      <p><time datetime="2026-07-04">July 4, 2026</time></p>
+
+      <p>
+        The viewer now opens on a real rendered trace instead of a blank canvas: the bundled sample
+        auto-loads on first visit, the chromatogram background follows the active theme, and the UI
+        explicitly tells you that you are looking at a sample until you dismiss or replace it.
+      </p>
+
+      <h2>What shipped</h2>
+      <ul>
+        <li>First visit auto-loads <code>public/sample.ab1</code> through the normal parse/render path.</li>
+        <li>User-loaded files replace the placeholder sample slot instead of silently creating a second tab.</li>
+        <li>A dismissible sample ribbon explains that the app is 100% in-browser and ready for your own trace.</li>
+        <li>The chromatogram canvas now paints with <code>--color-surface</code> instead of a hardcoded white fill.</li>
+      </ul>
+
+      <h2>Verification added</h2>
+      <ul>
+        <li><code>tests/parsers/sample.test.ts</code> locks the bundled sample to exact known base-call values.</li>
+        <li><code>tests/e2e/ux-a11y.e2e.test.ts</code> covers first-visit sample rendering, sample ribbon behavior, single-slot replacement, and dark-surface loading.</li>
+      </ul>
+    </main>
+  </body>
+</html>

@@ -26,6 +26,7 @@ export class ChromatogramCanvas {
     fill: 'rgba(99, 102, 241, 0.2)',
     stroke: 'rgba(79, 70, 229, 0.8)',
   }
+  private surfaceColor = '#ffffff'
 
   constructor(private canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext('2d')
@@ -254,6 +255,7 @@ export class ChromatogramCanvas {
   private refreshSearchHighlightColors(): void {
     if (typeof document === 'undefined') return
     const cssVars = getComputedStyle(document.documentElement)
+    this.surfaceColor = cssVars.getPropertyValue('--color-surface').trim() || this.surfaceColor
     this.searchHighlightColors = {
       matchColor: cssVars.getPropertyValue('--color-search-match-bg').trim() || this.searchHighlightColors.matchColor,
       activeFill: cssVars.getPropertyValue('--color-search-canvas-active-fill').trim() || this.searchHighlightColors.activeFill,
@@ -263,13 +265,14 @@ export class ChromatogramCanvas {
       fill: cssVars.getPropertyValue('--color-ambiguous-canvas-fill').trim() || this.ambiguousHighlightColors.fill,
       stroke: cssVars.getPropertyValue('--color-ambiguous-canvas-stroke').trim() || this.ambiguousHighlightColors.stroke,
     }
+    this.canvas.setAttribute('data-surface-color', this.surfaceColor)
   }
 
   private draw(): void {
     const width = this.canvas.clientWidth
     const height = this.canvas.clientHeight
     this.ctx.clearRect(0, 0, width, height)
-    this.ctx.fillStyle = '#fff'
+    this.ctx.fillStyle = this.surfaceColor
     this.ctx.fillRect(0, 0, width, height)
     if (!this.trace) {
       this.canvas.removeAttribute('data-viewport-start')
