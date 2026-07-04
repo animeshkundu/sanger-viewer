@@ -103,9 +103,9 @@ export function setStrandToggleState(controls: HTMLDivElement, isRevcomp: boolea
 export function setControlsDisabled(controls: HTMLDivElement, disabled: boolean): void {
   controls.querySelectorAll('button').forEach((btn) => {
     const action = (btn as HTMLButtonElement).getAttribute('data-action')
-    // Undo/redo have their own enabled-state managed by setUndoRedoState;
+    // Undo/redo and export-consensus-fasta have their own enabled-state management;
     // only force-disable them during loading, never auto-enable on re-enable.
-    if (!disabled && (action === 'undo' || action === 'redo')) return
+    if (!disabled && (action === 'undo' || action === 'redo' || action === 'export-consensus-fasta')) return
     ;(btn as HTMLButtonElement).disabled = disabled
   })
   const slider = controls.querySelector<HTMLInputElement>('[data-trim="threshold"]')

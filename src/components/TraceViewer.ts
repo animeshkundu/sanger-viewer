@@ -718,6 +718,8 @@ export function createTraceViewer(): HTMLDivElement {
   /**
    * Activate a workspace slot: save the current slot, switch to the new one,
    * and restore all per-slot state (trace, strand, trim, search, viewport).
+   */
+  const switchToSlot = (id: string, saveOutgoing = true) => {
     cancelMixedBaseRecompute()
     if (saveOutgoing) saveCurrentSlot()
     workspace.activate(id)

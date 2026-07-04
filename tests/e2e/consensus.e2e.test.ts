@@ -110,7 +110,7 @@ test.describe('Multi-trace consensus view', () => {
     const lines = content.split('\n').filter((l) => l.length > 0 && !l.startsWith('>'))
     expect(lines.length).toBeGreaterThan(0)
     for (const line of lines) {
-      expect(line).toMatch(/^[ACGTMRWSYKVHDBNU]+$/i)
+      expect(line).toMatch(/^[ACGTMRWSYKVHDBN]+$/i)
     }
 
     // Must end with a trailing newline.
