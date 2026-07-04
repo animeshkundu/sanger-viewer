@@ -1154,7 +1154,14 @@ export function createTraceViewer(): HTMLDivElement {
     if (event.pointerType !== 'mouse' || activePointers.size > 0) return
     hoveredBaseIndex = null
     hideTooltip(tooltip)
-    refreshSequence()
+    // Suppress refreshSequence while the keyboard inspector is open — the same
+    // guard used in inspectBase.  Chrome fires a synthetic pointerleave when
+    // programmatic element.focus() shifts keyboard focus away from the canvas,
+    // which would cause panel.innerHTML='' to destroy the focused span and
+    // trigger a focusout that closes the inspector.
+    if (inspectorDisplayIndex === null) {
+      refreshSequence()
+    }
   })
 
   // ── Sequence panel editing ────────────────────────────────────────────────
