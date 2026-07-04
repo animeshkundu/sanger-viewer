@@ -1,16 +1,19 @@
 # sanger-viewer
 
-Client-side Sanger sequencing trace viewer for `.ab1` and `.scf` files, built with TypeScript + Vite and deployable as a static GitHub Pages project site.
+Browser-native Sanger trace viewer for `.ab1` and `.scf` files — zero install, 100% client-side/private, and faster to open for quick inspection than desktop-first tools such as SnapGene Viewer, FinchTV, or Chromas.
 
-![Sanger viewer screenshot](docs/screenshot.png)
+**Live demo:** https://animeshkundu.github.io/sanger-viewer/
 
-## Features
+![Rendered chromatogram showing the loaded sample trace with colored peaks, quality track, sequence panel, and PNG/SVG/FASTA export controls](docs/rendered-trace.png)
 
-- File picker and drag-and-drop loading
-- AB1 (ABIF) and SCF parsing of 4 channels, base calls, peak positions, and quality
-- Canvas chromatogram rendering with quality shading, base labels, zoom/pan, tooltip hover
-- Synced sequence panel and viewport position readout
-- Export current view as PNG and sequence as FASTA
+> The screenshot shows the current viewer after loading the built-in sample trace. The deployed app still opens to file/sample choice today; the auto-loaded first-impression pass is shipping separately.
+
+## Why use it
+
+- Open `.ab1` and `.scf` traces directly in the browser with drag-and-drop, file picker, or the built-in sample trace
+- Inspect rendered chromatograms with quality shading, base labels, zoom/pan, tooltip hover, and a synced sequence panel
+- Keep trace data private: parsing, rendering, and export stay client-side in the browser
+- Use power features already in the app, including undo/redo edits, Q-trim, mixed-base calling, annotations, base inspection, multi-trace consensus, and PNG/SVG/FASTA export
 
 ## Supported formats
 
