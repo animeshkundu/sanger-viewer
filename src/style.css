@@ -105,6 +105,24 @@
   --color-consensus-mismatch-bg:  #fef9c3;
   --color-consensus-mismatch-fg:  #713f12;
   --color-consensus-mismatch-border: #eab308;
+
+  /* Contig panel */
+  --color-contig-bg:              #f0f9ff;
+  --color-contig-border:          #7dd3fc;
+  --color-contig-title-fg:        #0c4a6e;
+  --color-contig-summary-fg:      #075985;
+  --color-contig-seq-bg:          #ffffff;
+  --color-contig-fwd-bg:          #eff6ff;
+  --color-contig-fwd-border:      #bfdbfe;
+  --color-contig-rev-bg:          #f5f3ff;
+  --color-contig-rev-border:      #ddd6fe;
+  --color-contig-cons-bg:         #f0fdf4;
+  --color-contig-cons-border:     #bbf7d0;
+  --color-contig-overlap-bg:      rgba(125, 211, 252, 0.18);
+  --color-contig-mismatch-bg:     #fef9c3;
+  --color-contig-mismatch-fg:     #713f12;
+  --color-contig-mismatch-border: #eab308;
+  --color-contig-gap-fg:          #94a3b8;
 }
 
 /* ── Dark palette ── */
@@ -181,6 +199,24 @@
     --color-consensus-mismatch-bg:  #422006;
     --color-consensus-mismatch-fg:  #fef08a;
     --color-consensus-mismatch-border: #ca8a04;
+
+    /* Contig panel */
+    --color-contig-bg:              #0c1929;
+    --color-contig-border:          #0ea5e9;
+    --color-contig-title-fg:        #7dd3fc;
+    --color-contig-summary-fg:      #38bdf8;
+    --color-contig-seq-bg:          #1e293b;
+    --color-contig-fwd-bg:          #1e3a5f;
+    --color-contig-fwd-border:      #3b82f6;
+    --color-contig-rev-bg:          #2e1065;
+    --color-contig-rev-border:      #7c3aed;
+    --color-contig-cons-bg:         #0d2a1a;
+    --color-contig-cons-border:     #4ade80;
+    --color-contig-overlap-bg:      rgba(14, 165, 233, 0.18);
+    --color-contig-mismatch-bg:     #422006;
+    --color-contig-mismatch-fg:     #fef08a;
+    --color-contig-mismatch-border: #ca8a04;
+    --color-contig-gap-fg:          #64748b;
   }
 }
 
@@ -1321,6 +1357,199 @@ canvas {
   background: var(--color-consensus-mismatch-bg);
   color: var(--color-consensus-mismatch-fg);
   border-bottom: 2px solid var(--color-consensus-mismatch-border);
+  border-radius: 2px;
+  font-weight: 700;
+}
+
+/* ─── Contig assembly panel ──────────────────────────────────────── */
+
+.contig-panel {
+  background: var(--color-contig-bg);
+  border: 1px solid var(--color-contig-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  margin: var(--space-2) 0;
+  font-size: var(--text-sm);
+}
+
+.contig-panel__header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.contig-panel__title {
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: 700;
+  color: var(--color-contig-title-fg);
+}
+
+.contig-panel__hint {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.contig-panel__actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.contig-panel__assemble-btn {
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-brand);
+  background: var(--color-brand);
+  color: var(--color-brand-fg);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.contig-panel__assemble-btn:hover:not(:disabled) {
+  background: var(--color-brand-hover);
+  border-color: var(--color-brand-hover);
+}
+
+.contig-panel__assemble-btn:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
+
+.contig-panel__assemble-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.contig-panel__export-btn {
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-contig-border);
+  background: transparent;
+  color: var(--color-contig-summary-fg);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.contig-panel__export-btn:hover:not(:disabled) {
+  background: var(--color-contig-overlap-bg);
+}
+
+.contig-panel__export-btn:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
+
+.contig-panel__export-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.contig-panel__status {
+  min-height: 1.25rem;
+}
+
+.contig-panel__status-text {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.contig-panel[data-status-kind="error"] .contig-panel__status-text {
+  color: var(--color-error-text);
+}
+
+.contig-panel[data-status-kind="success"] .contig-panel__status-text {
+  color: var(--color-success-text);
+}
+
+.contig-panel__body {
+  margin-top: var(--space-3);
+}
+
+.contig-panel__summary {
+  color: var(--color-contig-summary-fg);
+  font-weight: 600;
+  margin-bottom: var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.contig-panel__rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  overflow-x: auto;
+}
+
+.contig-panel__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 2rem;
+}
+
+.contig-panel__row-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: var(--color-text-muted);
+  min-width: 3rem;
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.contig-panel__seq {
+  display: flex;
+  flex-wrap: nowrap;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  letter-spacing: 0.05em;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  overflow-x: visible;
+}
+
+/* Row-specific backgrounds */
+.contig-panel__row:first-child .contig-panel__seq {
+  background: var(--color-contig-fwd-bg);
+  border-color: var(--color-contig-fwd-border);
+}
+
+.contig-panel__row:nth-child(2) .contig-panel__seq {
+  background: var(--color-contig-rev-bg);
+  border-color: var(--color-contig-rev-border);
+}
+
+.contig-panel__row--cons .contig-panel__seq {
+  background: var(--color-contig-cons-bg);
+  border-color: var(--color-contig-cons-border);
+  font-weight: 600;
+}
+
+.contig-base {
+  display: inline-block;
+  min-width: 1ch;
+}
+
+/* Gap placeholder dots */
+.contig-base--gap {
+  color: var(--color-contig-gap-fg);
+}
+
+/* Overlap region highlight */
+.contig-base--overlap {
+  background: var(--color-contig-overlap-bg);
+}
+
+/* Disagreement positions in the consensus row */
+.contig-base--mismatch {
+  background: var(--color-contig-mismatch-bg);
+  color: var(--color-contig-mismatch-fg);
+  border-bottom: 2px solid var(--color-contig-mismatch-border);
   border-radius: 2px;
   font-weight: 700;
 }
