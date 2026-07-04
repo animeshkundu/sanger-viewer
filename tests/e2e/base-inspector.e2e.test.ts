@@ -104,7 +104,7 @@ test('hover tooltip still renders peak data text', { tag: ['@desktop'] }, async 
   await expect(page.locator('.tooltip')).toContainText('peak:')
 })
 
-test('only the focused span carries active ARIA attributes — other spans remain inactive', async ({ page }) => {
+test('only the focused span carries active ARIA attributes - other spans remain inactive', async ({ page }) => {
   await loadFixture(page)
   const span0 = page.locator(`.sequence-panel span[data-base-index="0"]`)
   const span1 = page.locator(`.sequence-panel span[data-base-index="1"]`)
