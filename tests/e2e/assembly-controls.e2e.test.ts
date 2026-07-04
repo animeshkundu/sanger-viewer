@@ -187,7 +187,7 @@ test.describe('Manual assembly controls', () => {
     // Changing min-overlap fires change event → re-assembly should run
     // (sets the status to 'Assembling…' then to the result)
     await overlapInput.fill('15')
-    await overlapInput.dispatchEvent('change')
+    await overlapInput.press('Tab')  // blur triggers the native change event
 
     // Wait for status update — should still be non-empty
     await expect(statusSpan).not.toBeEmpty()
