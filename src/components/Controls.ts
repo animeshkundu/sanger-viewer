@@ -35,8 +35,8 @@ export function createControls(): HTMLDivElement {
         />
       </label>
       <div class="search-actions">
-        <button type="button" data-action="search-prev" aria-label="Previous match">Prev</button>
-        <button type="button" data-action="search-next" aria-label="Next match">Next</button>
+        <button type="button" data-action="search-prev">Previous match</button>
+        <button type="button" data-action="search-next">Next match</button>
         <button type="button" data-action="search-clear" aria-label="Clear search">Clear</button>
       </div>
       <span id="search-summary" class="search-summary" aria-live="polite" aria-atomic="true"></span>
