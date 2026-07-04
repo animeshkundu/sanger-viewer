@@ -1,41 +1,20 @@
 import path from 'node:path'
-import fs from 'node:fs/promises'
 import { test, expect, type Page } from '@playwright/test'
-import { parseTrace } from '../../src/parsers'
-import { callMixedBases, DEFAULT_MIXED_BASE_THRESHOLD } from '../../src/calling/mixedBase'
-import { getBaseInspectorInfo } from '../../src/components/BaseInspector'
 
 const FIXTURE = path.resolve(process.cwd(), 'fixtures/ab1/310.ab1')
 const KNOWN_INDEX = 0
 
-type ExpectedInspector = {
-  position: string
-  base: string
-  quality: string
-  peakAmplitude: string
-  ariaLabel: string
-}
-
-const expectedInspectorPromise: Promise<ExpectedInspector> = (async () => {
-  const fixture = await fs.readFile(FIXTURE)
-  const buffer = fixture.buffer.slice(fixture.byteOffset, fixture.byteOffset + fixture.byteLength)
-  const trace = parseTrace(buffer, '310.ab1')
-  const mixed = callMixedBases(trace, DEFAULT_MIXED_BASE_THRESHOLD)
-  const displayTrace = {
-    ...trace,
-    baseCalls: mixed.baseCalls,
-    sequence: mixed.sequence,
-  }
-  const info = getBaseInspectorInfo(displayTrace, KNOWN_INDEX)
-  if (!info) throw new Error('Failed to resolve known base inspector info')
-  return {
-    position: String(info.position),
-    base: info.base,
-    quality: String(info.quality ?? 'n/a'),
-    peakAmplitude: String(info.peakAmplitude),
-    ariaLabel: info.ariaLabel,
-  }
-})()
+// Golden values for fixtures/ab1/310.ab1 at index 0 (forward strand, default mixed-base threshold).
+// Verified by running getBaseInspectorInfo against the parsed fixture:
+//   position=1, base="T", quality=0, peakAmplitude=232
+// Update this block if the fixture or parsing logic changes.
+const EXPECTED = {
+  position: '1',
+  base: 'T',
+  quality: '0',
+  peakAmplitude: '232',
+  ariaLabel: 'Base inspector: position 1, base T, PHRED 0, peak amplitude 232',
+} as const
 
 async function loadFixture(page: Page): Promise<void> {
   await page.goto('')
@@ -43,19 +22,18 @@ async function loadFixture(page: Page): Promise<void> {
   await expect(page.locator('#status')).toContainText('Loaded')
 }
 
-async function expectExactInspector(page: Page, expected: ExpectedInspector) {
+async function expectExactInspector(page: Page) {
   const inspector = page.locator('#base-inspector')
   await expect(inspector).toBeVisible()
   await expect(inspector).toHaveAttribute('role', 'dialog')
-  await expect(inspector).toHaveAttribute('aria-label', expected.ariaLabel)
-  await expect(inspector.locator('[data-field="position"]')).toHaveText(expected.position)
-  await expect(inspector.locator('[data-field="base"]')).toHaveText(expected.base)
-  await expect(inspector.locator('[data-field="quality"]')).toHaveText(expected.quality)
-  await expect(inspector.locator('[data-field="peak-amplitude"]')).toHaveText(expected.peakAmplitude)
+  await expect(inspector).toHaveAttribute('aria-label', EXPECTED.ariaLabel)
+  await expect(inspector.locator('[data-field="position"]')).toHaveText(EXPECTED.position)
+  await expect(inspector.locator('[data-field="base"]')).toHaveText(EXPECTED.base)
+  await expect(inspector.locator('[data-field="quality"]')).toHaveText(EXPECTED.quality)
+  await expect(inspector.locator('[data-field="peak-amplitude"]')).toHaveText(EXPECTED.peakAmplitude)
 }
 
 test('shows exact base inspector data and ARIA semantics for a known base', async ({ page }) => {
-  const expected = await expectedInspectorPromise
   await loadFixture(page)
   const target = page.locator(`.sequence-panel span[data-base-index="${KNOWN_INDEX}"]`)
 
@@ -63,28 +41,27 @@ test('shows exact base inspector data and ARIA semantics for a known base', asyn
   await expect(target).toHaveAttribute('aria-haspopup', 'dialog')
   await expect(target).toHaveAttribute('aria-expanded', 'true')
   await expect(target).toHaveAttribute('aria-describedby', 'base-inspector')
-  await expectExactInspector(page, expected)
+  await expectExactInspector(page)
 
   await page.keyboard.press('Escape')
   await expect(page.locator('#base-inspector')).toBeHidden()
   await expect(target).toHaveAttribute('aria-expanded', 'false')
 
   await page.keyboard.press('Enter')
-  await expectExactInspector(page, expected)
+  await expectExactInspector(page)
   await page.keyboard.press('Escape')
 
   await page.keyboard.press('Space')
-  await expectExactInspector(page, expected)
+  await expectExactInspector(page)
 })
 
 test('closes inspector on focus leaving sequence panel and works in dark mode', async ({ page }) => {
-  const expected = await expectedInspectorPromise
   await page.emulateMedia({ colorScheme: 'dark' })
   await loadFixture(page)
   const target = page.locator(`.sequence-panel span[data-base-index="${KNOWN_INDEX}"]`)
 
   await target.focus()
-  await expectExactInspector(page, expected)
+  await expectExactInspector(page)
   await expect.poll(async () =>
     page.evaluate(() =>
       getComputedStyle(document.documentElement).getPropertyValue('--color-inspector-bg').trim())

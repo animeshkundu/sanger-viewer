@@ -594,6 +594,12 @@ export function createTraceViewer(): HTMLDivElement {
       return
     }
 
+    // Suppress hover tooltip while the keyboard inspector is open so they don't overlap.
+    if (!select && inspectorDisplayIndex !== null) {
+      hoveredBaseIndex = hit.index
+      refreshSequence()
+      return
+    }
     showTooltip(tooltip, hit, clientX, clientY)
     if (select) {
       selectedBaseIndex = hit.index
