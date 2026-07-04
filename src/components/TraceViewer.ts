@@ -1155,6 +1155,7 @@ export function createTraceViewer(): HTMLDivElement {
   }
 
   // Double-click on a base span → enter editing mode for that position.
+  // (Keyboard Enter/Space is reserved for the base inspector path.)
   // We do NOT call refreshSequence() here: instead we update the span's CSS class
   // directly on the existing DOM node so the focused element stays in the DOM and
   // subsequent keyboard events are captured by our delegated keydown handler.
