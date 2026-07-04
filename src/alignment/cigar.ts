@@ -52,21 +52,21 @@ export function buildCigar(ops: CigarOp[]): string {
  * @param readPos  0-based index into the read.
  */
 export function readPosToRefPos(cigar: CigarSegment[], readPos: number): number | null {
-  let rPos = 0
-  let qPos = 0
+  let refPos = 0
+  let readIdx = 0
   for (const { len, op } of cigar) {
     if (op === 'M') {
-      if (readPos < qPos + len) return rPos + (readPos - qPos)
-      rPos += len
-      qPos += len
+      if (readPos < readIdx + len) return refPos + (readPos - readIdx)
+      refPos += len
+      readIdx += len
     } else if (op === 'I') {
-      if (readPos < qPos + len) return null   // insertion — no ref coordinate
-      qPos += len
+      if (readPos < readIdx + len) return null   // insertion — no ref coordinate
+      readIdx += len
     } else if (op === 'D') {
-      rPos += len
+      refPos += len
     } else if (op === 'S') {
-      if (readPos < qPos + len) return null   // soft-clipped — outside alignment
-      qPos += len
+      if (readPos < readIdx + len) return null   // soft-clipped — outside alignment
+      readIdx += len
     }
   }
   return null
@@ -81,20 +81,20 @@ export function readPosToRefPos(cigar: CigarSegment[], readPos: number): number 
  * @param refPos  0-based index relative to alignment refStart.
  */
 export function refPosToReadPos(cigar: CigarSegment[], refPos: number): number | null {
-  let rPos = 0
-  let qPos = 0
+  let refIdx = 0
+  let readIdx = 0
   for (const { len, op } of cigar) {
     if (op === 'M') {
-      if (refPos < rPos + len) return qPos + (refPos - rPos)
-      rPos += len
-      qPos += len
+      if (refPos < refIdx + len) return readIdx + (refPos - refIdx)
+      refIdx += len
+      readIdx += len
     } else if (op === 'I') {
-      qPos += len
+      readIdx += len
     } else if (op === 'D') {
-      if (refPos < rPos + len) return null   // deleted — no read base
-      rPos += len
+      if (refPos < refIdx + len) return null   // deleted — no read base
+      refIdx += len
     } else if (op === 'S') {
-      qPos += len
+      readIdx += len
     }
   }
   return null

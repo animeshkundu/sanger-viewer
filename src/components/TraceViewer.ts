@@ -97,6 +97,7 @@ type SearchState = {
 
 const ANNOTATION_VIEWPORT_EXTRA_BASES = 12
 const ANNOTATION_FEATURE_PADDING_BASES = 6
+const DEFAULT_ALIGNMENT_BANDWIDTH = 20
 
 export function createTraceViewer(): HTMLDivElement {
   const root = document.createElement('div')
@@ -811,7 +812,7 @@ export function createTraceViewer(): HTMLDivElement {
     setReferencePanelStatus(referencePanelElements, 'Aligning…', 'idle')
 
     // Run synchronously (sequences are short for Sanger reads).
-    const result = alignReadToReference(readSeq, refSeq, refName, activeSlotId ?? 'slot', 20)
+    const result = alignReadToReference(readSeq, refSeq, refName, activeSlotId ?? 'slot', DEFAULT_ALIGNMENT_BANDWIDTH)
     alignmentResult = result
     referenceSequence = refSeq
     referenceId = refName

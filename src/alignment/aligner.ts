@@ -83,34 +83,34 @@ function bandedSemiGlobal(read: string, reference: string, bandwidth = 15): Alig
 
   // ── Traceback ────────────────────────────────────────────────────────────
   const ops: CigarOp[] = []
-  let i = n
-  let j = bestJ
+  let readIdx = n
+  let refIdx = bestJ
 
-  while (i > 0 && j > 0) {
-    const cur = H[i * (m + 1) + j]
-    const diag = H[(i - 1) * (m + 1) + (j - 1)]
-    const up   = H[(i - 1) * (m + 1) + j]
-    const left = H[i * (m + 1) + (j - 1)]
+  while (readIdx > 0 && refIdx > 0) {
+    const cur = H[readIdx * (m + 1) + refIdx]
+    const diag = H[(readIdx - 1) * (m + 1) + (refIdx - 1)]
+    const up   = H[(readIdx - 1) * (m + 1) + refIdx]
+    const left = H[readIdx * (m + 1) + (refIdx - 1)]
 
-    const diagScore = diag + iupacScore(read[i - 1], reference[j - 1])
+    const diagScore = diag + iupacScore(read[readIdx - 1], reference[refIdx - 1])
     if (Math.abs(cur - diagScore) < 0.5) {
       ops.push('M')
-      i--; j--
+      readIdx--; refIdx--
     } else if (Math.abs(cur - (up + GAP_EXTEND)) < 0.5 || Math.abs(cur - (up + GAP_OPEN)) < 0.5) {
       ops.push('I')  // gap in reference (insertion in read)
-      i--
+      readIdx--
     } else if (Math.abs(cur - (left + GAP_EXTEND)) < 0.5 || Math.abs(cur - (left + GAP_OPEN)) < 0.5) {
       ops.push('D')  // gap in read (deletion from read)
-      j--
+      refIdx--
     } else {
       // Fallback: diagonal
       ops.push('M')
-      i--; j--
+      readIdx--; refIdx--
     }
   }
 
   // Consume remaining read bases as insertions (soft-clip not used in NW)
-  while (i > 0) { ops.push('I'); i-- }
+  while (readIdx > 0) { ops.push('I'); readIdx-- }
 
   ops.reverse()
   const cigar = buildCigar(ops)
@@ -120,7 +120,7 @@ function bandedSemiGlobal(read: string, reference: string, bandwidth = 15): Alig
   const insertions: number[] = []
   const deletions: number[] = []
 
-  const refStart = j   // 0-based; j stopped before the alignment started
+  const refStart = refIdx   // 0-based; refIdx stopped before the alignment started
   let readPos = 0
   let refPos = 0
 

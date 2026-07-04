@@ -38,10 +38,10 @@ export function iupacBases(code: string): readonly string[] {
  * Returns true when the two codes share at least one canonical base.
  */
 export function iupacMatch(a: string, b: string): boolean {
-  const ba = iupacBases(a)
-  const bb = iupacBases(b)
-  for (const x of ba) {
-    if (bb.includes(x)) return true
+  const basesA = iupacBases(a)
+  const basesB = iupacBases(b)
+  for (const x of basesA) {
+    if (basesB.includes(x)) return true
   }
   return false
 }
