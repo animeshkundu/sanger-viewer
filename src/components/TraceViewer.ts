@@ -183,7 +183,7 @@ export function createTraceViewer(): HTMLDivElement {
   const successText = root.querySelector<HTMLElement>('#success-text')!
   const sampleBtn = root.querySelector<HTMLButtonElement>('#sample-load-btn')!
   const searchInput = controls.querySelector<HTMLInputElement>('#search-input')!
-  const canvas = root.querySelector<HTMLCanvasElement>('canvas')!
+  const canvas = root.querySelector<HTMLCanvasElement>('[data-testid="chromatogram-canvas"]')!
   canvas.style.touchAction = 'none'
 
   const renderer = new ChromatogramCanvas(canvas)

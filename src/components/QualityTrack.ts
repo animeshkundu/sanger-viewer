@@ -62,6 +62,7 @@ export function createQualityTrack(): QualityTrackHandle {
   let lastModel: QualityTrackModel | null = null
   let themeMediaQuery: MediaQueryList | null = null
   let themeObserver: MutationObserver | null = null
+  let themeRaf = 0
   const setVisible = (next: boolean) => {
     visible = next
     root.setAttribute('data-visible', String(visible))
@@ -128,7 +129,11 @@ export function createQualityTrack(): QualityTrackHandle {
   }
 
   const handleThemeChange = () => {
-    draw(lastModel)
+    if (themeRaf) return
+    themeRaf = requestAnimationFrame(() => {
+      themeRaf = 0
+      draw(lastModel)
+    })
   }
 
   if (typeof window !== 'undefined') {
@@ -137,14 +142,7 @@ export function createQualityTrack(): QualityTrackHandle {
   }
   if (typeof MutationObserver !== 'undefined') {
     themeObserver = new MutationObserver((mutations) => {
-      const shouldRedraw = mutations.some(
-        (mutation) =>
-          mutation.type === 'attributes'
-          && (mutation.attributeName === 'class'
-            || mutation.attributeName === 'data-theme'
-            || mutation.attributeName === 'style'),
-      )
-      if (shouldRedraw) handleThemeChange()
+      if (mutations.length > 0) handleThemeChange()
     })
     themeObserver.observe(document.documentElement, {
       attributes: true,
@@ -153,6 +151,10 @@ export function createQualityTrack(): QualityTrackHandle {
   }
 
   const destroy = () => {
+    if (themeRaf) {
+      cancelAnimationFrame(themeRaf)
+      themeRaf = 0
+    }
     themeObserver?.disconnect()
     themeObserver = null
     themeMediaQuery?.removeEventListener('change', handleThemeChange)
