@@ -313,6 +313,10 @@ export function createTraceViewer(): HTMLDivElement {
   shellSidebar.append(sidebarToggleBtn, sidebarInner)
   appShell.append(shellHero, shellSidebar)
   root.insertBefore(appShell, dropzone)
+  // canvasWrap MUST come before annotationTrack.element here.  If the annotation
+  // track (which can be 260 px+ for traces with many features) is placed above
+  // the canvas it pushes the canvas below the 720 px CI viewport, causing
+  // document.elementFromPoint() to return null and breaking pointermove / tooltip.
   shellHero.append(
     dropzone,
     workspaceBar,
