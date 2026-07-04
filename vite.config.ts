@@ -35,7 +35,8 @@ export default defineConfig(({ command }) => ({
         blogReferenceAlignmentEntry: fileURLToPath(new URL('./blog/2026-07-04-v21-reference-alignment/index.html', import.meta.url)),
         blogAnnotationA11yEntry: fileURLToPath(new URL('./blog/2026-07-04-v22-annotation-a11y/index.html', import.meta.url)),
         blogContigAssemblyEntry: fileURLToPath(new URL('./blog/2026-07-04-v22-contig-assembly/index.html', import.meta.url)),
-        blogPrimerDesignEntry: fileURLToPath(new URL('./blog/2026-07-04-v23-primer-design/index.html', import.meta.url))
+        blogPrimerDesignEntry: fileURLToPath(new URL('./blog/2026-07-04-v23-primer-design/index.html', import.meta.url)),
+        blogDesignSystemEntry: fileURLToPath(new URL('./blog/2026-07-04-v24-design-system/index.html', import.meta.url))
       }
     }
   },
