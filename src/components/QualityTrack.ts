@@ -62,6 +62,7 @@ export function createQualityTrack(): QualityTrackHandle {
   let lastModel: QualityTrackModel | null = null
   let themeMediaQuery: MediaQueryList | null = null
   let themeObserver: MutationObserver | null = null
+  let resizeObserver: ResizeObserver | null = null
   let themeRaf = 0
   const setVisible = (next: boolean) => {
     visible = next
@@ -149,12 +150,18 @@ export function createQualityTrack(): QualityTrackHandle {
       attributeFilter: ['class', 'data-theme', 'style'],
     })
   }
+  if (typeof ResizeObserver !== 'undefined') {
+    resizeObserver = new ResizeObserver(() => draw(lastModel))
+    resizeObserver.observe(canvasWrap)
+  }
 
   const destroy = () => {
     if (themeRaf) {
       cancelAnimationFrame(themeRaf)
       themeRaf = 0
     }
+    resizeObserver?.disconnect()
+    resizeObserver = null
     themeObserver?.disconnect()
     themeObserver = null
     themeMediaQuery?.removeEventListener('change', handleThemeChange)

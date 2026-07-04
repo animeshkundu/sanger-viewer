@@ -62,7 +62,9 @@ describe('computeQualityBars', () => {
       { baseIndex: 2, x: 89, score: 10 },
     ])
   })
+})
 
+describe('computeBarDrawLeft', () => {
   it('keeps first and last centered bars fully on-canvas', () => {
     expect(computeBarDrawLeft(0, 3, 100)).toBe(0)
     expect(computeBarDrawLeft(100, 3, 100)).toBe(97)
