@@ -1274,6 +1274,8 @@ export function createTraceViewer(): HTMLDivElement {
   fileInput.addEventListener('change', () => {
     const file = fileInput.files?.[0]
     if (file) void load(file)
+    // Reset so the same file can be re-opened if desired (e.g., clone-screen compare).
+    fileInput.value = ''
   })
 
   fileInputExtra.addEventListener('change', () => {
