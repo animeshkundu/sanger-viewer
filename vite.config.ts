@@ -23,6 +23,7 @@ export default defineConfig(({ command }) => ({
         blogQualityTrackEntry: fileURLToPath(new URL('./blog/2026-07-03-v14-quality-track/index.html', import.meta.url)),
         blogQaPolishEntry: fileURLToPath(new URL('./blog/2026-07-04-v15-qa-polish/index.html', import.meta.url)),
         blogBaseInspectorEntry: fileURLToPath(new URL('./blog/2026-07-04-v16-base-inspector/index.html', import.meta.url)),
+        blogAuditEntry: fileURLToPath(new URL('./blog/2026-07-04-v17-perf-reliability-audit/index.html', import.meta.url)),
         blogDesignResearchEntry: fileURLToPath(new URL('./blog/2026-07-04-v17-design-research/index.html', import.meta.url))
       }
     }
