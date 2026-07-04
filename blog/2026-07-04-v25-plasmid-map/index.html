@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>2026-07-04 — v25 plasmid/linear map + exact trace-linked navigation | sanger-viewer devlog</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-shell">
+        <a class="site-title" href="../../">sanger-viewer</a>
+        <nav class="site-nav" aria-label="Site">
+          <a href="../">Devlog</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="site-shell blog-entry">
+      <p><a href="../">← Back to devlog</a></p>
+      <h1>2026-07-04 — v25 plasmid/linear map + exact trace-linked navigation</h1>
+      <p><time datetime="2026-07-04">July 4, 2026</time></p>
+
+      <p>
+        I shipped a proper sequence-map layer today: the same loaded read can now be explored as either a circular plasmid map or a linear backbone, with ORF and restriction overlays directly tied to trace evidence. The key outcome is precision — selecting any map marker now jumps to the exact underlying base range and opens the inspector at the exact start base, so there is no ambiguity between what the map claims and what the chromatogram supports.
+      </p>
+
+      <h2>What changed</h2>
+      <ul>
+        <li><strong>Restriction-site model.</strong> Added a dedicated module that computes exact 1-based site positions and enzyme names (plus origin-wrap support for circular mode).</li>
+        <li><strong>Map rendering.</strong> Added a topology toggle (Circular/Linear) with deterministic state attributes and marker coordinates aligned to sequence length.</li>
+        <li><strong>Trace-linked navigation.</strong> Clicking/keyboard-activating markers now focuses the chromatogram on the exact range and opens the inspector at that exact start index.</li>
+        <li><strong>Sync + empty-state behavior.</strong> The map reflects the current viewport range and clears cleanly when no trace is loaded.</li>
+        <li><strong>A11y + theme parity.</strong> Marker controls are keyboard-operable with visible focus, and color tokens are tuned for contrast checks in light and dark modes.</li>
+      </ul>
+
+      <h2>Tests</h2>
+      <ul>
+        <li><code>tests/core/plasmidMap.test.ts</code> — exact 1-based restriction coordinates, circular-origin wraps, circular-angle math.</li>
+        <li><code>tests/e2e/plasmid-map.e2e.test.ts</code> — deterministic DOM attributes, exact click/Enter jump-to-base behavior, no-trace hiding, and contrast thresholds.</li>
+      </ul>
+    </main>
+  </body>
+</html>
