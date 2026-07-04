@@ -198,7 +198,38 @@ test.describe('Clone-screen stacked viewer', () => {
     expect(bp).toBeGreaterThan(0)
   })
 
-  // ── Test 16: EXACT — listeners not accumulated across repaints ────────────────
+  // ── Test 16: EXACT — BracketRight/BracketLeft jump to exact prev/next mismatch ─
+  test('EXACT: BracketRight jumps to next mismatch; BracketLeft jumps back to prev mismatch', async ({ page }) => {
+    // FIXTURE_A vs FIXTURE_B produces mismatches — use them for bracket navigation.
+    await loadTrace(page, FIXTURE_A)
+    await loadTrace(page, FIXTURE_B)
+    const panel = page.locator('[data-testid="clone-screen-panel"]')
+    const cursorInfo = page.locator('[data-testid="clone-screen-cursor-info"]')
+
+    await panel.focus()
+
+    // BracketRight must jump forward to the FIRST mismatch.
+    await page.keyboard.press('BracketRight')
+    const textAfterFirst = await cursorInfo.textContent()
+    const m1 = textAfterFirst?.match(/Position (\d+)/)
+    expect(m1).not.toBeNull()
+    const firstMismatchPos = parseInt(m1![1], 10)
+    expect(firstMismatchPos).toBeGreaterThan(1) // jumped beyond the start
+
+    // BracketRight again must jump forward to the SECOND mismatch.
+    await page.keyboard.press('BracketRight')
+    const textAfterSecond = await cursorInfo.textContent()
+    const m2 = textAfterSecond?.match(/Position (\d+)/)
+    expect(m2).not.toBeNull()
+    const secondMismatchPos = parseInt(m2![1], 10)
+    expect(secondMismatchPos).toBeGreaterThan(firstMismatchPos) // advanced further
+
+    // BracketLeft must jump EXACTLY back to the first mismatch position.
+    await page.keyboard.press('BracketLeft')
+    await expect(cursorInfo).toContainText(`Position ${firstMismatchPos}`)
+  })
+
+  // ── Test 17: EXACT — listeners not accumulated across repaints ────────────────
   test('EXACT: many cursor moves then one keypress moves exactly one position (no listener leak)', async ({ page }) => {
     await loadTrace(page, FIXTURE_A)
     await loadTrace(page, FIXTURE_A)

@@ -76,7 +76,7 @@ export function createCloneScreenPanel(
     const { result, cursorPos } = elements._state
     if (!result) return
     const { mismatchIndices, length } = result
-    switch (e.key) {
+    switch (e.code) {
       case 'ArrowLeft':
         e.preventDefault()
         _moveCursor(elements, cursorPos - 1)
@@ -85,14 +85,12 @@ export function createCloneScreenPanel(
         e.preventDefault()
         _moveCursor(elements, cursorPos + 1)
         break
-      case '[':
       case 'BracketLeft': {
         e.preventDefault()
         const p = prevMismatch(mismatchIndices, cursorPos)
         if (p !== null) _moveCursor(elements, p)
         break
       }
-      case ']':
       case 'BracketRight': {
         e.preventDefault()
         const n = nextMismatch(mismatchIndices, cursorPos)
