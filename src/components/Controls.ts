@@ -19,6 +19,7 @@ export function createControls(): HTMLDivElement {
     <button data-action="export-fastq">Export FASTQ</button>
     <button data-action="export-qual">Export QUAL</button>
     <button data-action="export-consensus-fasta" data-testid="export-consensus-fasta" disabled>Export Consensus FASTA</button>
+    <button data-action="print" data-testid="print-btn" aria-label="Print / Save as PDF" title="Print / Save as PDF" disabled>🖨 Print / Save as PDF</button>
     <button data-action="undo" aria-label="Undo base edit (Ctrl+Z)" title="Undo (Ctrl+Z)" disabled>↩ Undo</button>
     <button data-action="redo" aria-label="Redo base edit (Ctrl+Shift+Z)" title="Redo (Ctrl+Shift+Z)" disabled>↪ Redo</button>
     <div class="search-controls" role="group" aria-label="Sequence search">
@@ -105,7 +106,7 @@ export function setControlsDisabled(controls: HTMLDivElement, disabled: boolean)
     const action = (btn as HTMLButtonElement).getAttribute('data-action')
     // Undo/redo and export-consensus-fasta have their own enabled-state management;
     // only force-disable them during loading, never auto-enable on re-enable.
-    if (!disabled && (action === 'undo' || action === 'redo' || action === 'export-consensus-fasta')) return
+    if (!disabled && (action === 'undo' || action === 'redo' || action === 'export-consensus-fasta' || action === 'print')) return
     ;(btn as HTMLButtonElement).disabled = disabled
   })
   const slider = controls.querySelector<HTMLInputElement>('[data-trim="threshold"]')
@@ -200,5 +201,14 @@ export function setUndoRedoState(controls: HTMLDivElement, canUndo: boolean, can
  */
 export function setConsensusFastaButtonState(controls: HTMLDivElement, enabled: boolean): void {
   const btn = controls.querySelector<HTMLButtonElement>('[data-action="export-consensus-fasta"]')
+  if (btn) btn.disabled = !enabled
+}
+
+/**
+ * Enable or disable the "Print / Save as PDF" button.
+ * Enabled only when a trace is currently loaded (rawTrace !== null).
+ */
+export function setPrintButtonState(controls: HTMLDivElement, enabled: boolean): void {
+  const btn = controls.querySelector<HTMLButtonElement>('[data-action="print"]')
   if (btn) btn.disabled = !enabled
 }
