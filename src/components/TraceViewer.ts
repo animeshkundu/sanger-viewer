@@ -35,6 +35,16 @@ import {
   clearContigPanel,
   type ContigPanelElements,
 } from './ContigPanel'
+import {
+  createPrimerPanel,
+  renderPrimerResults,
+  setPrimerPanelStatus,
+  clearPrimerPanel,
+  type PrimerPanelElements,
+} from './PrimerPanel'
+import { findPrimerBindingSites } from '../primers/binding'
+import { predictAmplicons, ampliconToFasta } from '../primers/pcr'
+import type { PrimerEntry } from '../types/primer'
 import { downloadBlob } from '../export/png'
 import { toFasta } from '../export/fasta'
 import { toFastq, toQual } from '../export/fastq'
@@ -202,9 +212,10 @@ export function createTraceViewer(): HTMLDivElement {
   const referencePanelElements: ReferencePanelElements = createReferencePanel()
   const variantTableElements: VariantTableElements = createVariantTable()
   const contigPanelElements: ContigPanelElements = createContigPanel()
+  const primerPanelElements: PrimerPanelElements = createPrimerPanel()
   const canvasWrap = root.querySelector<HTMLElement>('.canvas-wrap')!
   root.insertBefore(annotationTrack.element, canvasWrap)
-  root.append(qualityTrack.element, controls, workspaceBar, readout, sequencePanel, baseInspector, metadataPanel, consensusRow, referencePanelElements.root, variantTableElements.root, contigPanelElements.root, tooltip)
+  root.append(qualityTrack.element, controls, workspaceBar, readout, sequencePanel, baseInspector, metadataPanel, consensusRow, referencePanelElements.root, variantTableElements.root, contigPanelElements.root, primerPanelElements.root, tooltip)
   setVariantTableVisible(variantTableElements, false)
 
   const fileInput = root.querySelector<HTMLInputElement>('#file-input')!
@@ -806,6 +817,7 @@ export function createTraceViewer(): HTMLDivElement {
     // Clear previous result whenever the resident trace set changes.
     currentContig = null
     clearContigPanel(contigPanelElements)
+    clearPrimerPanel(primerPanelElements)
   }
 
   /**
@@ -1302,6 +1314,41 @@ export function createTraceViewer(): HTMLDivElement {
     const fasta = toContigFasta(currentContig)
     const blob = new Blob([fasta], { type: 'text/plain' })
     downloadBlob(blob, 'contig.fasta')
+  })
+
+  // ── Primer / in-silico PCR events ──────────────────────────────────────────
+  root.addEventListener('run-pcr', (event) => {
+    const { forward, reverse } = (event as CustomEvent<{ forward: PrimerEntry; reverse: PrimerEntry }>).detail
+    if (!rawTrace) {
+      setPrimerPanelStatus(primerPanelElements, 'Load a trace first.', 'error')
+      return
+    }
+    const displayTrace = renderer.getCurrentTrace() ?? rawTrace
+    const templateSeq = displayTrace.sequence.toUpperCase()
+
+    clearPrimerPanel(primerPanelElements)
+    setPrimerPanelStatus(primerPanelElements, 'Searching…', 'idle')
+
+    const fwdSites = findPrimerBindingSites('fwd', forward.sequence, templateSeq, 2)
+    const revSites = findPrimerBindingSites('rev', reverse.sequence, templateSeq, 2)
+    const amplicons = predictAmplicons(fwdSites, revSites, templateSeq, false, 5000)
+
+    renderPrimerResults(primerPanelElements, fwdSites, revSites, amplicons, forward, reverse)
+  })
+
+  primerPanelElements.exportBtn.addEventListener('click', () => {
+    const root2 = primerPanelElements.root as HTMLDivElement & {
+      _amplicons?: import('../types/primer').PredictedAmplicon[]
+      _fwdEntry?: PrimerEntry
+      _revEntry?: PrimerEntry
+    }
+    const amplicons = root2._amplicons
+    const fwdEntry  = root2._fwdEntry
+    const revEntry  = root2._revEntry
+    if (!amplicons?.length || !fwdEntry || !revEntry) return
+    const fasta = ampliconToFasta(amplicons[0], fwdEntry.name, revEntry.name)
+    const blob = new Blob([fasta], { type: 'text/plain' })
+    downloadBlob(blob, 'amplicon.fasta')
   })
 
   // ── Reference alignment events ─────────────────────────────────────────────
