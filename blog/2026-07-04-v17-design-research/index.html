@@ -1,0 +1,606 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>2026-07-04 — v17 competitor-grounded design research | sanger-viewer devlog</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-shell">
+        <a class="site-title" href="../../">sanger-viewer</a>
+        <nav class="site-nav" aria-label="Site">
+          <a href="../">Devlog</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="site-shell blog-entry">
+      <p><a href="../">← Back to devlog</a></p>
+      <h1>2026-07-04 — v17 competitor-grounded design research</h1>
+      <p><time datetime="2026-07-04">July 4, 2026</time></p>
+
+      <p>
+        This entry is intentionally docs-only. The app already has real depth — parse/render,
+        zoom/pan, reverse-complement, trimming, search, metadata, multi-trace workspace,
+        mixed-base calling, annotations, editable bases with undo/redo, FASTQ/QUAL export,
+        a quality track, and a keyboard base inspector — but today that power is spread across a
+        long toolbar and a mostly linear stack. The goal here is to study how serious trace tools
+        package that power, then make concrete layout, interaction, and design-system decisions for
+        the next implementation wave without losing a single existing capability.
+      </p>
+
+      <h2>Research method and current-product baseline</h2>
+      <p>
+        I used official product pages, vendor help centers, and official tutorials wherever I could.
+        For older tools with sparse documentation, I used the most direct product or training pages I
+        could verify. I also cross-checked the current <code>sanger-viewer</code> feature inventory
+        against the live repository controls, README, and devlog history so the proposal below maps
+        every current feature into the new information architecture instead of hand-waving about a
+        redesign.
+      </p>
+      <ul>
+        <li>Current app baseline: single-page static Vite app, GitHub Pages deployment, client-side only.</li>
+        <li>Current UX baseline: one primary toolbar plus stacked canvas, annotation track, quality track, workspace bar, readout, sequence panel, inspector, metadata panel.</li>
+        <li>Current risk: strong capability, but high command density and weak grouping make first use harder than it needs to be.</li>
+        <li>Design target: retain expert throughput, lower novice friction, preserve Pages/base-path deployment, and keep light/dark + accessibility first-class.</li>
+      </ul>
+
+      <h2>Competitor landscape at a glance</h2>
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Tool</th>
+            <th scope="col">Surface</th>
+            <th scope="col">What it gets right</th>
+            <th scope="col">What I would not copy</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row">Chromas</th>
+            <td>Desktop (Windows)</td>
+            <td>Fast single-trace focus, obvious edit/export verbs, strong batch conversion story.</td>
+            <td>Menu-bar heaviness, little progressive disclosure, no modern accessibility/dark-mode story.</td>
+          </tr>
+          <tr>
+            <th scope="row">FinchTV</th>
+            <td>Desktop (Windows/macOS/Linux distribution)</td>
+            <td>Very clear chromatogram-first reading experience with quality bars and simple zoom controls.</td>
+            <td>Single-file mental model, dated density, limited annotation/export ecosystem.</td>
+          </tr>
+          <tr>
+            <th scope="row">SnapGene</th>
+            <td>Desktop + limited viewer/web sharing story</td>
+            <td>Excellent contextual layering: trace, info, alignment, metadata, and edit flows feel related.</td>
+            <td>Feature sprawl can still feel busy; a lot of power lives behind product-specific modes.</td>
+          </tr>
+          <tr>
+            <th scope="row">UGENE</th>
+            <td>Desktop</td>
+            <td>Composable suite architecture, non-destructive edit model, integrated annotation tooling.</td>
+            <td>Heavy MDI-style density; novice cognitive load is high.</td>
+          </tr>
+          <tr>
+            <th scope="row">Geneious Prime</th>
+            <td>Desktop + cloud workspace adjacencies</td>
+            <td>Best balance of clean visual hierarchy, bulk workflows, contigs, and edit/review loops.</td>
+            <td>Large surface area assumes a broad bioinformatics workspace, not a tight focused tool.</td>
+          </tr>
+          <tr>
+            <th scope="row">Benchling</th>
+            <td>Web</td>
+            <td>Browser-native collaboration, alignments anchored to sequence records, annotations as first-class objects.</td>
+            <td>Heavy platform framing can bury the immediate trace-reading task.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>Per-competitor study</h2>
+
+      <section>
+        <h3>Chromas — the classic single-trace workbench</h3>
+        <p>
+          <strong>Surface:</strong> desktop, Windows only.
+          <a href="https://technelysium.com.au/wp/chromas/">Technelysium’s official product page</a>
+          describes Chromas as a free trace viewer for simple DNA sequencing projects that do not
+          require assembly of multiple sequences.
+        </p>
+        <ul>
+          <li><strong>Information architecture &amp; layout:</strong> effectively one document window centered on the trace. The product page emphasizes open/save/print/search/edit/export rather than panel choreography, which is a clue: Chromas optimizes for “load a chromatogram and do the obvious next thing.”</li>
+          <li><strong>Primary workflows:</strong> inspect one trace, trim low-quality/vector sequence, reverse-complement, search, export sequence/image, and batch-convert many files.</li>
+          <li><strong>Power vs ease:</strong> low abstraction. Power is present, but it is surfaced directly instead of progressively. That makes it fast for experienced users and blunt for everyone else.</li>
+          <li><strong>Trace navigation/zoom:</strong> print/zoom/fill-page language suggests a presentation-era model: the trace is the center, and navigation exists to inspect or present it rather than orchestrate multiple coordinated panels.</li>
+          <li><strong>Base editing:</strong> the public Chromas materials emphasize trimming, reverse/complement, and export more than a rich in-place edit workflow. Multi-read editing and assembly are clearly pushed toward ChromasPro.</li>
+          <li><strong>Annotations/export/multi-trace:</strong> export breadth is strong (plain text, FASTA, FASTQ, EMBL, GenBank, GCG, images, clipboard), but multi-trace assembly is explicitly out-of-scope and pushed to ChromasPro.</li>
+          <li><strong>Visual design:</strong> old-school utility UI: dense, direct, not shy about exposing commands.</li>
+          <li><strong>Accessibility:</strong> I found no public accessibility or dark-mode guidance in the official Chromas materials I reviewed.</li>
+        </ul>
+        <p>
+          <strong>Takeaway for sanger-viewer:</strong> keep the “single trace first” sharpness. Do not
+          force the user into a project shell before they can read peaks. But do not copy the flat,
+          ungrouped command exposure.
+        </p>
+        <p>
+          <strong>Sources:</strong>
+          <a href="https://technelysium.com.au/wp/chromas/">Chromas product page</a>,
+          <a href="https://technelysium.com.au/wp/chromas-version-history/">version history</a>.
+        </p>
+      </section>
+
+      <section>
+        <h3>FinchTV — trace readability with very little ceremony</h3>
+        <p>
+          <strong>Surface:</strong> desktop. The current distribution page is on
+          <a href="https://digitalworldbiology.com/finchtv">Digital World Biology</a>, which hosts
+          Mac and Windows downloads; other ecosystem references document Linux packaging as well.
+        </p>
+        <ul>
+          <li><strong>Information architecture &amp; layout:</strong> one file at a time, chromatogram first. Training material consistently shows the called sequence on top, quality bars above it, and the four-color trace below.</li>
+          <li><strong>Primary workflows:</strong> open AB1/SCF, inspect sequence quality, zoom/pan, switch strand, export DNA sequence as FASTA, optionally BLAST elsewhere.</li>
+          <li><strong>Power vs ease:</strong> FinchTV is easier than heavier suites because it refuses to become one. It keeps almost everything in a single reading surface and relies on a few obvious toggles.</li>
+          <li><strong>Trace navigation/zoom:</strong> toolbar controls plus sliders for zoom and horizontal movement are repeatedly shown in training resources. “Whole trace at once” is important: it gives orientation before the user zooms in.</li>
+          <li><strong>Base editing:</strong> modest. FinchTV is primarily a viewer/reviewer, not a broad sequence-assembly workspace.</li>
+          <li><strong>Annotations/export/multi-trace:</strong> limited annotation story; export is mostly sequence-focused rather than rich document/report generation; multi-trace comparison is not the center of the product.</li>
+          <li><strong>Visual design:</strong> compact and utilitarian. Quality bars are a strong pattern: confidence is visible without opening another view.</li>
+          <li><strong>Accessibility:</strong> I did not find public documentation for keyboard accessibility, screen reader support, or dark mode.</li>
+        </ul>
+        <p>
+          <strong>Takeaway for sanger-viewer:</strong> the quality signal belongs in the main reading
+          flow, not buried in metadata. FinchTV validates the current direction of a dedicated
+          quality track and suggests that “fit overview + focused zoom” should become a first-class
+          navigation pattern.
+        </p>
+        <p>
+          <strong>Sources:</strong>
+          <a href="https://digitalworldbiology.com/finchtv">FinchTV distribution page</a>,
+          <a href="https://chg-training.github.io/chg-training-resources/sequence_data_analysis/sanger_sequence_data/introduction/">CHG training guide</a>,
+          <a href="https://beta.sbgrid.org/software/titles/finchtv">SBGrid listing</a>.
+        </p>
+      </section>
+
+      <section>
+        <h3>SnapGene — strong contextual layering around the trace</h3>
+        <p>
+          <strong>Surface:</strong> desktop software with a free Viewer and documentation around trace
+          viewing/editing/alignment. Official references include the
+          <a href="https://www.snapgene.com/">SnapGene product site</a> and support articles for
+          <a href="https://support.snapgene.com/hc/en-us/articles/10383819682836-View-a-Sanger-Trace-File">viewing</a>,
+          <a href="https://support.snapgene.com/hc/en-us/articles/10384287083540-Edit-a-Sanger-Trace-File">editing</a>, and
+          <a href="https://support.snapgene.com/hc/en-us/articles/10384298841364-Align-Sanger-Reads-to-a-Reference-Sequence">aligning</a>
+          Sanger traces.
+        </p>
+        <ul>
+          <li><strong>Information architecture &amp; layout:</strong> the trace is one view among several coordinated document views. SnapGene treats the chromatogram as part of a richer file context: metadata, display settings, alignment context, and downstream construct context all matter.</li>
+          <li><strong>Primary workflows:</strong> open a trace, inspect base calls and quality bars, flip orientation, switch between standard and auto-scaled trace display, manually correct calls, align the read to a reference, then inspect disagreements.</li>
+          <li><strong>Power vs ease:</strong> this is the strongest example of progressive disclosure in the set. The first screen is understandable, but more layers appear when the user needs alignment, file info, or edit dialogs.</li>
+          <li><strong>Trace navigation/zoom:</strong> linear and wrapped views, scrollbars, parameter/info views, richer tooltips, and an updated trace info panel all reduce hunting.</li>
+          <li><strong>Base editing:</strong> direct but controlled. SnapGene lets users replace calls, including ambiguous IUPAC symbols, and requires saving to a trace-capable format to preserve the edit history.</li>
+          <li><strong>Annotations/export/multi-trace:</strong> strong. Trace-to-reference alignment is a core workflow, and export/share options are broad because SnapGene is really a document platform, not just a peak reader.</li>
+          <li><strong>Visual design:</strong> the modernized trace view and info panel matter. SnapGene invests in hierarchy, not just capability. The UI feels designed, not merely assembled.</li>
+          <li><strong>Accessibility:</strong> official material notes color-vision support options; I did not find broad public documentation of keyboard or screen-reader coverage, but it is the only competitor in this set where explicit color-vision accommodation surfaced in the official material.</li>
+        </ul>
+        <p>
+          <strong>Takeaway for sanger-viewer:</strong> copy the principle, not the product shape:
+          keep a clean default trace view, but make inspector, metadata, export, and compare surfaces
+          feel like related parts of one document rather than separate afterthoughts.
+        </p>
+        <p>
+          <strong>Sources:</strong>
+          <a href="https://www.snapgene.com/">SnapGene homepage</a>,
+          <a href="https://support.snapgene.com/hc/en-us/articles/10383819682836-View-a-Sanger-Trace-File">View a Sanger Trace File</a>,
+          <a href="https://support.snapgene.com/hc/en-us/articles/10384287083540-Edit-a-Sanger-Trace-File">Edit a Sanger Trace File</a>,
+          <a href="https://support.snapgene.com/hc/en-us/articles/10384298841364-Align-Sanger-Reads-to-a-Reference-Sequence">Align Sanger Reads to a Reference Sequence</a>.
+        </p>
+      </section>
+
+      <section>
+        <h3>UGENE — integrated suite power, higher cognitive load</h3>
+        <p>
+          <strong>Surface:</strong> desktop, cross-platform. The
+          <a href="https://ugene.net/docs/sequence-view-extensions/chromatogram-viewer/">Chromatogram Viewer docs</a>
+          and the
+          <a href="https://ugene.net/quick-start-guide/what-you-can-do-in-ugene/view-edit-and-annotate-dna-rna-and-protein-sequences/">Sequence View quick-start</a>
+          are especially useful here.
+        </p>
+        <ul>
+          <li><strong>Information architecture &amp; layout:</strong> the trace lives inside a larger suite shell with Project View, Sequence View, Annotations Editor, Options Panel, Task View, and Log View. That is powerful, but a lot for a user who only wants to answer “is this base real?”</li>
+          <li><strong>Primary workflows:</strong> open ABIF/SCF, inspect the embedded chromatogram, zoom into detail, toggle trace/quality visibility, create a new edited sequence, and annotate regions.</li>
+          <li><strong>Power vs ease:</strong> UGENE leans toward breadth. It supports a lot because the platform is broad; discoverability is decent once you know the suite model, but the initial cognitive load is clearly higher than FinchTV or Chromas.</li>
+          <li><strong>Trace navigation/zoom:</strong> synchronized overview/detail behavior is smart. The panoramic/detail relationship is a good pattern for large traces.</li>
+          <li><strong>Base editing:</strong> notably non-destructive. Edits are made into a new sequence above the original, with changed symbols bolded. That is a terrific reliability cue.</li>
+          <li><strong>Annotations/export/multi-trace:</strong> annotations are deeply integrated, export is broad, and there is explicit documentation for viewing two chromatograms simultaneously.</li>
+          <li><strong>Visual design:</strong> practical, tool-heavy, documentation-forward. It reads like an engineering workbench.</li>
+          <li><strong>Accessibility:</strong> I did not find public documentation for dark mode or accessibility support in the official UGENE references I reviewed.</li>
+        </ul>
+        <p>
+          <strong>Takeaway for sanger-viewer:</strong> borrow UGENE’s non-destructive edit framing and
+          overview/detail synchronization, but avoid suite-level clutter. A focused trace tool should
+          not require project/task/log scaffolding on the default screen.
+        </p>
+        <p>
+          <strong>Sources:</strong>
+          <a href="https://ugene.net/docs/sequence-view-extensions/chromatogram-viewer/">Chromatogram Viewer</a>,
+          <a href="https://ugene.net/docs/sequence-view-extensions/chromatogram-viewer/exporting-chromatogram-data/">export docs</a>,
+          <a href="https://ugene.net/docs/sequence-view-extensions/chromatogram-viewer/viewing-two-chromatograms-simultaneously/">view two chromatograms simultaneously</a>,
+          <a href="https://ugene.net/quick-start-guide/what-you-can-do-in-ugene/view-edit-and-annotate-dna-rna-and-protein-sequences/">Sequence View quick-start</a>.
+        </p>
+      </section>
+
+      <section>
+        <h3>Geneious Prime — the cleanest “power without panic” reference</h3>
+        <p>
+          <strong>Surface:</strong> desktop, with a broader workspace and cloud-adjacent data model.
+          Official references include
+          <a href="https://www.geneious.com/features/sanger-sequence-analysis">Sanger Sequence Analysis</a>,
+          <a href="https://www.geneious.com/tutorials/assembling-chromatograms">Assembling Chromatograms</a>,
+          <a href="https://www.geneious.com/series/getting-started">Getting Started</a>, and
+          <a href="https://www.geneious.com/features/import-export-sequence-data">Import/Export</a>.
+        </p>
+        <ul>
+          <li><strong>Information architecture &amp; layout:</strong> Geneious uses a document browser plus an adaptable sequence viewer. Users can import, organize, open, split the view, show graphs, annotate, and assemble without the UI feeling as busy as UGENE.</li>
+          <li><strong>Primary workflows:</strong> import ABI traces, review quality, trim ends, align/assemble forward and reverse reads, inspect disagreements, detect heterozygotes, edit calls, and export sequence or image outputs.</li>
+          <li><strong>Power vs ease:</strong> Geneious is the best example in this set of “broad capability, calm first impression.” It gets there with strong defaults, right-side option panels, visible but not overwhelming tabs, and workflow language that mirrors lab tasks.</li>
+          <li><strong>Trace navigation/zoom:</strong> zoomed-out quality overview, zoomed-in chromatogram detail, graph toggles, and contig-centric disagreement jumping all improve navigation.</li>
+          <li><strong>Base editing:</strong> mature. Edits happen inside alignments/assemblies, ambiguity review is explicit, and consensus handling is part of the model rather than a bolt-on dialog.</li>
+          <li><strong>Annotations/export/multi-trace:</strong> very strong. Geneious treats annotation, alignment, contigs, images, FASTQ/QUAL-like outputs, and downstream analysis as part of one connected workspace.</li>
+          <li><strong>Visual design:</strong> cleaner typography and hierarchy than the older desktop tools. This matters. It reduces fear before the user learns the deeper features.</li>
+          <li><strong>Accessibility:</strong> the public materials I reviewed explain workflows clearly but do not publish a substantial accessibility statement. Dark-mode support was not clearly documented in the sources I used.</li>
+        </ul>
+        <p>
+          <strong>Takeaway for sanger-viewer:</strong> this is the closest model for the redesign:
+          a compact browser-like shell, a central scientific canvas, contextual right-side controls,
+          and progressive reveal of advanced analysis instead of a giant always-on toolbar.
+        </p>
+        <p>
+          <strong>Sources:</strong>
+          <a href="https://www.geneious.com/features/sanger-sequence-analysis">Sanger Sequence Analysis</a>,
+          <a href="https://www.geneious.com/tutorials/assembling-chromatograms">Assembling Chromatograms tutorial</a>,
+          <a href="https://www.geneious.com/series/getting-started">Getting Started</a>,
+          <a href="https://www.geneious.com/features/import-export-sequence-data">Import/Export and supported formats</a>.
+        </p>
+      </section>
+
+      <section>
+        <h3>Benchling — the browser-native record system</h3>
+        <p>
+          <strong>Surface:</strong> web. The relevant official references are Benchling’s
+          <a href="https://help.benchling.com/hc/en-us/articles/39110680274189-DNA-and-RNA-sequence-overview">DNA/RNA sequence overview</a>
+          and
+          <a href="https://help.benchling.com/hc/en-us/articles/39922093033869-How-to-create-alignments">alignment workflow docs</a>,
+          both of which explicitly reference sequence record workflows and accepted AB1 alignment input.
+        </p>
+        <ul>
+          <li><strong>Information architecture &amp; layout:</strong> Benchling starts from the sequence record, not the trace file. That shifts the mental model from “open a chromatogram” to “verify or annotate a biological record with trace evidence.”</li>
+          <li><strong>Primary workflows:</strong> upload/import sequence data, align AB1 reads against a plasmid or sequence record, review mismatches, use annotations and sequence-editing tools in the same environment, and export/share the result.</li>
+          <li><strong>Power vs ease:</strong> browser-native collaboration is the main ease-of-use win. Benchling benefits from familiar web patterns — navigation, comments, records, shared links — but the trace itself is less singular than in Chromas or FinchTV.</li>
+          <li><strong>Trace navigation/zoom:</strong> the trace is contextualized inside sequence/alignment views rather than treated as a standalone primary canvas.</li>
+          <li><strong>Base editing:</strong> editing is integrated with the record model. That is powerful for provenance, especially when several people need to understand why a change happened.</li>
+          <li><strong>Annotations/export/multi-trace:</strong> annotations are first-class, alignments are first-class, and export options are broad because the tool is fundamentally a collaborative data platform.</li>
+          <li><strong>Visual design:</strong> modern web-app conventions, cleaner information density than legacy desktop tools, and a strong sense of persistent workspace context.</li>
+          <li><strong>Accessibility:</strong> public docs make the web nature obvious, but I did not find a detailed public accessibility guide specific to the sequence/trace experience in the sources reviewed.</li>
+        </ul>
+        <p>
+          <strong>Takeaway for sanger-viewer:</strong> keep the browser-native strengths. The app should
+          feel like a serious web tool, not a desktop app awkwardly transplanted into a canvas.
+          That means strong keyboard coverage, responsive layouts, URL-safe static publishing,
+          and shareable outputs that do not depend on a backend.
+        </p>
+        <p>
+          <strong>Sources:</strong>
+          <a href="https://help.benchling.com/hc/en-us/articles/39110680274189-DNA-and-RNA-sequence-overview">DNA/RNA sequence overview</a>,
+          <a href="https://help.benchling.com/hc/en-us/articles/39922093033869-How-to-create-alignments">How to create alignments</a>.
+        </p>
+      </section>
+
+      <h2>Synthesis: the patterns worth keeping</h2>
+      <ol>
+        <li><strong>Trace-first default:</strong> Chromas and FinchTV are right that the first screen must answer the biological question immediately.</li>
+        <li><strong>Contextual side panels beat giant toolbars:</strong> SnapGene and Geneious make complex state easier to manage by grouping it near the content it affects.</li>
+        <li><strong>Overview + detail is not optional:</strong> FinchTV and UGENE both reinforce that users need a global read before diving into single bases.</li>
+        <li><strong>Non-destructive edits need to feel trustworthy:</strong> UGENE’s derivative edit model and SnapGene’s explicit save semantics are great reliability signals.</li>
+        <li><strong>Annotations and comparisons should be first-class, not “misc”:</strong> Geneious and Benchling both show that trace review becomes more useful when tied to context.</li>
+        <li><strong>Design polish changes usability:</strong> Geneious and newer SnapGene material simply feel less intimidating because the hierarchy is better.</li>
+      </ol>
+
+      <h2>Concrete proposal for sanger-viewer</h2>
+
+      <h3>(a) Target information architecture and layout</h3>
+      <p>
+        <strong>Recommendation:</strong> turn the current long, flat command bar into a four-zone
+        workbench: global workspace, trace actions, central analysis canvas, and contextual side
+        rail. The default screen should still let a user load a trace and start reading in seconds.
+      </p>
+
+      <pre><code>Desktop / wide layout
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ Global bar: logo | open | sample | workspace tabs | theme | help            │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ Primary trace bar: Zoom  Fit  Strand  Find  Export ▼  Compare ▼             │
+│ Secondary mode bar: Review | Edit | Annotate | Compare | Export             │
+├───────────────────────────────┬──────────────────────────────────────────────┤
+│ Context rail (right, 320px)   │ Main analysis stage                          │
+│ ─ Inspect tab                 │ ┌──────────────────────────────────────────┐ │
+│   base inspector              │ │ Annotation lane                           │ │
+│   exact peaks / quality       │ ├──────────────────────────────────────────┤ │
+│ ─ Trace tab                   │ │ Chromatogram canvas                       │ │
+│   trim / mixed-base / strand  │ ├──────────────────────────────────────────┤ │
+│ ─ Metadata tab                │ │ Quality track                             │ │
+│   sample / run / instrument   │ ├──────────────────────────────────────────┤ │
+│ ─ Export tab                  │ │ Sequence strip + selection + search hits  │ │
+│   FASTA PNG SVG FASTQ QUAL    │ └──────────────────────────────────────────┘ │
+│                               │ footer: viewport readout | match count      │
+├───────────────────────────────┴──────────────────────────────────────────────┤
+│ Optional compare drawer: extra traces, align-to-reference, SVG/report tools  │
+└──────────────────────────────────────────────────────────────────────────────┘</code></pre>
+
+      <pre><code>Narrow / tablet layout
+
+┌──────────────────────────────────────────────┐
+│ Global bar: open | tabs | more               │
+├──────────────────────────────────────────────┤
+│ Main stage: annotation lane                  │
+│             chromatogram                     │
+│             quality track                    │
+│             sequence strip                   │
+├──────────────────────────────────────────────┤
+│ Sticky action row: Zoom  Fit  Find  Export   │
+├──────────────────────────────────────────────┤
+│ Bottom sheet tabs: Inspect | Trace | Meta    │
+│ (collapsed by default, swipe or keyboard)    │
+└──────────────────────────────────────────────┘</code></pre>
+
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Zone</th>
+            <th scope="col">Purpose</th>
+            <th scope="col">Why this is the right move</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row">Global bar</th>
+            <td>Loading, workspace tabs, app identity, theme/help</td>
+            <td>Separates “file/workspace” from “operate on this trace,” reducing command soup.</td>
+          </tr>
+          <tr>
+            <th scope="row">Primary trace bar</th>
+            <td>High-frequency actions only: zoom, fit, strand, find, export, compare</td>
+            <td>Matches Chromas/FinchTV speed while staying calmer than the current all-in-one toolbar.</td>
+          </tr>
+          <tr>
+            <th scope="row">Main analysis stage</th>
+            <td>Annotation lane, chromatogram, quality track, sequence strip, readout</td>
+            <td>Keeps the core scientific read path vertically stacked and synchronized.</td>
+          </tr>
+          <tr>
+            <th scope="row">Context rail / bottom sheet</th>
+            <td>Inspector, metadata, edit settings, exports, advanced compare controls</td>
+            <td>Progressively reveals complexity only when it is relevant.</td>
+          </tr>
+          <tr>
+            <th scope="row">Compare drawer</th>
+            <td>Multi-trace, alignment, report/export tasks</td>
+            <td>Prevents complex workflows from crowding the base single-trace experience.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>(b) Interaction and keyboard model</h3>
+      <p>
+        The keyboard model should be opinionated and memorable. The current keyboard support is good
+        in pockets; the redesign should make it systemic.
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Shortcut</th>
+            <th scope="col">Action</th>
+            <th scope="col">Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><th scope="row"><kbd>/</kbd></th><td>Focus Find</td><td>Web-native fast path; Benchling/Geneious-style discoverability win.</td></tr>
+          <tr><th scope="row"><kbd>+</kbd> / <kbd>-</kbd></th><td>Zoom in/out</td><td>Always active when the viewer has focus.</td></tr>
+          <tr><th scope="row"><kbd>0</kbd></th><td>Fit whole trace</td><td>Critical orientation reset, inspired by FinchTV-style overview needs.</td></tr>
+          <tr><th scope="row"><kbd>Shift</kbd> + wheel / pinch</th><td>Precision zoom</td><td>Keep pointer interaction direct for expert users.</td></tr>
+          <tr><th scope="row"><kbd>←</kbd> / <kbd>→</kbd></th><td>Pan viewport</td><td>Small pan step.</td></tr>
+          <tr><th scope="row"><kbd>Shift</kbd> + <kbd>←</kbd> / <kbd>→</kbd></th><td>Jump larger pan step</td><td>For long traces.</td></tr>
+          <tr><th scope="row"><kbd>R</kbd></th><td>Toggle reverse complement</td><td>Fast strand flip without mousing through the rail.</td></tr>
+          <tr><th scope="row"><kbd>T</kbd></th><td>Toggle Full / Trimmed view</td><td>Primary trim mode switch.</td></tr>
+          <tr><th scope="row"><kbd>M</kbd></th><td>Focus mixed-base threshold control</td><td>Advanced, but still keyboard reachable.</td></tr>
+          <tr><th scope="row"><kbd>N</kbd> / <kbd>Shift</kbd> + <kbd>N</kbd></th><td>Next / previous search hit</td><td>Keep search navigation off the pointer path.</td></tr>
+          <tr><th scope="row"><kbd>Enter</kbd> / <kbd>Space</kbd></th><td>Open base inspector on focused base</td><td>Preserve today’s inspector behavior.</td></tr>
+          <tr><th scope="row"><kbd>E</kbd></th><td>Edit focused base</td><td>Promote base editing to a clear, teachable action.</td></tr>
+          <tr><th scope="row"><kbd>Esc</kbd></th><td>Close inspector/sheet/dialog</td><td>One close rule everywhere.</td></tr>
+          <tr><th scope="row"><kbd>Ctrl</kbd> + <kbd>Z</kbd></th><td>Undo edit</td><td>Preserve current behavior.</td></tr>
+          <tr><th scope="row"><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>Z</kbd></th><td>Redo edit</td><td>Preserve current behavior.</td></tr>
+          <tr><th scope="row"><kbd>?</kbd></th><td>Open shortcuts cheat sheet</td><td>Important for discoverability and a11y.</td></tr>
+        </tbody>
+      </table>
+
+      <h3>(c) Design-system specification</h3>
+      <p>
+        The repository already has useful token DNA in <code>src/style.css</code>. The next wave
+        should consolidate those into a named UI system and apply them consistently across the app.
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Token group</th>
+            <th scope="col">Proposal</th>
+            <th scope="col">Decision</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row">Spacing</th>
+            <td>4, 8, 12, 16, 24, 32, 40 px</td>
+            <td>Keep the existing 4 px grid, but use it intentionally: 8 for inline gaps, 16 for card padding, 24 for section rhythm, 32+ only for page-level separation.</td>
+          </tr>
+          <tr>
+            <th scope="row">Type scale</th>
+            <td>12 / 14 / 16 / 18 / 20 / 24 px</td>
+            <td>Use 14 px for tool chrome, 16 px for body/UI text, 12 px only for metadata labels, and monospace strictly for coordinates/base strings.</td>
+          </tr>
+          <tr>
+            <th scope="row">Radius</th>
+            <td>4 / 8 / 12 px</td>
+            <td>Cards and rails get 12 px, controls 8 px, chips 9999 px only where they read as pills.</td>
+          </tr>
+          <tr>
+            <th scope="row">Elevation</th>
+            <td>0 / 1 / 2</td>
+            <td>Default app surfaces stay flat; inspector, menus, and sheets get subtle elevation only when layered above the trace.</td>
+          </tr>
+          <tr>
+            <th scope="row">Base colors</th>
+            <td>A / C / G / T locked and documented</td>
+            <td>Keep chromatogram channel colors stable across light and dark modes; never recolor semantic bases by theme.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Semantic token</th>
+            <th scope="col">Light</th>
+            <th scope="col">Dark</th>
+            <th scope="col">Use</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><th scope="row"><code>--bg-app</code></th><td>#f8fafc</td><td>#0f172a</td><td>Page background</td></tr>
+          <tr><th scope="row"><code>--bg-surface</code></th><td>#ffffff</td><td>#1e293b</td><td>Cards, rails, sheets</td></tr>
+          <tr><th scope="row"><code>--bg-subtle</code></th><td>#f1f5f9</td><td>#334155</td><td>Track lanes, grouped toolbar areas</td></tr>
+          <tr><th scope="row"><code>--border-default</code></th><td>#e2e8f0</td><td>#334155</td><td>Panel boundaries</td></tr>
+          <tr><th scope="row"><code>--text-primary</code></th><td>#0f172a</td><td>#f1f5f9</td><td>Core copy</td></tr>
+          <tr><th scope="row"><code>--text-muted</code></th><td>#64748b</td><td>#94a3b8</td><td>Secondary metadata</td></tr>
+          <tr><th scope="row"><code>--accent</code></th><td>#2563eb</td><td>#60a5fa</td><td>Focus, active commands, selected states</td></tr>
+          <tr><th scope="row"><code>--accent-soft</code></th><td>#eff6ff</td><td>#1e3a5f</td><td>Selection backgrounds</td></tr>
+          <tr><th scope="row"><code>--warning</code></th><td>#f59e0b</td><td>#fbbf24</td><td>Trim/search attention states</td></tr>
+          <tr><th scope="row"><code>--success</code></th><td>#22c55e</td><td>#4ade80</td><td>Healthy quality/export status</td></tr>
+          <tr><th scope="row"><code>--danger</code></th><td>#ef4444</td><td>#f87171</td><td>Errors, severe quality warnings</td></tr>
+          <tr><th scope="row"><code>--focus-ring</code></th><td>#2563eb</td><td>#60a5fa</td><td>2 px visible keyboard ring everywhere</td></tr>
+        </tbody>
+      </table>
+
+      <p>
+        <strong>Accessibility rule:</strong> all color meaning must be doubled by shape, text, or
+        pattern. Quality should never be color-only; edited bases should never be color-only; mixed
+        bases should never be color-only.
+      </p>
+
+      <h3>(d) Progressive-disclosure strategy</h3>
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Tier</th>
+            <th scope="col">Always visible</th>
+            <th scope="col">Reveal trigger</th>
+            <th scope="col">Contents</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row">Tier 1 — default reading</th>
+            <td>Yes</td>
+            <td>Initial load</td>
+            <td>Open/sample, workspace tabs, zoom, fit, strand, find, export shortcut, annotation lane, trace, quality track, sequence strip, viewport readout.</td>
+          </tr>
+          <tr>
+            <th scope="row">Tier 2 — contextual detail</th>
+            <td>No</td>
+            <td>Select/focus a base, open metadata, open export menu</td>
+            <td>Base inspector, exact peak values, metadata panel, full export choices, search summaries, trim summaries.</td>
+          </tr>
+          <tr>
+            <th scope="row">Tier 3 — advanced analysis</th>
+            <td>No</td>
+            <td>Switch mode or open compare drawer</td>
+            <td>Mixed-base threshold tuning, edit history emphasis, multi-trace compare, alignment/reference surfaces, report-oriented SVG/export utilities.</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        <strong>Key product decision:</strong> do not hide capabilities behind a mystery “advanced”
+        toggle. Instead, bind them to the user’s active task. Editing opens edit affordances,
+        comparing opens compare affordances, exporting opens export affordances.
+      </p>
+
+      <h3>(e) Explicit feature → IA mapping so nothing is lost</h3>
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Current feature</th>
+            <th scope="col">New IA home</th>
+            <th scope="col">Visibility rule</th>
+            <th scope="col">Implementation note</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><th scope="row">Parse (<code>.ab1</code>/<code>.scf</code>)</th><td>Global bar + empty state</td><td>Always visible before load</td><td>Keep drag/drop, file picker, sample loader.</td></tr>
+          <tr><th scope="row">Render chromatogram</th><td>Main analysis stage</td><td>Always visible after load</td><td>Remains the visual center.</td></tr>
+          <tr><th scope="row">Zoom / pan / fit</th><td>Primary trace bar + gestures</td><td>Always visible</td><td>Add keyboard parity and overview reset cues.</td></tr>
+          <tr><th scope="row">Reverse complement</th><td>Primary trace bar</td><td>Always visible</td><td>Keep one-click toggle; show orientation state near readout.</td></tr>
+          <tr><th scope="row">Trim controls</th><td>Context rail → Trace tab</td><td>Visible in Review mode; sticky summary in stage footer</td><td>Keep Full/Trimmed as primary mode switch.</td></tr>
+          <tr><th scope="row">Find / subsequence navigation</th><td>Primary trace bar</td><td>Always visible</td><td>Promote <kbd>/</kbd>, next/previous keyboard shortcuts.</td></tr>
+          <tr><th scope="row">Metadata</th><td>Context rail → Metadata tab</td><td>Collapsed by default</td><td>Show one-line summary near file name; full detail in rail.</td></tr>
+          <tr><th scope="row">Per-base peaks</th><td>Inspector tab</td><td>On base hover/focus/select</td><td>Unify tooltip and inspector language.</td></tr>
+          <tr><th scope="row">Multi-trace workspace</th><td>Global bar tabs + compare drawer</td><td>Tabs always visible when &gt;1 trace is open</td><td>Keep fast switching; move compare-heavy tasks out of the main bar.</td></tr>
+          <tr><th scope="row">Mixed-base calling</th><td>Context rail → Trace tab</td><td>Shown in Review/Edit modes</td><td>Threshold tuning is advanced, result count is summary-visible.</td></tr>
+          <tr><th scope="row">Annotations</th><td>Annotation lane + Metadata/Annotate tab</td><td>Lane always visible when data exists</td><td>Preserve jump-to-feature behavior.</td></tr>
+          <tr><th scope="row">Editable bases</th><td>Edit mode + Inspector tab</td><td>Edit affordances appear on focus/select</td><td>Keep in-place editing, but make edit state more explicit.</td></tr>
+          <tr><th scope="row">Undo / redo</th><td>Primary trace bar + keyboard</td><td>Visible when editing is available</td><td>Preserve current shortcuts and disabled states.</td></tr>
+          <tr><th scope="row">FASTQ / QUAL export</th><td>Export tab / menu</td><td>Secondary export options</td><td>Keep power, reduce primary-bar noise.</td></tr>
+          <tr><th scope="row">Quality track</th><td>Main analysis stage</td><td>Always visible after load</td><td>This stays first-class; FinchTV/Geneious validate it.</td></tr>
+          <tr><th scope="row">Base inspector</th><td>Inspector tab / bottom sheet</td><td>On focus, click, Enter, Space</td><td>Preserve exact current keyboard path.</td></tr>
+          <tr><th scope="row">PNG / SVG / FASTA export</th><td>Export menu + Export tab</td><td>PNG/FASTA quick actions; SVG in advanced export</td><td>Preserve existing outputs while clarifying intent.</td></tr>
+        </tbody>
+      </table>
+
+      <p>
+        <strong>Bottom line:</strong> every existing feature survives. What changes is grouping,
+        discoverability, and mode framing — not capability.
+      </p>
+
+      <h3>(f) Performance, reliability, and consistency checklist</h3>
+      <ol>
+        <li><strong>Render budget:</strong> keep first meaningful trace paint under 150 ms for common files and interaction updates under one frame (16 ms target, 50 ms hard ceiling) on modern laptops.</li>
+        <li><strong>Large-trace behavior:</strong> maintain overview readability and input responsiveness on long/noisy traces; no rail or sheet may trigger full-stage reflow while panning.</li>
+        <li><strong>Interaction consistency:</strong> the same base selection state must drive tooltip, inspector, search highlight, edit state, metadata readout, and export scope language.</li>
+        <li><strong>Cross-feature integrity:</strong> reverse-complement, trim mode, mixed-base calling, manual edits, annotations, and search must compose without surprising state loss.</li>
+        <li><strong>Non-destructive clarity:</strong> edited bases must remain visibly edited after mode changes, and undo/redo state must survive panel toggles.</li>
+        <li><strong>Quality trust:</strong> quality summaries, trim summaries, and quality-track visuals must always agree numerically.</li>
+        <li><strong>Accessibility baseline:</strong> full keyboard traversal, visible focus, ARIA labels for mode/panel state, no color-only meaning, and light/dark parity for every new surface.</li>
+        <li><strong>Responsive behavior:</strong> desktop rail becomes bottom sheet on narrow widths; no horizontal scrolling for command surfaces.</li>
+        <li><strong>Export consistency:</strong> PNG/SVG/FASTA/FASTQ/QUAL naming, scope, and strand/trim/edit semantics must be documented and identical across every export surface.</li>
+        <li><strong>Edge cases:</strong> no-quality traces, all-trimmed traces, ambiguous-heavy traces, traces with sparse metadata, multi-trace tab overflow, and failed parse states need explicit UI states, not silent degradation.</li>
+      </ol>
+
+      <h2>Priority order for the implementation wave</h2>
+      <ol>
+        <li><strong>P0 — information architecture:</strong> split the current flat toolbar into global bar, primary trace bar, and contextual rail without changing underlying capabilities.</li>
+        <li><strong>P0 — main stage cleanup:</strong> lock the visual stack to annotation lane → chromatogram → quality track → sequence strip → readout.</li>
+        <li><strong>P1 — inspector/metadata/export rail:</strong> unify the current inspector + metadata + export affordances into a coherent right-side rail/bottom sheet.</li>
+        <li><strong>P1 — keyboard system:</strong> add a shortcuts model, cheat sheet, and consistent focus management across modes.</li>
+        <li><strong>P1 — design tokens rollout:</strong> replace ad-hoc spacing/surface treatments with the documented token system and verify light/dark parity.</li>
+        <li><strong>P2 — compare drawer:</strong> evolve the existing multi-trace workspace into a clearer compare surface without slowing down single-trace review.</li>
+      </ol>
+
+      <h2>Final recommendation</h2>
+      <p>
+        The redesign should aim for <em>Geneious calm, SnapGene contextuality, FinchTV legibility,
+        Chromas immediacy, UGENE non-destructive trust, and Benchling web-native discipline</em>.
+        That combination fits <code>sanger-viewer</code> unusually well: the project is already a
+        surprisingly capable browser-based trace viewer, so the next win is not raw feature count.
+        It is making the existing power feel intentional, elegant, and easy to learn.
+      </p>
+    </main>
+  </body>
+</html>
