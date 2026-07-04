@@ -223,6 +223,7 @@ export function createTraceViewer(): HTMLDivElement {
   const editModel = new BaseEditModel()
   let editingIndex: number = -1  // display index of the span currently in "edit mode" (-1 = none)
   let inspectorDisplayIndex: number | null = null
+  let inspectorActiveSpan: HTMLElement | null = null
   setMixedThresholdDisplay(controls, mixedBaseThreshold)
   setMixedSummary(controls, 0)
   setUndoRedoState(controls, false, false)
@@ -507,12 +508,11 @@ export function createTraceViewer(): HTMLDivElement {
   }
 
   const clearBaseInspectorSpanState = () => {
-    sequencePanel
-      .querySelectorAll<HTMLElement>('span[data-base-index][aria-haspopup="dialog"]')
-      .forEach((span) => {
-        span.setAttribute('aria-expanded', 'false')
-        span.removeAttribute('aria-describedby')
-      })
+    if (inspectorActiveSpan) {
+      inspectorActiveSpan.setAttribute('aria-expanded', 'false')
+      inspectorActiveSpan.removeAttribute('aria-describedby')
+      inspectorActiveSpan = null
+    }
   }
 
   const closeBaseInspector = () => {
@@ -541,6 +541,7 @@ export function createTraceViewer(): HTMLDivElement {
     showBaseInspector(baseInspector, info)
     const activeSpan = sequencePanel.querySelector<HTMLElement>(`span[data-base-index="${displayIndex}"]`)
     if (activeSpan) {
+      inspectorActiveSpan = activeSpan
       activeSpan.setAttribute('aria-expanded', 'true')
       activeSpan.setAttribute('aria-describedby', 'base-inspector')
     }
@@ -550,6 +551,7 @@ export function createTraceViewer(): HTMLDivElement {
     inspectorDisplayIndex = displayIndex
     selectedBaseIndex = displayIndex
     hoveredBaseIndex = null
+    hideTooltip(tooltip)
     syncBaseInspector()
   }
 
