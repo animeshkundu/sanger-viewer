@@ -18,7 +18,8 @@ function phred33Char(score: number): string {
  */
 function buildQualLine(qualities: number[] | null, length: number): string {
   if (!qualities) return '!'.repeat(length)
-  return qualities.slice(0, length).map(phred33Char).join('')
+  // Truncate extras; pad with '!' (Phred+33 score 0) when qualities is shorter than the sequence.
+  return qualities.slice(0, length).map(phred33Char).join('').padEnd(length, '!')
 }
 
 /**
@@ -91,7 +92,10 @@ export function toQual(
   } else if (useTrimmedSequence && trim && trim.status === 'ok') {
     qualities = trace.qualities.slice(trim.trimStart, trim.trimEnd)
   } else {
-    qualities = trace.qualities
+    // Align qualities length to baseCalls to handle any length mismatch (pad with 0, truncate extras).
+    const n = trace.baseCalls.length
+    const raw = trace.qualities.slice(0, n)
+    qualities = raw.length < n ? [...raw, ...new Array<number>(n - raw.length).fill(0)] : raw
   }
 
   const tags: string[] = []

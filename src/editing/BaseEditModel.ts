@@ -31,14 +31,22 @@ export class BaseEditModel {
    * If newBase equals originalBase the edit entry is removed (revert to original).
    */
   apply(forwardIndex: number, newBase: string, originalBase: string): void {
+    const upper = newBase.toUpperCase()
+    const existing = this.edits.get(forwardIndex)
+    const willDelete = upper === originalBase.toUpperCase()
+    // Skip stack updates when nothing would actually change.
+    // Case 1: reverting a position that has no active edit.
+    // Case 2: re-applying the same base that is already stored for this position.
+    const isNoOp = willDelete ? !existing : existing?.base === upper
+    if (isNoOp) return
     this.undoStack.push(new Map(this.edits))
     this.redoStack = []
-    if (newBase.toUpperCase() === originalBase.toUpperCase()) {
+    if (willDelete) {
       this.edits.delete(forwardIndex)
     } else {
       this.edits.set(forwardIndex, {
         forwardIndex,
-        base: newBase.toUpperCase(),
+        base: upper,
         originalBase: originalBase.toUpperCase(),
       })
     }

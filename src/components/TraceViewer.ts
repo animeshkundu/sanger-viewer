@@ -793,7 +793,9 @@ export function createTraceViewer(): HTMLDivElement {
     }
     if (action === 'export-svg' && rawTrace) {
       const vp = renderer.getViewportState()
-      const displayTrace = isRevcomp ? reverseComplementTrace(rawTrace) : rawTrace
+      // Use the renderer's current trace (which already has edits + revcomp applied)
+      // so SVG exports are consistent with FASTA/FASTQ/canvas output.
+      const displayTrace = trace ?? (isRevcomp ? reverseComplementTrace(rawTrace) : rawTrace)
       const vWidth = canvas.clientWidth || 1200
       const vHeight = canvas.clientHeight || 400
       const svg = exportSvg(displayTrace, {
