@@ -158,6 +158,10 @@ test('hover tooltip still shows peak data after strand toggle (desktop only)', a
   await expect.poll(() => canvasInkSum(page), { timeout: 5000 }).toBeGreaterThan(INK_THRESHOLD)
 
   const canvas = page.locator('[data-testid="chromatogram-canvas"]')
+  // The strand-toggle button lives in the controls section below the canvas in
+  // the shell layout.  Clicking it scrolls the page, which can push the canvas
+  // above the viewport top.  Scroll back before taking the bounding box.
+  await canvas.scrollIntoViewIfNeeded()
   const box = await canvas.boundingBox()
   if (!box) throw new Error('Canvas bounding box unavailable')
 
