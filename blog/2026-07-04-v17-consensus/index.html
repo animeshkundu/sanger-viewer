@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>2026-07-04 — v17 multi-trace consensus &amp; mismatch view | sanger-viewer devlog</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-shell">
+        <a class="site-title" href="../../">sanger-viewer</a>
+        <nav class="site-nav" aria-label="Site">
+          <a href="../">Devlog</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="site-shell blog-entry">
+      <p><a href="../">← Back to devlog</a></p>
+      <h1>2026-07-04 — v17 multi-trace consensus &amp; mismatch view</h1>
+      <p><time datetime="2026-07-04">July 4, 2026</time></p>
+
+      <p>
+        Unit B ships: the multi-trace workspace now aligns loaded traces by position, computes a
+        deterministic consensus using a pinned IUPAC tie-code algorithm, and surfaces per-position
+        agreement/mismatch highlighting alongside a mismatch-count summary. The consensus can be
+        exported as a standard FASTA file.
+      </p>
+
+      <h2>What shipped</h2>
+      <ul>
+        <li>
+          New pure-logic module <code>src/consensus/consensus.ts</code> — <code>computeConsensus()</code>
+          implements a deterministic positional (ungapped) consensus with full IUPAC two-/three-/four-way
+          tie resolution (<code>M R W S Y K V H D B N</code>); <code>toConsensusFasta()</code> serialises
+          the result to standard 80-char-wrapped FASTA.
+        </li>
+        <li>
+          New DOM component <code>src/components/ConsensusRow.ts</code> — a styled panel with
+          <code>data-testid="consensus-row"</code> that renders a summary line and a monospace 80-base
+          window of the consensus sequence; mismatch positions are highlighted with a
+          <code>.consensus-base--mismatch</code> class.
+        </li>
+        <li>
+          Consensus row is shown automatically whenever ≥ 2 resident (non-evicted) traces are present;
+          hidden otherwise. Opening, switching, or closing workspace tabs re-evaluates the consensus.
+        </li>
+        <li>
+          New <em>Export Consensus FASTA</em> button in the toolbar — enabled only when ≥ 2 resident
+          traces are loaded; downloads <code>consensus.fasta</code> with a header listing all contributing
+          file names.
+        </li>
+        <li>
+          Full light/dark theme support via new CSS design tokens
+          (<code>--color-consensus-*</code>) added to <code>src/style.css</code>.
+        </li>
+      </ul>
+
+      <h2>Algorithm (pinned)</h2>
+      <p>
+        At each position <em>i</em> (clamped to <code>Math.min</code> of all trace lengths):
+      </p>
+      <ol>
+        <li>Count occurrences of each character (case-insensitive, uppercase-normalised).</li>
+        <li>If all traces agree → consensus base = that character; <strong>not</strong> a mismatch.</li>
+        <li>
+          Otherwise → <strong>mismatch</strong>; resolve:
+          find <code>maxCount</code>; collect <em>tiedBases</em> sorted A&lt;C&lt;G&lt;T&lt;other;
+          if all canonical and the sorted join is in the IUPAC table → use that code;
+          else if sole winner → use that base; else → <code>N</code>.
+        </li>
+      </ol>
+      <p>
+        A note on gapped alignment: this v1 uses simple positional (ungapped) consensus.
+        True gapped alignment (e.g. Needleman–Wunsch) is scoped as a follow-up if needed.
+      </p>
+
+      <h2>Verification added</h2>
+      <ul>
+        <li>
+          <code>tests/core/consensus.test.ts</code> — 25 unit tests with exact-value assertions:
+          empty input, single-trace pass-through, length clamping, unanimous consensus,
+          exact mismatch positions and count for a deliberate 2-trace mismatch,
+          all twelve IUPAC tie codes (two-/three-/four-way), sole majority winner,
+          non-IUPAC fallback to N, case-insensitivity, and exact FASTA bytes.
+        </li>
+        <li>
+          <code>tests/e2e/consensus.e2e.test.ts</code> — 7 E2E tests asserting: consensus row hidden
+          with one trace; export button disabled with one trace; row visible with mismatch count &gt; 0
+          for two real fixtures; export button enabled; FASTA download name, header structure, and
+          valid IUPAC body; row hides again after closing a tab; mismatch spans visually present.
+        </li>
+      </ul>
+    </main>
+  </body>
+</html>
