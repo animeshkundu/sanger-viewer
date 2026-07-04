@@ -30,7 +30,7 @@ const NN_PARAMS: Record<string, [number, number]> = {
   CG: [-10.6, -27.2],
   GC: [-9.8,  -24.4],
   GG: [-8.0,  -19.9],
-  AC: [-7.8,  -21.0],  // = CT complement
+  AC: [-8.4,  -22.4],  // = GT/CA complement (rev-comp of AC read 5'→3' is GT)
   TC: [-8.2,  -22.2],  // = GA complement
   AG: [-7.8,  -21.0],  // = CT (complement used for symmetry)
   TG: [-8.5,  -22.7],  // = CA complement

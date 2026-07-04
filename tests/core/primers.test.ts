@@ -110,6 +110,17 @@ describe('computeTm', () => {
     const tm200 = computeTm('ACGTACGTACGTACGTACGT', 250, 200)
     expect(tm200).toBeGreaterThan(tm50)
   })
+
+  it('ANCHOR: M13 -20 forward primer (GTAAAACGACGGCCAGT) → 44.6°C at 250 nM / 50 mM NaCl (SantaLucia 1998 NN, Schildkraut salt)', () => {
+    // M13/pUC -20 forward: GTAAAACGACGGCCAGT (17-mer, 52.9% GC)
+    // Hand-computed using SantaLucia 1998 Table 2 NN parameters (ΔH/ΔS per dinucleotide step)
+    // + terminal initiation (0.1 kcal/mol / -2.8 cal/mol·K for 5'-G; 2.3 / 4.1 for 3'-T)
+    //   ΔH_total = -133.6 kcal/mol, ΔS_total = -360.7 cal/mol·K
+    //   Tm(1M NaCl) = ΔH·1000 / (ΔS + R·ln(cT/4)) − 273.15 = 66.2°C
+    //   Salt corr   = 16.6·log₁₀(0.05) = −21.6°C  →  Tm = 44.6°C
+    // Reference: SantaLucia (1998) PNAS 95:1460-1465, Table 2.
+    expect(computeTm('GTAAAACGACGGCCAGT', 250, 50)).toBeCloseTo(44.6, 0)
+  })
 })
 
 // ── computeHairpinTm ──────────────────────────────────────────────────────────
