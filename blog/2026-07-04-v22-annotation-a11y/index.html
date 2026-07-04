@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>2026-07-04 — v22 annotation lanes + dark-mode accessibility | sanger-viewer devlog</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-shell">
+        <a class="site-title" href="../../">sanger-viewer</a>
+        <nav class="site-nav" aria-label="Site">
+          <a href="../">Devlog</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="site-shell blog-entry">
+      <p><a href="../">← Back to devlog</a></p>
+      <h1>2026-07-04 — v22 annotation lanes + dark-mode accessibility</h1>
+      <p><time datetime="2026-07-04">July 4, 2026</time></p>
+
+      <p>
+        This pass closes two UX gaps from the redesign workstream: annotation lanes now behave like a
+        true contextual track (not a shell when no trace exists), and color/focus tokens are verified
+        with measured contrast assertions instead of visual guesswork.
+      </p>
+
+      <h2>What changed</h2>
+      <ul>
+        <li><strong>Contextual annotation lanes:</strong> ORF/restriction lanes remain hidden until trace context exists, then render with exact fixture-backed chip values and jump behavior.</li>
+        <li><strong>Accessibility token hardening:</strong> introduced a dedicated <code>--color-focus-ring</code> token with a visible 3px ring, strengthened border tokens for non-text contrast, and desaturated dark-mode blue accents while preserving hierarchy.</li>
+        <li><strong>Measured contrast tests:</strong> added genuine computed-ratio assertions in E2E for helper text (≥4.5:1) and UI border/focus indicators (≥3.0:1) across both light and dark themes.</li>
+      </ul>
+
+      <h2>Validation</h2>
+      <ul>
+        <li><code>npm run typecheck</code></li>
+        <li><code>npm run lint</code></li>
+        <li><code>npm run test</code></li>
+        <li><code>npm run test:e2e</code></li>
+      </ul>
+    </main>
+  </body>
+</html>
