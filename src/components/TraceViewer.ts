@@ -189,6 +189,7 @@ export function createTraceViewer(): HTMLDivElement {
   const renderer = new ChromatogramCanvas(canvas)
   const rootDisconnectObserver = new MutationObserver(() => {
     if (!root.isConnected) {
+      qualityTrack.destroy()
       renderer.destroy()
       document.removeEventListener('keydown', undoRedoKeyHandler)
       rootDisconnectObserver.disconnect()

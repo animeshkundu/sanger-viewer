@@ -17,6 +17,7 @@ export interface QualityTrackHandle {
   element: HTMLElement
   render: (model: QualityTrackModel | null) => void
   clear: () => void
+  destroy: () => void
 }
 
 export function createQualityTrack(): QualityTrackHandle {
@@ -54,6 +55,8 @@ export function createQualityTrack(): QualityTrackHandle {
 
   let visible = true
   let lastModel: QualityTrackModel | null = null
+  let themeMediaQuery: MediaQueryList | null = null
+  let themeObserver: MutationObserver | null = null
   const setVisible = (next: boolean) => {
     visible = next
     root.setAttribute('data-visible', String(visible))
@@ -93,14 +96,15 @@ export function createQualityTrack(): QualityTrackHandle {
     canvas.setAttribute('data-bar-count', String(bars.length))
     canvas.setAttribute('data-track-height', String(MAX_QUALITY_BAR_HEIGHT))
 
+    const barWidth = Math.max(1, Math.min(BAR_WIDTH, width))
     const cssVars = getComputedStyle(document.documentElement)
     for (const bar of bars) {
       const color = cssVars.getPropertyValue(bar.cssVar).trim() || '#94a3b8'
-      const centeredX = Math.round(bar.x) - Math.floor(BAR_WIDTH / 2)
-      const x = Math.max(0, Math.min(width - BAR_WIDTH, centeredX))
+      const centeredX = Math.round(bar.x) - Math.floor(barWidth / 2)
+      const x = Math.max(0, Math.min(width - barWidth, centeredX))
       const y = height - bar.height
       ctx.fillStyle = color
-      ctx.fillRect(x, y, BAR_WIDTH, bar.height)
+      ctx.fillRect(x, y, barWidth, bar.height)
     }
   }
 
@@ -124,12 +128,20 @@ export function createQualityTrack(): QualityTrackHandle {
   }
 
   if (typeof window !== 'undefined') {
-    const themeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+    themeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
     themeMediaQuery.addEventListener('change', handleThemeChange)
   }
   if (typeof MutationObserver !== 'undefined') {
-    const themeObserver = new MutationObserver((mutations) => {
-      if (mutations.length > 0) handleThemeChange()
+    themeObserver = new MutationObserver((mutations) => {
+      const shouldRedraw = mutations.some(
+        (mutation) =>
+          mutation.type === 'attributes'
+          && mutation.target === document.documentElement
+          && (mutation.attributeName === 'class'
+            || mutation.attributeName === 'data-theme'
+            || mutation.attributeName === 'style'),
+      )
+      if (shouldRedraw) handleThemeChange()
     })
     themeObserver.observe(document.documentElement, {
       attributes: true,
@@ -137,7 +149,14 @@ export function createQualityTrack(): QualityTrackHandle {
     })
   }
 
+  const destroy = () => {
+    themeObserver?.disconnect()
+    themeObserver = null
+    themeMediaQuery?.removeEventListener('change', handleThemeChange)
+    themeMediaQuery = null
+  }
+
   setVisible(true)
   clear()
-  return { element: root, render, clear }
+  return { element: root, render, clear, destroy }
 }
