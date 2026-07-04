@@ -27,6 +27,9 @@ test.describe('Workspace shell', () => {
       if (!canvas || !hero) return false
       const canvasRect = canvas.getBoundingClientRect()
       const heroRect = hero.getBoundingClientRect()
+      // Check that the canvas top edge is above the fold (fully below-fold canvases have top >= innerHeight).
+      // We only require the canvas to START within the viewport, not to fit entirely within it,
+      // because the canvas height may exceed a short viewport (e.g. in CI at 800 px).
       return heroRect.top >= 0 && canvasRect.top >= 0 && canvasRect.top < window.innerHeight
     })
 

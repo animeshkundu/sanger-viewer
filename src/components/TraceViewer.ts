@@ -358,8 +358,10 @@ export function createTraceViewer(): HTMLDivElement {
     else if (event.key === 'Home') nextIdx = 0
     else nextIdx = tabs.length - 1
     const nextTab = tabs[nextIdx]
+    const nextTabName = nextTab.getAttribute('data-tab')
+    if (!nextTabName) return
     nextTab.focus()
-    setActiveSidebarTab(nextTab.getAttribute('data-tab')!)
+    setActiveSidebarTab(nextTabName)
   })
   setVariantTableVisible(variantTableElements, false)
 
