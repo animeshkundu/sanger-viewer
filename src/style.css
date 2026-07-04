@@ -685,7 +685,7 @@ canvas {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   min-width: 44px;
-  min-height: 36px;
+  min-height: 44px;
   padding: 0.4rem 0.75rem;
   background: var(--color-surface);
   color: var(--color-text);

@@ -10,7 +10,7 @@ export function createControls(): HTMLDivElement {
     <div class="controls-group" role="group" aria-label="View" data-group="view">
       <span class="controls-group__label" aria-hidden="true">View</span>
       <button data-action="zoom-in">Zoom +</button>
-      <button data-action="zoom-out">Zoom −</button>
+      <button data-action="zoom-out">Zoom -</button>
       <button data-action="pan-left">← Pan</button>
       <button data-action="pan-right">Pan →</button>
       <button data-action="fit">Fit</button>
