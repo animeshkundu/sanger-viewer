@@ -80,3 +80,41 @@ test('quality bar heights and x positions map to visible PHRED scores', async ({
 
   expect(actual).toEqual(expected.map((item) => item.height))
 })
+
+test('quality bars repaint when theme variables change', async ({ page }) => {
+  const canvas = page.locator('[data-testid="quality-track-canvas"]')
+  const samplePoint = await canvas.evaluate((el) => {
+    const c = el as HTMLCanvasElement
+    const ctx = c.getContext('2d')
+    if (!ctx) throw new Error('2D context unavailable')
+    const pixels = ctx.getImageData(0, 0, c.width, c.height).data
+    for (let y = c.height - 1; y >= 0; y -= 1) {
+      for (let x = 0; x < c.width; x += 1) {
+        const offset = (y * c.width + x) * 4
+        if (pixels[offset + 3] > 0) return { x, y }
+      }
+    }
+    throw new Error('No rendered quality bar pixel found')
+  })
+
+  const setTierColor = async (color: string) => {
+    await page.evaluate((nextColor) => {
+      for (const token of ['--color-qual-poor', '--color-qual-fair', '--color-qual-good', '--color-qual-excellent']) {
+        document.documentElement.style.setProperty(token, nextColor)
+      }
+    }, color)
+  }
+  const readSampleColor = async () => canvas.evaluate((el, point) => {
+    const c = el as HTMLCanvasElement
+    const ctx = c.getContext('2d')
+    if (!ctx) throw new Error('2D context unavailable')
+    const [r, g, b, a] = ctx.getImageData(point.x, point.y, 1, 1).data
+    return [r, g, b, a]
+  }, samplePoint)
+
+  await setTierColor('rgb(1, 2, 3)')
+  await expect.poll(readSampleColor).toEqual([1, 2, 3, 255])
+
+  await setTierColor('rgb(9, 8, 7)')
+  await expect.poll(readSampleColor).toEqual([9, 8, 7, 255])
+})

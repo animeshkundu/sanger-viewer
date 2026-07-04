@@ -5,6 +5,11 @@ import type { TraceData } from '../types/trace'
 const TRACK_HEIGHT = 56
 const BAR_WIDTH = 3
 
+export function computeBarDrawLeft(x: number, barWidth: number, canvasWidth: number): number {
+  const centeredX = Math.round(x) - Math.floor(barWidth / 2)
+  return Math.max(0, Math.min(canvasWidth - barWidth, centeredX))
+}
+
 type QualityTrackModel = {
   trace: TraceData
   startSample: number
@@ -100,8 +105,7 @@ export function createQualityTrack(): QualityTrackHandle {
     const cssVars = getComputedStyle(document.documentElement)
     for (const bar of bars) {
       const color = cssVars.getPropertyValue(bar.cssVar).trim() || '#94a3b8'
-      const centeredX = Math.round(bar.x) - Math.floor(barWidth / 2)
-      const x = Math.max(0, Math.min(width - barWidth, centeredX))
+      const x = computeBarDrawLeft(bar.x, barWidth, width)
       const y = height - bar.height
       ctx.fillStyle = color
       ctx.fillRect(x, y, barWidth, bar.height)

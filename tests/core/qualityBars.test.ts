@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { computeQualityBars } from '../../src/quality/qualityBars'
+import { computeBarDrawLeft } from '../../src/components/QualityTrack'
 import { reverseComplementTrace } from '../../src/revcomp'
 import type { TraceData } from '../../src/types/trace'
 
@@ -60,5 +61,10 @@ describe('computeQualityBars', () => {
       { baseIndex: 1, x: 69, score: 20 },
       { baseIndex: 2, x: 89, score: 10 },
     ])
+  })
+
+  it('keeps first and last centered bars fully on-canvas', () => {
+    expect(computeBarDrawLeft(0, 3, 100)).toBe(0)
+    expect(computeBarDrawLeft(100, 3, 100)).toBe(97)
   })
 })
