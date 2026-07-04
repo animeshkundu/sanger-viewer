@@ -130,16 +130,7 @@ describe('toFastq', () => {
       meanQuality: 0,
     }
     const fastq = toFastq(trace, false, trim, 'trimmed')
-    const lines = fastq.split('\n')
-    // Header present with all-trimmed annotation
-    expect(lines[0]).toContain('trimmed all/')
-    // Sequence line is empty
-    expect(lines[1]).toBe('')
-    // Separator
-    expect(lines[2]).toBe('+')
-    // Quality line is empty — must match sequence line length (both empty)
-    expect(lines[3]).toBe('')
-    expect(lines[1].length).toBe(lines[3].length)
+    expect(fastq).toBe('@test [trimmed all/4 bp]\n\n+\n\n')
   })
 })
 
@@ -203,9 +194,6 @@ describe('toQual', () => {
       meanQuality: 0,
     }
     const qual = toQual(trace, false, trim, 'trimmed')
-    // Header line present with all-trimmed annotation
-    expect(qual.split('\n')[0]).toContain('trimmed all/')
-    // Body must be empty — only the header line followed by a newline
-    expect(qual).toBe(`${qual.split('\n')[0]}\n`)
+    expect(qual).toBe('>test [trimmed all/4 bp]\n')
   })
 })
