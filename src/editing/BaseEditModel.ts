@@ -87,6 +87,11 @@ export class BaseEditModel {
     return new Set(this.edits.keys())
   }
 
+  /** True when at least one position has an active edit (different from the original base). */
+  get hasEdits(): boolean {
+    return this.edits.size > 0
+  }
+
   /** True when there is at least one state to undo. */
   get canUndo(): boolean {
     return this.undoStack.length > 0

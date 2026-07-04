@@ -118,6 +118,29 @@ describe('toFastq', () => {
     // Header has trimming annotation
     expect(lines[0]).toContain('trimmed')
   })
+
+  it('emits empty sequence and quality lines for all-trimmed status', () => {
+    const trace = makeTrace()
+    const trim: TrimResult = {
+      status: 'all-trimmed',
+      trimStart: 0,
+      trimEnd: 0,
+      trimmedSequence: '',
+      trimmedLength: 0,
+      meanQuality: 0,
+    }
+    const fastq = toFastq(trace, false, trim, 'trimmed')
+    const lines = fastq.split('\n')
+    // Header present with all-trimmed annotation
+    expect(lines[0]).toContain('trimmed all/')
+    // Sequence line is empty
+    expect(lines[1]).toBe('')
+    // Separator
+    expect(lines[2]).toBe('+')
+    // Quality line is empty — must match sequence line length (both empty)
+    expect(lines[3]).toBe('')
+    expect(lines[1].length).toBe(lines[3].length)
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -167,5 +190,22 @@ describe('toQual', () => {
     // First line: 60 values, second: 5 values
     expect(lines[0].split(' ').length).toBe(60)
     expect(lines[1].split(' ').length).toBe(5)
+  })
+
+  it('emits header only (no quality values) for all-trimmed status', () => {
+    const trace = makeTrace()
+    const trim: TrimResult = {
+      status: 'all-trimmed',
+      trimStart: 0,
+      trimEnd: 0,
+      trimmedSequence: '',
+      trimmedLength: 0,
+      meanQuality: 0,
+    }
+    const qual = toQual(trace, false, trim, 'trimmed')
+    // Header line present with all-trimmed annotation
+    expect(qual.split('\n')[0]).toContain('trimmed all/')
+    // Body must be empty — only the header line followed by a newline
+    expect(qual).toBe(`${qual.split('\n')[0]}\n`)
   })
 })

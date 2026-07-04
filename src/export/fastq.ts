@@ -18,7 +18,7 @@ function phred33Char(score: number): string {
  */
 function buildQualLine(qualities: number[] | null, length: number): string {
   if (!qualities) return '!'.repeat(length)
-  return qualities.map(phred33Char).join('')
+  return qualities.slice(0, length).map(phred33Char).join('')
 }
 
 /**
@@ -80,7 +80,10 @@ export function toQual(
   const useTrimmedSequence = inTrimmedMode && (trim.status === 'ok' || trim.status === 'all-trimmed')
 
   let qualities: number[]
-  if (!trace.qualities) {
+  if (useTrimmedSequence && trim && trim.status === 'all-trimmed') {
+    // all-trimmed: no bases remain, so no quality values to emit.
+    qualities = []
+  } else if (!trace.qualities) {
     const len = useTrimmedSequence && trim && trim.status === 'ok'
       ? trim.trimEnd - trim.trimStart
       : trace.baseCalls.length
@@ -106,5 +109,7 @@ export function toQual(
   for (let i = 0; i < qualities.length; i += 60) {
     lines.push(qualities.slice(i, i + 60).join(' '))
   }
+  // Emit header only when there are no quality values (e.g. all-trimmed).
+  if (lines.length === 0) return `${header}\n`
   return `${header}\n${lines.join('\n')}\n`
 }

@@ -307,15 +307,22 @@ export function createTraceViewer(): HTMLDivElement {
 
   const buildDisplayTrace = (): TraceData | null => {
     if (!rawTrace) return null
-    // Apply base edits (forward-strand) before revcomp so all downstream consumers
-    // (search, revcomp, mixed-base, FASTA/FASTQ) see the edited sequence.
-    const editedBaseCalls = editModel.applyToBaseCalls(rawTrace.baseCalls)
-    const editedQualities = editModel.applyToQualities(rawTrace.qualities)
-    const editedRaw: TraceData = {
-      ...rawTrace,
-      baseCalls: editedBaseCalls,
-      qualities: editedQualities,
-      sequence: editedBaseCalls.join(''),
+    // Short-circuit when no edits are active to avoid O(n) baseCalls clone/join on
+    // every zoom/pan/search/trim recompute.
+    let editedRaw: TraceData
+    if (editModel.hasEdits) {
+      // Apply base edits (forward-strand) before revcomp so all downstream consumers
+      // (search, revcomp, mixed-base, FASTA/FASTQ) see the edited sequence.
+      const editedBaseCalls = editModel.applyToBaseCalls(rawTrace.baseCalls)
+      const editedQualities = editModel.applyToQualities(rawTrace.qualities)
+      editedRaw = {
+        ...rawTrace,
+        baseCalls: editedBaseCalls,
+        qualities: editedQualities,
+        sequence: editedBaseCalls.join(''),
+      }
+    } else {
+      editedRaw = rawTrace
     }
     const strandTrace = isRevcomp ? reverseComplementTrace(editedRaw) : editedRaw
     mixedBaseResult = callMixedBases(strandTrace, mixedBaseThreshold)
@@ -1097,8 +1104,8 @@ export function createTraceViewer(): HTMLDivElement {
       return
     }
 
-    // Single character: apply edit if it's a valid IUPAC base.
-    if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
+    // Single character: apply edit only when explicitly in edit mode for this span.
+    if (editingIndex === displayIdx && event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
       const upper = event.key.toUpperCase()
       if (IUPAC_BASES.has(upper)) {
         event.preventDefault()
