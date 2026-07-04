@@ -77,6 +77,24 @@ async function readViewportAttrs(page: Page): Promise<{ start: number; spp: numb
   return { start: Number(start ?? '0'), spp: Number(spp ?? '1') }
 }
 
+/**
+ * Click a zoom/pan button and wait for the RAF-deferred `data-viewport-spp`
+ * attribute to settle to a new value before returning the updated viewport state.
+ * Without this, tests racing the requestAnimationFrame cycle can read stale attrs.
+ */
+async function clickAndWaitForSppChange(
+  page: Page,
+  buttonName: string,
+  previousSpp: number,
+): Promise<{ start: number; spp: number }> {
+  const canvas = page.locator('[data-testid="chromatogram-canvas"]')
+  await page.getByRole('button', { name: buttonName }).click()
+  await expect
+    .poll(() => canvas.getAttribute('data-viewport-spp').then(Number), { timeout: 3000 })
+    .not.toBe(previousSpp)
+  return readViewportAttrs(page)
+}
+
 async function downloadContent(page: Page, buttonName: string): Promise<string> {
   const [download] = await Promise.all([
     page.waitForEvent('download'),
@@ -135,12 +153,10 @@ test.describe('zoom and pan', () => {
 
   test('zoom-in decreases spp and zoom-out increases it', async ({ page }) => {
     const before = await readViewportAttrs(page)
-    await page.getByRole('button', { name: 'Zoom +' }).click()
-    const afterZoomIn = await readViewportAttrs(page)
+    const afterZoomIn = await clickAndWaitForSppChange(page, 'Zoom +', before.spp)
     expect(afterZoomIn.spp).toBeLessThan(before.spp)
 
-    await page.getByRole('button', { name: 'Zoom -' }).click()
-    const afterZoomOut = await readViewportAttrs(page)
+    const afterZoomOut = await clickAndWaitForSppChange(page, 'Zoom -', afterZoomIn.spp)
     expect(afterZoomOut.spp).toBeGreaterThan(afterZoomIn.spp)
   })
 
@@ -154,11 +170,10 @@ test.describe('zoom and pan', () => {
   })
 
   test('Fit returns to a wider viewport than zoomed-in state', async ({ page }) => {
-    await page.getByRole('button', { name: 'Zoom +' }).click()
-    await page.getByRole('button', { name: 'Zoom +' }).click()
-    const zoomed = await readViewportAttrs(page)
-    await page.getByRole('button', { name: 'Fit' }).click()
-    const fitted = await readViewportAttrs(page)
+    const initial = await readViewportAttrs(page)
+    const afterFirst = await clickAndWaitForSppChange(page, 'Zoom +', initial.spp)
+    const zoomed = await clickAndWaitForSppChange(page, 'Zoom +', afterFirst.spp)
+    const fitted = await clickAndWaitForSppChange(page, 'Fit', zoomed.spp)
     expect(fitted.spp).toBeGreaterThan(zoomed.spp)
   })
 })
@@ -248,13 +263,18 @@ test.describe('IUPAC find / search', () => {
   test('searching ACGT returns 2 matches and summary shows 1 of 2', async ({ page }) => {
     await page.locator('#search-input').fill('ACGT')
     await expect(page.locator('#search-summary')).toHaveText('2 matches · 1 of 2')
-    expect(
-      Number(
-        await page
-          .locator('[data-testid="chromatogram-canvas"]')
-          .getAttribute('data-search-visible-count'),
-      ),
-    ).toBeGreaterThan(0)
+    // The canvas redraws via requestAnimationFrame; poll until the visible-count
+    // attribute reflects the highlighted match in the (now-focused) viewport.
+    await expect
+      .poll(
+        () =>
+          page
+            .locator('[data-testid="chromatogram-canvas"]')
+            .getAttribute('data-search-visible-count')
+            .then(Number),
+        { timeout: 3000 },
+      )
+      .toBeGreaterThan(0)
   })
 
   test('Next navigates to the second match and increments the counter', async ({ page }) => {

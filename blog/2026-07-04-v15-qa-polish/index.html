@@ -130,11 +130,46 @@
         </dd>
       </dl>
 
+      <h2>Test corrections (post-review CI fixes)</h2>
+      <p>
+        After the initial PR, CI reported 5 failures in <code>qa-polish.e2e.test.ts</code>.
+        Root-cause analysis confirmed all five were <strong>test timing issues</strong> (type B — wrong
+        test expectation), not product defects:
+      </p>
+      <dl>
+        <dt><strong>Zoom-in / Zoom-out assertions (desktop + tablet)</strong></dt>
+        <dd>
+          The test read <code>data-viewport-spp</code> immediately after clicking a zoom button,
+          before the <code>requestAnimationFrame</code> callback in <code>ChromatogramCanvas.draw()</code>
+          had fired and written the updated attribute. The product zoom logic is correct (factor 0.75
+          for in, 1.25 for out). Fix: added a <code>clickAndWaitForSppChange</code> helper that polls
+          the attribute until it differs from the previous value before asserting direction.
+        </dd>
+        <dt><strong>Fit-to-screen assertion (desktop + tablet)</strong></dt>
+        <dd>
+          Same RAF-race: after two sequential Zoom+ clicks the test read <code>zoomed.spp</code>
+          before both RAF cycles completed, then clicked Fit and read <code>fitted.spp</code> before
+          that RAF completed. Fit correctly resets to the initial fit-to-screen value (which is larger
+          than doubly-zoomed spp). Fix: each step now uses <code>clickAndWaitForSppChange</code> to
+          wait for each RAF settle before proceeding.
+        </dd>
+        <dt><strong>IUPAC search visible-count assertion (desktop)</strong></dt>
+        <dd>
+          <code>#search-summary</code> showed "2 matches · 1 of 2" (correct — ACGT appears twice in
+          <code>3100.ab1</code>) but <code>data-search-visible-count</code> read 0 because the canvas
+          had not yet redrawn via its RAF after <code>focusBaseRange</code> scrolled the viewport to
+          the first match. Fix: replaced the synchronous <code>getAttribute</code> read with
+          <code>expect.poll(…).toBeGreaterThan(0)</code> so the assertion waits for the RAF-deferred
+          draw to update the attribute.
+        </dd>
+      </dl>
+
       <h2>Validation</h2>
       <p>
-        All 150 unit tests, 14 existing E2E suites, and the new <code>qa-polish.e2e.test.ts</code>
-        pass on both desktop Chrome and emulated iPad Chromium. Build produces the expected 16 HTML
-        pages. No secrets or regressions introduced.
+        All 150 unit tests, 14 existing E2E suites, and the corrected <code>qa-polish.e2e.test.ts</code>
+        pass on both desktop Chrome and emulated iPad Chromium (65 passed, 3 skipped — the tablet
+        tooltip skips are intentional and pre-existing). Build produces the expected 16 HTML pages.
+        No secrets or regressions introduced.
       </p>
     </main>
   </body>
