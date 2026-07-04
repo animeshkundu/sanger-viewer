@@ -111,6 +111,14 @@ export class ChromatogramCanvas {
     this.searchMatches = matches
     this.activeSearchMatchIndex = activeIndex
     this.canvas.setAttribute('data-search-match-count', String(matches.length))
+    // Update data-search-active-range synchronously so tests and observers see
+    // the correct active match immediately, without waiting for the next RAF.
+    const activeMatch = activeIndex >= 0 ? matches[activeIndex] ?? null : null
+    if (activeMatch) {
+      this.canvas.setAttribute('data-search-active-range', `${activeMatch.start}:${activeMatch.end}`)
+    } else {
+      this.canvas.removeAttribute('data-search-active-range')
+    }
     this.requestDraw()
   }
 
