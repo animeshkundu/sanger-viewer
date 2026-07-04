@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>2026-07-04 — v17 performance + reliability + consistency audit | sanger-viewer devlog</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-shell">
+        <a class="site-title" href="../../">sanger-viewer</a>
+        <nav class="site-nav" aria-label="Site">
+          <a href="../">Devlog</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="site-shell blog-entry">
+      <p><a href="../">← Back to devlog</a></p>
+      <h1>2026-07-04 — v17 performance + reliability + consistency audit</h1>
+      <p><time datetime="2026-07-04">July 4, 2026</time></p>
+
+      <p>
+        This PR is intentionally docs-only. No viewer logic changed. The job here was to stop
+        guessing, run the built app like a user would, and leave behind one hardening brief
+        that the next implementation wave can execute against while the UI/UX design research
+        runs in parallel.
+      </p>
+      <p>
+        Audit setup: production <code>dist/</code> bundle served under the GitHub Pages
+        <code>/sanger-viewer/</code> base path, Playwright Chromium 149, Node
+        <code>v22.23.0</code>, Linux Azure runner on a 4-vCPU Xeon 8370C. Every timing below is
+        the median of 3 runs. I used <code>3100.ab1</code> as the representative normal trace
+        because <code>310.ab1</code> collapses the trim path into an all-trimmed edge case at
+        every tested threshold; <code>310.ab1</code> still appears below in the reliability pass
+        where that edge case matters.
+      </p>
+
+      <h2>Fixture facts</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Fixture</th>
+            <th>Bytes</th>
+            <th>Initial viewport samples</th>
+            <th>Base calls</th>
+            <th>Why it was used</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>3100.ab1</code></td>
+            <td>209,224</td>
+            <td>10,303</td>
+            <td>795</td>
+            <td>Representative normal trace for interaction timing</td>
+          </tr>
+          <tr>
+            <td><code>3730.ab1</code></td>
+            <td>299,987</td>
+            <td>16,302</td>
+            <td>1,165</td>
+            <td>Current large stress fixture already covered by perf smoke</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>Performance — real numbers from the built app</h2>
+
+      <h3>Load / parse / first-render</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Fixture</th>
+            <th>Worker parse round-trip</th>
+            <th>First non-blank canvas</th>
+            <th>Status → Loaded</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>3100.ab1</code></td>
+            <td>12.4 ms</td>
+            <td>81.4 ms</td>
+            <td>85.4 ms</td>
+          </tr>
+          <tr>
+            <td><code>3730.ab1</code></td>
+            <td>13.8 ms</td>
+            <td>90.2 ms</td>
+            <td>94.0 ms</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        Read plainly: parsing is not the problem anymore. The large trace is only ~1.4 ms slower
+        than the normal trace in worker round-trip time. Most of the load budget is now the
+        post-parse pipeline: <code>buildDisplayTrace()</code>, trim/search/annotation setup, and
+        the first canvas + sequence-panel paint.
+      </p>
+
+      <h3>Interaction latency</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Interaction</th>
+            <th><code>3100.ab1</code></th>
+            <th><code>3730.ab1</code></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Zoom + button</td>
+            <td>34.2 ms</td>
+            <td>40.2 ms</td>
+          </tr>
+          <tr>
+            <td>Pan → button</td>
+            <td>55.9 ms</td>
+            <td>56.3 ms</td>
+          </tr>
+          <tr>
+            <td>Wheel zoom / scroll</td>
+            <td>48.9 ms</td>
+            <td>54.4 ms</td>
+          </tr>
+          <tr>
+            <td>Trim slider</td>
+            <td>20.7 ms</td>
+            <td>21.5 ms</td>
+          </tr>
+          <tr>
+            <td>Find</td>
+            <td>13.2 ms</td>
+            <td>13.2 ms</td>
+          </tr>
+          <tr>
+            <td>Mixed-base threshold</td>
+            <td>13.1 ms</td>
+            <td>14.4 ms</td>
+          </tr>
+          <tr>
+            <td>Reverse-complement toggle</td>
+            <td>54.8 ms</td>
+            <td>63.4 ms</td>
+          </tr>
+          <tr>
+            <td>Edit one visible base</td>
+            <td>70.9 ms</td>
+            <td>80.9 ms</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        The viewer feels decent because everything stays well under 100 ms, but the frame-budget
+        story is still obvious: search and mixed-base recompute already fit inside a 16 ms target,
+        trim is close, while pan / wheel / reverse-complement / edit are still in
+        “one-to-two extra frames” territory.
+      </p>
+
+      <h3>Named bottlenecks</h3>
+      <dl>
+        <dt><strong><code>ChromatogramCanvas.draw()</code> is still the hot path for pan/zoom/scroll</strong></dt>
+        <dd>
+          <code>src/render/ChromatogramCanvas.ts:268-355</code> does a visible-range max-Y scan,
+          then two full <code>peakPositions</code> passes (quality glow bands, then base labels),
+          plus four channel decimation/draw passes every frame. That lines up exactly with the
+          34-56 ms zoom/pan/wheel numbers. The viewer no longer redraws raw samples point-for-point,
+          but it still rebuilds too much per frame.
+        </dd>
+
+        <dt><strong><code>buildDisplayTrace()</code> makes revcomp and edit effectively “full rebuild” actions</strong></dt>
+        <dd>
+          <code>src/components/TraceViewer.ts:315-382</code> replays the whole derived-trace
+          pipeline every time strand or edits change: apply edit model, maybe reverse-complement,
+          rerun <code>callMixedBases()</code>, rebuild annotation features, re-trim, resync
+          search, repaint canvas, rerender sequence panel. That is why reverse-complement lands
+          at 54.8/63.4 ms and single-base edit lands at 70.9/80.9 ms.
+        </dd>
+
+        <dt><strong><code>renderSequence()</code> still throws away and rebuilds DOM</strong></dt>
+        <dd>
+          <code>src/components/SequencePanel.ts:37-148</code> starts with
+          <code>panel.innerHTML = ''</code> and recreates up to 240 spans on every search,
+          trim, hover, and post-edit refresh. The trim slider’s 20-21 ms median is acceptable
+          today, but this full-DOM rebuild is directly coupled to the slower edit/revcomp path.
+        </dd>
+
+        <dt><strong><code>hitTest()</code> is an O(n) pointer scan waiting to become the next problem</strong></dt>
+        <dd>
+          <code>src/render/ChromatogramCanvas.ts:178-210</code> linearly scans all called peaks
+          to find the nearest visible base. The current fixtures are still small enough that this
+          is not exploding, but any future “true large” trace or continuous hover-heavy workflow
+          will pay for it.
+        </dd>
+      </dl>
+
+      <h3>Concrete budgets for the hardening wave</h3>
+      <ul>
+        <li><strong>Paint budget:</strong> keep first non-blank render under 120 ms on the current large fixture.</li>
+        <li><strong>Frame budget:</strong> pan / wheel / button zoom under 16 ms median; under 33 ms worst accepted budget.</li>
+        <li><strong>Derived-state budget:</strong> reverse-complement under 33 ms median; single-base edit under 50 ms median.</li>
+        <li><strong>No unnecessary rebuild rule:</strong> pan and wheel must not rebuild sequence/search/annotation state; edit should not force a full annotation rebuild when only one base changes.</li>
+      </ul>
+
+      <h2>Reliability — cross-feature interaction matrix</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Scenario</th>
+            <th>Result</th>
+            <th>What happened</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Edit + revcomp + mixed-base + trim + export FASTA</td>
+            <td>Pass</td>
+            <td>Stayed interactive and exported a non-empty FASTA. No crash or blank state.</td>
+          </tr>
+          <tr>
+            <td>Undo / redo after trim-threshold change</td>
+            <td>Pass</td>
+            <td>Edited span disappeared on Undo and reappeared on Redo as expected.</td>
+          </tr>
+          <tr>
+            <td>Edit + search</td>
+            <td>Fail</td>
+            <td>After editing visible positions 6, 9, and 12 to create the unique 12-mer <code>SSSKKAWRARRA</code>, FASTA export contained the edited motif but search returned <code>0</code> matches.</td>
+          </tr>
+          <tr>
+            <td>Active search + mixed-base recompute</td>
+            <td>Fail</td>
+            <td>With an active search for <code>RRTCA</code>, lowering the mixed-base threshold changed the visible local motif to <code>RRKKR</code> but the search-match count stayed at <code>7</code>.</td>
+          </tr>
+          <tr>
+            <td>Multi-trace switching with edits</td>
+            <td>Fail</td>
+            <td>Switching from edited <code>310.ab1</code> to <code>3100.ab1</code> and back dropped the edit entirely; Undo history was gone too.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Repros for the real gaps</h3>
+      <dl>
+        <dt><strong>Gap R1 — Search runs against raw sequence, not displayed sequence</strong></dt>
+        <dd>
+          Repro A: load <code>3100.ab1</code>, edit visible positions 6/9/12 so the first 12 bases
+          become <code>SSSKKAWRARRA</code>, then search for that exact 12-mer. Result: the sequence
+          panel and FASTA export both show the edited motif, but search returns 0 matches. Repro B:
+          search for <code>RRTCA</code>, then lower the mixed-base threshold to <code>0.10</code>.
+          The visible motif at the active locus changes to <code>RRKKR</code>, but the search counter
+          remains at 7. Root cause is visible in <code>src/components/TraceViewer.ts:286-299</code>:
+          <code>applySearchQuery()</code> calls <code>findSubsequenceMatches(rawTrace.sequence, ...)</code>
+          instead of the currently displayed trace sequence.
+        </dd>
+
+        <dt><strong>Gap R2 — Workspace saves trim/search/viewport state, but not edits</strong></dt>
+        <dd>
+          Repro: load <code>310.ab1</code>, edit base 1, load <code>3100.ab1</code>, switch back to
+          the first tab. Result: the edited base is gone. Root cause is in
+          <code>src/components/TraceViewer.ts:638-649</code> and <code>706-714</code>: the slot save
+          path persists raw trace, strand, trim, search, mixed-base threshold/result, and viewport,
+          but not <code>editModel</code> or its undo/redo stacks.
+        </dd>
+      </dl>
+
+      <h2>Consistency catalog</h2>
+      <ul>
+        <li><strong>Behavior:</strong> search semantics do not match what the user is looking at. The sequence panel, FASTA/FASTQ/QUAL exports, and mixed-base badges reflect the displayed trace; search still follows the raw forward sequence.</li>
+        <li><strong>Terminology:</strong> the toolbar mixes shorthand (<code>Q-trim</code>), directional notation (<code>5′→3′</code>), and explicit export verbs (<code>Export FASTA</code>) without a single naming style. Strand state lives mostly in tooltip/title text, not the visible label.</li>
+        <li><strong>Control placement:</strong> view controls, five export actions, edit recovery, search, trim, and mixed-base calling all live in one flat toolbar. Export buttons sit between strand navigation and edit/search actions instead of being grouped as output actions.</li>
+        <li><strong>Keyboard discoverability:</strong> Undo/Redo advertise shortcuts, but search Enter/Shift+Enter/Escape, focus-to-open base inspection, and double-click-to-edit are not surfaced anywhere in the UI.</li>
+        <li><strong>Theming and output scope:</strong> on-screen rendering is theme-aware, PNG/SVG are viewport snapshots, and FASTA/FASTQ/QUAL are whole-sequence exports with stateful suffixes like <code>-revcomp</code> and <code>-trimmed</code>. All three behaviors are reasonable individually; together they are not explained consistently.</li>
+        <li><strong>Filename formatting:</strong> image exports always use <code>-view</code> naming, while sequence exports encode strand/trim state but not viewport. The inconsistency is small, but it will matter once users start exporting heavily.</li>
+      </ul>
+
+      <h2>Prioritized hardening plan</h2>
+      <dl>
+        <dt><strong>P0 — Make search truthful and workspace edits durable</strong></dt>
+        <dd>
+          Fix 1: compute search matches from the displayed trace sequence, not
+          <code>rawTrace.sequence</code>, and invalidate/recompute on edit, mixed-base threshold,
+          reverse-complement, and slot switch. Fix 2: persist edit entries plus undo/redo stacks in
+          <code>TraceWorkspace</code> so tab switches round-trip edited state. Suggested regression
+          tests: (a) create a unique edited 12-mer and assert search finds it, (b) hold an active
+          search while mixed-base threshold changes and assert match counts update, (c) switch away
+          from an edited tab and back and assert both the edited span and Undo button state survive.
+        </dd>
+
+        <dt><strong>P1 — Stop doing full rebuild work for frame-bound interactions</strong></dt>
+        <dd>
+          Split <code>buildDisplayTrace()</code> so edit/revcomp do not always rebuild annotations,
+          trim, and search from scratch; cache mixed-base results by threshold + strand; stop
+          clearing/rebuilding the whole sequence panel on every refresh; and binary-search visible
+          peaks for <code>hitTest()</code> instead of linearly scanning every called base. Suggested
+          regression tests: Playwright perf harness with median budgets for zoom/pan/wheel/revcomp/edit,
+          plus a DOM-mutation assertion that hover/search/trim updates patch existing spans instead of
+          replacing the whole sequence panel tree.
+        </dd>
+
+        <dt><strong>P2 — Normalize UX language and export semantics</strong></dt>
+        <dd>
+          Group toolbar actions by intent, surface hidden keyboard paths inline, and decide one
+          consistent export-story vocabulary: either “viewport export” vs “sequence export” is made
+          explicit in labels/help text, or filenames/metadata are normalized so users can predict
+          what state is encoded where. Suggested regression tests: accessibility assertions on
+          grouped controls, visible/help-text copy checks, and filename/content checks for all five
+          export paths.
+        </dd>
+      </dl>
+
+      <h2>Bottom line</h2>
+      <p>
+        The good news: parsing is already cheap, first paint is comfortably sub-100 ms on the
+        current largest fixture, and no measured interaction blew past 100 ms. The less-good news:
+        the viewer is still paying 50-80 ms for actions that users perceive as frame-bound, and the
+        biggest correctness gaps are exactly where features overlap — search vs displayed sequence,
+        and workspace tabs vs edits. That makes the next wave straightforward: fix truthfulness
+        first, then shave rebuild cost, then polish copy and grouping.
+      </p>
+    </main>
+  </body>
+</html>
