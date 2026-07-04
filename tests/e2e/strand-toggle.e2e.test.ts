@@ -59,7 +59,10 @@ async function getSequenceText(page: Page): Promise<string> {
 async function downloadFastaSequence(page: Page): Promise<string> {
   const [download] = await Promise.all([
     page.waitForEvent('download'),
-    page.getByRole('button', { name: 'Export FASTA' }).click(),
+    (async () => {
+      await page.getByRole('button', { name: 'Export menu' }).click()
+      await page.getByRole('menuitem', { name: 'Export FASTA' }).click()
+    })(),
   ])
   const tmpPath = await download.path()
   if (!tmpPath) throw new Error('FASTA download path unavailable')
@@ -211,7 +214,10 @@ test('FASTA export header contains revcomp when strand is toggled', async ({ pag
 
   const [download] = await Promise.all([
     page.waitForEvent('download'),
-    page.getByRole('button', { name: 'Export FASTA' }).click(),
+    (async () => {
+      await page.getByRole('button', { name: 'Export menu' }).click()
+      await page.getByRole('menuitem', { name: 'Export FASTA' }).click()
+    })(),
   ])
 
   expect(download.suggestedFilename()).toContain('revcomp')

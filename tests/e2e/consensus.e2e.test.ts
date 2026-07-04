@@ -34,7 +34,8 @@ test.describe('Multi-trace consensus view', () => {
     await page.setInputFiles('#file-input', FIXTURE_A)
     await expect(page.locator('#status')).toContainText('Loaded')
 
-    const btn = page.getByRole('button', { name: 'Export Consensus FASTA' })
+    // The button is inside the export dropdown; use data-testid to check state without opening the menu.
+    const btn = page.locator('[data-testid="export-consensus-fasta"]')
     await expect(btn).toBeDisabled()
   })
 
@@ -73,7 +74,8 @@ test.describe('Multi-trace consensus view', () => {
     await page.setInputFiles('#file-input-extra', FIXTURE_B)
     await expect(page.locator('#status')).toContainText('Loaded')
 
-    const btn = page.getByRole('button', { name: 'Export Consensus FASTA' })
+    // The button is inside the export dropdown; use data-testid to check state without opening the menu.
+    const btn = page.locator('[data-testid="export-consensus-fasta"]')
     await expect(btn).toBeEnabled()
   })
 
@@ -87,7 +89,8 @@ test.describe('Multi-trace consensus view', () => {
     await expect(page.locator('#status')).toContainText('Loaded')
 
     const download = page.waitForEvent('download')
-    await page.getByRole('button', { name: 'Export Consensus FASTA' }).click()
+    await page.getByRole('button', { name: 'Export menu' }).click()
+    await page.getByRole('menuitem', { name: 'Export Consensus FASTA' }).click()
     const dl = await download
 
     // File must be named consensus.fasta.
@@ -136,8 +139,8 @@ test.describe('Multi-trace consensus view', () => {
     // Back to one trace — consensus row must be hidden.
     await expect(page.locator('[data-testid="consensus-row"]')).toBeHidden()
 
-    // And the export button must be disabled again.
-    await expect(page.getByRole('button', { name: 'Export Consensus FASTA' })).toBeDisabled()
+    // And the export button must be disabled again (use data-testid to check inside closed dropdown).
+    await expect(page.locator('[data-testid="export-consensus-fasta"]')).toBeDisabled()
   })
 
   test('mismatch bases are visually highlighted in the consensus row', async ({ page }) => {

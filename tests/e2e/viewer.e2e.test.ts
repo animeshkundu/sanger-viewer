@@ -38,11 +38,13 @@ test('loads fixture set and renders interactions', async ({ page }) => {
   }
 
   const pngDownload = page.waitForEvent('download')
-  await page.getByRole('button', { name: 'Export PNG' }).click()
+  await page.getByRole('button', { name: 'Export menu' }).click()
+  await page.getByRole('menuitem', { name: 'Export PNG' }).click()
   expect((await pngDownload).suggestedFilename()).toContain('.png')
 
   const fastaDownload = page.waitForEvent('download')
-  await page.getByRole('button', { name: 'Export FASTA' }).click()
+  await page.getByRole('button', { name: 'Export menu' }).click()
+  await page.getByRole('menuitem', { name: 'Export FASTA' }).click()
   expect((await fastaDownload).suggestedFilename()).toContain('.fasta')
 })
 

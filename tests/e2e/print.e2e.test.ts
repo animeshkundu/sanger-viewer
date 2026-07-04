@@ -35,7 +35,8 @@ async function loadFixture(page: Page, fixture = FIXTURE): Promise<void> {
 }
 
 async function clickPrint(page: Page): Promise<void> {
-  await page.getByRole('button', { name: /Print \/ Save as PDF/i }).click()
+  await page.getByRole('button', { name: 'Export menu' }).click()
+  await page.getByRole('menuitem', { name: /Print \/ Save as PDF/i }).click()
   // Wait until #print-view appears in the DOM (the action is synchronous once
   // canvas data URLs are captured, but we use waitFor for robustness).
   await page.waitForFunction(() => !!document.querySelector('#print-view'), { timeout: 5000 })
@@ -82,7 +83,8 @@ test.describe('Print / Save as PDF', () => {
     await mockPrint(page)
     await page.goto('')
 
-    const btn = page.getByRole('button', { name: /Print \/ Save as PDF/i })
+    // The button is inside the export dropdown; use data-testid to check state without opening the menu.
+    const btn = page.locator('[data-testid="print-btn"]')
     // The button must exist in the toolbar.
     await expect(btn).toBeAttached()
 
@@ -98,8 +100,8 @@ test.describe('Print / Save as PDF', () => {
     await mockPrint(page)
     await loadFixture(page)
 
-    // The print button must be enabled once the trace is loaded.
-    const btn = page.getByRole('button', { name: /Print \/ Save as PDF/i })
+    // The print button must be enabled once the trace is loaded (use data-testid to check in dropdown).
+    const btn = page.locator('[data-testid="print-btn"]')
     await expect(btn).toBeEnabled()
 
     await clickPrint(page)

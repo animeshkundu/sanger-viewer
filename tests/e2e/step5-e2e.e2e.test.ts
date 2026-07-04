@@ -230,7 +230,10 @@ test('PNG export produces a valid PNG file', async ({ page }) => {
 
   const [download] = await Promise.all([
     page.waitForEvent('download'),
-    page.getByRole('button', { name: 'Export PNG' }).click(),
+    (async () => {
+      await page.getByRole('button', { name: 'Export menu' }).click()
+      await page.getByRole('menuitem', { name: 'Export PNG' }).click()
+    })(),
   ])
 
   expect(download.suggestedFilename()).toMatch(/\.png$/i)
@@ -271,7 +274,10 @@ test('FASTA export produces valid FASTA content', async ({ page }) => {
 
   const [download] = await Promise.all([
     page.waitForEvent('download'),
-    page.getByRole('button', { name: 'Export FASTA' }).click(),
+    (async () => {
+      await page.getByRole('button', { name: 'Export menu' }).click()
+      await page.getByRole('menuitem', { name: 'Export FASTA' }).click()
+    })(),
   ])
 
   expect(download.suggestedFilename()).toMatch(/\.fasta$/i)

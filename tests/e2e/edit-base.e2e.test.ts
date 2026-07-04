@@ -30,7 +30,10 @@ async function loadFixture(page: Page): Promise<void> {
 async function downloadFastq(page: Page): Promise<string> {
   const [download] = await Promise.all([
     page.waitForEvent('download'),
-    page.getByRole('button', { name: 'Export FASTQ' }).click(),
+    (async () => {
+      await page.getByRole('button', { name: 'Export menu' }).click()
+      await page.getByRole('menuitem', { name: 'Export FASTQ' }).click()
+    })(),
   ])
   const tmpPath = await download.path()
   if (!tmpPath) throw new Error('FASTQ download path unavailable')
@@ -202,7 +205,10 @@ test('Export FASTQ filename ends with .fastq', async ({ page }) => {
   await loadFixture(page)
   const [download] = await Promise.all([
     page.waitForEvent('download'),
-    page.getByRole('button', { name: 'Export FASTQ' }).click(),
+    (async () => {
+      await page.getByRole('button', { name: 'Export menu' }).click()
+      await page.getByRole('menuitem', { name: 'Export FASTQ' }).click()
+    })(),
   ])
   expect(download.suggestedFilename()).toMatch(/\.fastq$/i)
 })

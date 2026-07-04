@@ -7,86 +7,115 @@ export function createControls(): HTMLDivElement {
   root.setAttribute('role', 'toolbar')
   root.setAttribute('aria-label', 'Trace viewer controls')
   root.innerHTML = `
-    <button data-action="zoom-in">Zoom +</button>
-    <button data-action="zoom-out">Zoom -</button>
-    <button data-action="pan-left">← Pan</button>
-    <button data-action="pan-right">Pan →</button>
-    <button data-action="fit">Fit</button>
-    <button data-action="toggle-strand" aria-pressed="false" title="Toggle reverse complement strand">5′→3′</button>
-    <button data-action="export-png">Export PNG</button>
-    <button data-action="export-svg">Export SVG</button>
-    <button data-action="export-fasta">Export FASTA</button>
-    <button data-action="export-fastq">Export FASTQ</button>
-    <button data-action="export-qual">Export QUAL</button>
-    <button data-action="export-consensus-fasta" data-testid="export-consensus-fasta" disabled>Export Consensus FASTA</button>
-    <button data-action="print" data-testid="print-btn" aria-label="Print / Save as PDF" title="Print / Save as PDF" disabled>🖨 Print / Save as PDF</button>
-    <button data-action="undo" aria-label="Undo base edit (Ctrl+Z)" title="Undo (Ctrl+Z)" disabled>↩ Undo</button>
-    <button data-action="redo" aria-label="Redo base edit (Ctrl+Shift+Z)" title="Redo (Ctrl+Shift+Z)" disabled>↪ Redo</button>
-    <div class="search-controls" role="group" aria-label="Sequence search">
-      <label class="search-label" for="search-input">
-        <span class="search-label__text">Find:</span>
-        <input
-          id="search-input"
-          class="search-input"
-          type="text"
-          spellcheck="false"
-          autocomplete="off"
-          autocapitalize="characters"
-          placeholder="IUPAC motif"
-          aria-describedby="search-summary search-empty-state"
-        />
-      </label>
-      <div class="search-actions">
-        <button type="button" data-action="search-prev">Previous match</button>
-        <button type="button" data-action="search-next">Next match</button>
-        <button type="button" data-action="search-clear" aria-label="Clear search">Clear</button>
-      </div>
-      <span id="search-summary" class="search-summary" aria-live="polite" aria-atomic="true"></span>
-      <span id="search-empty-state" class="search-empty-state hidden" role="status">No matches found.</span>
+    <div class="controls-group" role="group" aria-label="View" data-group="view">
+      <span class="controls-group__label" aria-hidden="true">View</span>
+      <button data-action="zoom-in">Zoom +</button>
+      <button data-action="zoom-out">Zoom −</button>
+      <button data-action="pan-left">← Pan</button>
+      <button data-action="pan-right">Pan →</button>
+      <button data-action="fit">Fit</button>
+      <button data-action="toggle-strand" aria-pressed="false" title="Toggle reverse complement strand">5′→3′</button>
     </div>
-    <div class="trim-controls" role="group" aria-label="Quality trimming">
-      <label class="trim-label" for="trim-threshold">
-        <span class="trim-label__text">Q-trim:</span>
-        <input
-          type="range"
-          id="trim-threshold"
-          data-trim="threshold"
-          min="0" max="40" step="1" value="20"
-          aria-label="Quality trim threshold"
-          class="trim-slider"
-        />
-        <output id="trim-threshold-display" for="trim-threshold" class="trim-value">20</output>
-      </label>
-      <div class="trim-mode" role="group" aria-label="Sequence mode">
+    <div class="controls-group controls-group--export" role="group" aria-label="Export" data-group="export">
+      <span class="controls-group__label" aria-hidden="true">Export</span>
+      <div class="export-menu">
         <button
-          data-trim-mode="full"
-          class="trim-mode-btn trim-mode-btn--active"
-          aria-pressed="true"
-          title="Show full (untrimmed) sequence"
-        >Full</button>
-        <button
-          data-trim-mode="trimmed"
-          class="trim-mode-btn"
-          aria-pressed="false"
-          title="Show trimmed sequence only"
-        >Trimmed</button>
+          class="export-menu__toggle"
+          data-action="export-menu-toggle"
+          aria-haspopup="menu"
+          aria-expanded="false"
+          aria-label="Export menu"
+        >Export ▾</button>
+        <div class="export-menu__dropdown" role="menu" hidden>
+          <button role="menuitem" data-action="export-png">Export PNG</button>
+          <button role="menuitem" data-action="export-svg">Export SVG</button>
+          <button role="menuitem" data-action="export-fasta">Export FASTA</button>
+          <button role="menuitem" data-action="export-fastq">Export FASTQ</button>
+          <button role="menuitem" data-action="export-qual">Export QUAL</button>
+          <button role="menuitem" data-action="export-consensus-fasta" data-testid="export-consensus-fasta" disabled>Export Consensus FASTA</button>
+          <button role="menuitem" data-action="print" data-testid="print-btn" aria-label="Print / Save as PDF" title="Print / Save as PDF" disabled>🖨 Print / Save as PDF</button>
+        </div>
       </div>
-      <span id="trim-summary" class="trim-summary" aria-live="polite" aria-atomic="true"></span>
     </div>
-    <div class="mixed-controls" role="group" aria-label="Mixed-base calling">
-      <label class="mixed-label" for="mixed-threshold">
-        <span class="mixed-label__text">Mixed-base ratio:</span>
-        <input
-          type="range"
-          id="mixed-threshold"
-          data-mixed="threshold"
-          min="0" max="1" step="0.01" value="${DEFAULT_MIXED_BASE_THRESHOLD.toFixed(2)}"
-          aria-label="Mixed-base secondary to primary peak ratio threshold"
-          class="mixed-slider"
-        />
-        <output id="mixed-threshold-display" for="mixed-threshold" class="mixed-value">${DEFAULT_MIXED_BASE_THRESHOLD.toFixed(2)}</output>
-      </label>
-      <span id="mixed-summary" class="mixed-summary" aria-live="polite" aria-atomic="true">0 ambiguous bases</span>
+    <div class="controls-group" role="group" aria-label="Edit" data-group="edit">
+      <span class="controls-group__label" aria-hidden="true">Edit</span>
+      <button data-action="undo" aria-label="Undo base edit (Ctrl+Z)" title="Undo (Ctrl+Z)" disabled>↩ Undo</button>
+      <button data-action="redo" aria-label="Redo base edit (Ctrl+Shift+Z)" title="Redo (Ctrl+Shift+Z)" disabled>↪ Redo</button>
+    </div>
+    <div class="controls-group controls-group--search" role="group" aria-label="Search" data-group="search">
+      <span class="controls-group__label" aria-hidden="true">Search</span>
+      <div class="search-controls" role="group" aria-label="Sequence search">
+        <label class="search-label" for="search-input">
+          <span class="search-label__text">Find:</span>
+          <input
+            id="search-input"
+            class="search-input"
+            type="text"
+            spellcheck="false"
+            autocomplete="off"
+            autocapitalize="characters"
+            placeholder="IUPAC motif"
+            aria-describedby="search-summary search-empty-state"
+          />
+        </label>
+        <div class="search-actions">
+          <button type="button" data-action="search-prev">Previous match</button>
+          <button type="button" data-action="search-next">Next match</button>
+          <button type="button" data-action="search-clear" aria-label="Clear search">Clear</button>
+        </div>
+        <span id="search-summary" class="search-summary" aria-live="polite" aria-atomic="true"></span>
+        <span id="search-empty-state" class="search-empty-state hidden" role="status">No matches found.</span>
+      </div>
+    </div>
+    <div class="controls-group controls-group--trim" role="group" aria-label="Quality trim" data-group="trim">
+      <span class="controls-group__label" aria-hidden="true">Q-trim</span>
+      <div class="trim-controls" role="group" aria-label="Quality trimming">
+        <label class="trim-label" for="trim-threshold">
+          <span class="trim-label__text">Q-trim:</span>
+          <input
+            type="range"
+            id="trim-threshold"
+            data-trim="threshold"
+            min="0" max="40" step="1" value="20"
+            aria-label="Quality trim threshold"
+            class="trim-slider"
+          />
+          <output id="trim-threshold-display" for="trim-threshold" class="trim-value">20</output>
+        </label>
+        <div class="trim-mode" role="group" aria-label="Sequence mode">
+          <button
+            data-trim-mode="full"
+            class="trim-mode-btn trim-mode-btn--active"
+            aria-pressed="true"
+            title="Show full (untrimmed) sequence"
+          >Full</button>
+          <button
+            data-trim-mode="trimmed"
+            class="trim-mode-btn"
+            aria-pressed="false"
+            title="Show trimmed sequence only"
+          >Trimmed</button>
+        </div>
+        <span id="trim-summary" class="trim-summary" aria-live="polite" aria-atomic="true"></span>
+      </div>
+    </div>
+    <div class="controls-group controls-group--mixed" role="group" aria-label="Mixed-base" data-group="mixed">
+      <span class="controls-group__label" aria-hidden="true">Mixed</span>
+      <div class="mixed-controls" role="group" aria-label="Mixed-base calling">
+        <label class="mixed-label" for="mixed-threshold">
+          <span class="mixed-label__text">Mixed-base ratio:</span>
+          <input
+            type="range"
+            id="mixed-threshold"
+            data-mixed="threshold"
+            min="0" max="1" step="0.01" value="${DEFAULT_MIXED_BASE_THRESHOLD.toFixed(2)}"
+            aria-label="Mixed-base secondary to primary peak ratio threshold"
+            class="mixed-slider"
+          />
+          <output id="mixed-threshold-display" for="mixed-threshold" class="mixed-value">${DEFAULT_MIXED_BASE_THRESHOLD.toFixed(2)}</output>
+        </label>
+        <span id="mixed-summary" class="mixed-summary" aria-live="polite" aria-atomic="true">0 ambiguous bases</span>
+      </div>
     </div>
   `
   return root
@@ -104,9 +133,13 @@ export function setStrandToggleState(controls: HTMLDivElement, isRevcomp: boolea
 export function setControlsDisabled(controls: HTMLDivElement, disabled: boolean): void {
   controls.querySelectorAll('button').forEach((btn) => {
     const action = (btn as HTMLButtonElement).getAttribute('data-action')
+    // Export dropdown children are managed via the menu toggle button as a unit;
+    // individual menu items are never directly toggled by setControlsDisabled.
+    if (action && /^export-(?!menu-toggle)/.test(action)) return
+    if (action === 'print') return
     // Undo/redo and export-consensus-fasta have their own enabled-state management;
     // only force-disable them during loading, never auto-enable on re-enable.
-    if (!disabled && (action === 'undo' || action === 'redo' || action === 'export-consensus-fasta' || action === 'print')) return
+    if (!disabled && (action === 'undo' || action === 'redo')) return
     ;(btn as HTMLButtonElement).disabled = disabled
   })
   const slider = controls.querySelector<HTMLInputElement>('[data-trim="threshold"]')
@@ -115,6 +148,20 @@ export function setControlsDisabled(controls: HTMLDivElement, disabled: boolean)
   if (mixedSlider) mixedSlider.disabled = disabled
   const searchInput = controls.querySelector<HTMLInputElement>('#search-input')
   if (searchInput) searchInput.disabled = disabled
+}
+
+/** Open or close the export dropdown menu. */
+export function setExportMenuOpen(controls: HTMLDivElement, open: boolean): void {
+  const toggle = controls.querySelector<HTMLButtonElement>('[data-action="export-menu-toggle"]')
+  const dropdown = controls.querySelector<HTMLElement>('.export-menu__dropdown')
+  if (toggle) toggle.setAttribute('aria-expanded', String(open))
+  if (dropdown) {
+    if (open) {
+      dropdown.removeAttribute('hidden')
+    } else {
+      dropdown.setAttribute('hidden', '')
+    }
+  }
 }
 
 /** Update the trim summary display after a trim recompute. */
