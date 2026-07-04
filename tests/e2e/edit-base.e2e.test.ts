@@ -27,20 +27,6 @@ async function loadFixture(page: Page): Promise<void> {
   await expect(page.locator('#status')).toContainText('Loaded')
 }
 
-/** Get the text content of all visible base spans in the sequence panel. */
-async function getSequenceSpans(page: Page): Promise<string[]> {
-  return page.locator('.sequence-panel span[data-base-index]').evaluateAll(
-    (els) => els.map((el) => el.textContent ?? ''),
-  )
-}
-
-/** Double-click the span at the given display index. */
-async function dblClickBase(page: Page, displayIndex: number): Promise<void> {
-  const span = page.locator(`.sequence-panel span[data-base-index="${displayIndex}"]`)
-  await span.dblclick()
-}
-
-/** Download FASTQ and return its content as a string. */
 async function downloadFastq(page: Page): Promise<string> {
   const [download] = await Promise.all([
     page.waitForEvent('download'),
@@ -64,7 +50,7 @@ test('edited base appears in sequence panel with .edited-base class', async ({ p
   expect(baseIndexAttr).not.toBeNull()
   const displayIndex = Number(baseIndexAttr)
   const originalBase = await firstSpan.textContent()
-  expect(originalBase).toMatch(/^[ACGTN]$/i)
+  expect(originalBase).toMatch(/^[ACGTNRYSWKMBVDH]$/i)
 
   // Double-click to activate editing mode.
   await firstSpan.dblclick()

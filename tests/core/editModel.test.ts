@@ -52,6 +52,32 @@ describe('BaseEditModel — basic substitution', () => {
 })
 
 // ---------------------------------------------------------------------------
+// No-op edit guard
+// ---------------------------------------------------------------------------
+
+describe('BaseEditModel — no-op edit guard', () => {
+  it('reverting an unedited position leaves undo/redo stacks unchanged', () => {
+    const model = new BaseEditModel()
+    // Applying the original base to a position that has no edit must be a no-op.
+    model.apply(0, 'A', 'A')
+    expect(model.canUndo).toBe(false)
+    expect(model.canRedo).toBe(false)
+    expect(model.editedIndices).toEqual(new Set())
+  })
+
+  it('re-applying the identical base at an already-edited position does not push a duplicate undo step', () => {
+    const model = new BaseEditModel()
+    model.apply(1, 'G', 'C')          // real edit → undo stack grows to 1
+    model.apply(1, 'G', 'C')          // same base again → must be a no-op
+    expect(model.canUndo).toBe(true)
+    // Only one undo step recorded — after undo the edit is gone.
+    model.undo()
+    expect(model.canUndo).toBe(false)
+    expect(model.editedIndices).toEqual(new Set())
+  })
+})
+
+// ---------------------------------------------------------------------------
 // canUndo / canRedo at stack ends
 // ---------------------------------------------------------------------------
 

@@ -326,6 +326,32 @@ export function createTraceViewer(): HTMLDivElement {
     }
     const strandTrace = isRevcomp ? reverseComplementTrace(editedRaw) : editedRaw
     mixedBaseResult = callMixedBases(strandTrace, mixedBaseThreshold)
+
+    // Re-pin manually edited positions after mixed-base calling: callMixedBases derives calls
+    // from raw signal and can overwrite a manual edit with an IUPAC ambiguity code.
+    // The user's explicit edit takes priority over the signal-derived call.
+    if (editModel.hasEdits) {
+      const pinnedBaseCalls = mixedBaseResult.baseCalls.slice()
+      const len = pinnedBaseCalls.length
+      const editedDisplayIndices = new Set<number>()
+      for (const forwardIdx of editModel.editedIndices) {
+        const displayIdx = isRevcomp ? len - 1 - forwardIdx : forwardIdx
+        if (displayIdx >= 0 && displayIdx < len) {
+          // strandTrace.baseCalls already carries the edited base in display orientation
+          // (applied before reverseComplementTrace, so it is correctly complemented).
+          pinnedBaseCalls[displayIdx] = strandTrace.baseCalls[displayIdx]
+          editedDisplayIndices.add(displayIdx)
+        }
+      }
+      const cleanAmbiguous = mixedBaseResult.ambiguousIndices.filter(i => !editedDisplayIndices.has(i))
+      mixedBaseResult = {
+        baseCalls: pinnedBaseCalls,
+        sequence: pinnedBaseCalls.join(''),
+        ambiguousIndices: cleanAmbiguous,
+        ambiguousCount: cleanAmbiguous.length,
+      }
+    }
+
     setMixedSummary(controls, mixedBaseResult.ambiguousCount)
     annotationFeatures = buildAnnotationFeatures(mixedBaseResult.sequence)
     return {

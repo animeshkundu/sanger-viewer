@@ -110,4 +110,15 @@ describe('exportSvg', () => {
     const svg = exportSvg(fakeTrace({ fileName: 'sample.ab1' }))
     expect(svg).toContain('aria-label="Sanger chromatogram — sample.ab1"')
   })
+
+  it('reflects edited base calls in SVG text labels', () => {
+    // Simulate a trace where one base has been manually edited (as buildDisplayTrace does).
+    const edited = fakeTrace({
+      baseCalls: ['A', 'N', 'G', 'T', 'A'],
+      sequence: 'ANGTA',
+    })
+    const svg = exportSvg(edited)
+    // The SVG must contain the edited base 'N' as a text label.
+    expect(svg).toContain('>N<')
+  })
 })
