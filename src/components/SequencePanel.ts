@@ -49,8 +49,6 @@ export function renderSequence(
     editingIndex = -1,
   }: RenderSequenceOptions = {},
 ): void {
-  panel.innerHTML = ''
-  const fragment = document.createDocumentFragment()
   const ambiguousSet = new Set(ambiguousIndices)
   let ambiguousVisibleCount = 0
 
@@ -108,6 +106,11 @@ export function renderSequence(
 
   const buildSpan = (base: string, absolute: number, visibleMatches: SubsequenceMatch[]) => {
     const span = document.createElement('span')
+    updateSpan(span, base, absolute, visibleMatches)
+    return span
+  }
+
+  const updateSpan = (span: HTMLSpanElement, base: string, absolute: number, visibleMatches: SubsequenceMatch[]) => {
     span.textContent = base
     span.tabIndex = 0
     span.setAttribute('role', 'button')
@@ -115,8 +118,38 @@ export function renderSequence(
     span.setAttribute('aria-expanded', 'false')
     span.setAttribute('aria-label', `${base} at position ${absolute + 1}${editedIndices?.has(absolute) ? ' (edited)' : ''}`)
     span.dataset.baseIndex = String(absolute)
+    delete span.dataset.searchMatch
+    delete span.dataset.searchActive
+    delete span.dataset.ambiguous
+    delete span.dataset.edited
+    span.className = ''
     applySpanClasses(span, absolute, visibleMatches)
-    return span
+  }
+
+  const renderWindow = (start: number, end: number, visibleMatches: SubsequenceMatch[]) => {
+    const existingSpans =
+      panel.children.length === end - start
+        ? [...panel.querySelectorAll<HTMLSpanElement>('span[data-base-index]')]
+        : []
+    const canPatchInPlace =
+      existingSpans.length === end - start &&
+      existingSpans.every((span, idx) => Number(span.dataset.baseIndex) === start + idx)
+
+    if (canPatchInPlace) {
+      for (let idx = 0; idx < existingSpans.length; idx += 1) {
+        const absolute = start + idx
+        updateSpan(existingSpans[idx], trace.baseCalls[absolute] ?? 'N', absolute, visibleMatches)
+      }
+      return
+    }
+
+    panel.innerHTML = ''
+    const fragment = document.createDocumentFragment()
+    trace.baseCalls.slice(start, end).forEach((base, idx) => {
+      const absolute = start + idx
+      fragment.appendChild(buildSpan(base, absolute, visibleMatches))
+    })
+    panel.appendChild(fragment)
   }
 
   if (inTrimmedMode) {
@@ -127,22 +160,14 @@ export function renderSequence(
     const windowStart = anchor >= 0 ? Math.max(trimStart, anchor - 120) : trimStart
     const windowEnd = anchor >= 0 ? Math.min(trimEnd, anchor + 120) : Math.min(trimEnd, trimStart + 240)
     const visibleMatches = getWindowMatches(windowStart, windowEnd)
-
-    trace.baseCalls.slice(windowStart, windowEnd).forEach((base, idx) => {
-      const absolute = windowStart + idx
-      fragment.appendChild(buildSpan(base, absolute, visibleMatches))
-    })
+    renderWindow(windowStart, windowEnd, visibleMatches)
   } else {
     // Full mode: ±120 around selected, but mark trimmed bases.
     const start = anchor >= 0 ? Math.max(0, anchor - 120) : 0
     const end = anchor >= 0 ? Math.min(trace.baseCalls.length, anchor + 120) : Math.min(trace.baseCalls.length, 240)
     const visibleMatches = getWindowMatches(start, end)
-    trace.baseCalls.slice(start, end).forEach((base, idx) => {
-      const absolute = start + idx
-      fragment.appendChild(buildSpan(base, absolute, visibleMatches))
-    })
+    renderWindow(start, end, visibleMatches)
   }
 
-  panel.appendChild(fragment)
   panel.setAttribute('data-ambiguous-visible-count', String(ambiguousVisibleCount))
 }
