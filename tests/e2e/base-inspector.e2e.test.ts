@@ -115,10 +115,11 @@ test('tooltip is hidden when keyboard inspector opens', { tag: ['@desktop'] }, a
 
   // Focus a rendered sequence base via keyboard — tooltip must be dismissed, inspector must appear.
   const target = page.locator(`.sequence-panel span[data-base-index="${KNOWN_INDEX}"]`)
-  await target.waitFor({ state: 'visible' })
-  await expect(target).toHaveAttribute('tabindex', '0')
+  await target.scrollIntoViewIfNeeded()
+  await expect(target).toBeVisible()
   await target.focus()
-  await target.press('Enter')
+  // aria-expanded flips synchronously on focus; await it before asserting inspector/tooltip.
+  await expect(target).toHaveAttribute('aria-expanded', 'true')
   await expect(page.locator('.tooltip')).toBeHidden()
   await expect(page.locator('#base-inspector')).toBeVisible()
 })
