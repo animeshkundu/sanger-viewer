@@ -60,9 +60,9 @@ test('edited base appears in sequence panel with .edited-base class', async ({ p
 
   // Find the first visible span and read its index and current base.
   const firstSpan = page.locator('.sequence-panel span[data-base-index]').first()
-  const rawIdx = await firstSpan.getAttribute('data-base-index')
-  expect(rawIdx).not.toBeNull()
-  const displayIndex = Number(rawIdx)
+  const baseIndexAttr = await firstSpan.getAttribute('data-base-index')
+  expect(baseIndexAttr).not.toBeNull()
+  const displayIndex = Number(baseIndexAttr)
   const originalBase = await firstSpan.textContent()
   expect(originalBase).toMatch(/^[ACGTN]$/i)
 
@@ -83,9 +83,9 @@ test('edited base flows into the FASTQ export sequence line', async ({ page }) =
   await loadFixture(page)
 
   const firstSpan = page.locator('.sequence-panel span[data-base-index]').first()
-  const rawIdx2 = await firstSpan.getAttribute('data-base-index')
-  expect(rawIdx2).not.toBeNull()
-  const displayIndex = Number(rawIdx2)
+  const baseIndexAttr = await firstSpan.getAttribute('data-base-index')
+  expect(baseIndexAttr).not.toBeNull()
+  const displayIndex = Number(baseIndexAttr)
 
   // Replace the first visible base with 'N'.
   await firstSpan.dblclick()
