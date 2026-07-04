@@ -437,6 +437,29 @@ a {
   color: var(--color-success-text);
 }
 
+.status-banner--sample {
+  margin-top: 0;
+  margin-bottom: var(--space-3);
+  justify-content: space-between;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+}
+
+.status-banner__dismiss {
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: inherit;
+  font: inherit;
+  padding: 0.35rem 0.65rem;
+  cursor: pointer;
+}
+
+.status-banner__dismiss:hover {
+  background: var(--color-surface-raised);
+}
+
 /* Loading spinner */
 @keyframes spin {
   to { transform: rotate(360deg); }
