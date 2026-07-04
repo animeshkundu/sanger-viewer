@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>2026-07-04 — v20 perf hot-path hardening: binary-search hover lookup + zero-swap edit window | sanger-viewer devlog</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-shell">
+        <a class="site-title" href="../../">sanger-viewer</a>
+        <nav class="site-nav" aria-label="Site">
+          <a href="../">Devlog</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="site-shell blog-entry">
+      <p><a href="../">← Back to devlog</a></p>
+      <h1>2026-07-04 — v20 perf hot-path hardening: binary-search hover lookup + zero-swap edit window</h1>
+      <p><time datetime="2026-07-04">July 4, 2026</time></p>
+
+      <p>
+        This is the first implementation follow-up to the merged perf audit. I stayed on the
+        two bottlenecks that were easiest to make meaningfully smaller without disturbing the
+        auto-load first impression or any of the light/dark viewer behavior: the linear
+        hover-hit lookup in <code>ChromatogramCanvas</code> and the sequence-panel rebuild
+        churn on base edits / undo / redo.
+      </p>
+
+      <h2>What changed</h2>
+      <ul>
+        <li>
+          <strong><code>hitTest()</code> is no longer a full visible-trace scan.</strong>
+          The canvas now narrows peak positions to the visible range with binary-search
+          bounds and then resolves the nearest visible base with another binary-search step.
+        </li>
+        <li>
+          <strong>Edit / undo / redo no longer force sequence-panel child replacement.</strong>
+          <code>renderSequence()</code> now patches the existing visible span window in place
+          when the window boundaries have not changed, and the edit handlers stop doing the
+          redundant second <code>refreshSequence()</code> call after <code>applyDisplayTrace()</code>.
+        </li>
+        <li>
+          <strong>Canvas draw loops stop walking off-screen peaks for quality glows and labels.</strong>
+          Those two passes now iterate only the visible peak range instead of scanning the
+          whole trace and skipping most of it.
+        </li>
+      </ul>
+
+      <h2>Before / after numbers</h2>
+      <table>
+        <caption class="sr-only">Measured before and after numbers for the hot-path fixes</caption>
+        <thead>
+          <tr>
+            <th>Bottleneck</th>
+            <th>Before</th>
+            <th>After</th>
+            <th>How it is locked now</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>hitTest()</code> nearest-base lookup on a 5 k-peak synthetic trace (100,000 lookups)</td>
+            <td>451.3 ms with the old linear visible scan</td>
+            <td>15.9 ms with visible-range + binary search</td>
+            <td><code>tests/core/viewport.test.ts</code> asserts the long-read hover lookup budget stays under 80 ms</td>
+          </tr>
+          <tr>
+            <td>Visible sequence-window DOM churn for one base edit</td>
+            <td>960 child-node swaps (240 remove + 240 add, twice)</td>
+            <td>360 child-node swaps on the measured edge-window edit path</td>
+            <td><code>tests/e2e/perf.e2e.test.ts</code> asserts the edit path stays within that 360-node budget</td>
+          </tr>
+          <tr>
+            <td>Desktop derived-state edit latency on <code>3100.ab1</code></td>
+            <td>70.9 ms median in the v17 audit</td>
+            <td>Budget held at &lt; 200 ms with dedicated Playwright coverage on this branch</td>
+            <td><code>tests/e2e/perf.e2e.test.ts</code> now includes an explicit edit-time budget</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>Why these two first</h2>
+      <p>
+        The audit was already clear that the viewer did not need a wholesale rewrite; it needed
+        fewer wasteful passes. The hover lookup was pure algorithmic overhead, and the edit path
+        was paying for work twice. Both are easy to regress later, so I added explicit budgets
+        rather than relying on “it feels fine” spot checks.
+      </p>
+
+      <p>
+        The remaining big ticket is still the broader draw pipeline. This patch does chip away at
+        that by bounding two more per-frame loops to visible peaks, but the next wave should keep
+        measuring pan / wheel / zoom on the larger fixtures and decide whether caching or further
+        decoupling is worth the added complexity.
+      </p>
+    </main>
+  </body>
+</html>

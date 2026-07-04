@@ -629,6 +629,7 @@ export function createTraceViewer(): HTMLDivElement {
     }
 
     showTooltip(tooltip, hit, clientX, clientY)
+    if (!select && hit.index === hoveredBaseIndex) return
     if (select) {
       selectedBaseIndex = hit.index
       hoveredBaseIndex = null
@@ -1082,7 +1083,6 @@ export function createTraceViewer(): HTMLDivElement {
       editingIndex = -1
       setUndoRedoState(controls, editModel.canUndo, editModel.canRedo)
       applyDisplayTrace(true)
-      refreshSequence()
     }
 
     if (action === 'redo' && rawTrace) {
@@ -1090,7 +1090,6 @@ export function createTraceViewer(): HTMLDivElement {
       editingIndex = -1
       setUndoRedoState(controls, editModel.canUndo, editModel.canRedo)
       applyDisplayTrace(true)
-      refreshSequence()
     }
 
     // Trim mode toggle (Full / Trimmed buttons)
@@ -1287,7 +1286,6 @@ export function createTraceViewer(): HTMLDivElement {
     setUndoRedoState(controls, editModel.canUndo, editModel.canRedo)
     editingIndex = -1
     applyDisplayTrace(true)
-    refreshSequence()
     // Refocus the span at the same display index after re-render.
     const updatedSpan = sequencePanel.querySelector<HTMLElement>(`[data-base-index="${displayIdx}"]`)
     updatedSpan?.focus()
@@ -1348,7 +1346,6 @@ export function createTraceViewer(): HTMLDivElement {
         setUndoRedoState(controls, editModel.canUndo, editModel.canRedo)
         editingIndex = -1
         applyDisplayTrace(true)
-        refreshSequence()
         const refreshedSpan = sequencePanel.querySelector<HTMLElement>(`[data-base-index="${displayIdx}"]`)
         refreshedSpan?.focus()
       }
@@ -1394,7 +1391,6 @@ export function createTraceViewer(): HTMLDivElement {
       editingIndex = -1
       setUndoRedoState(controls, editModel.canUndo, editModel.canRedo)
       applyDisplayTrace(true)
-      refreshSequence()
     } else if ((event.ctrlKey || event.metaKey) && ((key === 'z' && event.shiftKey) || key === 'y')) {
       if (!editModel.canRedo) return
       event.preventDefault()
@@ -1402,7 +1398,6 @@ export function createTraceViewer(): HTMLDivElement {
       editingIndex = -1
       setUndoRedoState(controls, editModel.canUndo, editModel.canRedo)
       applyDisplayTrace(true)
-      refreshSequence()
     }
   }
   document.addEventListener('keydown', undoRedoKeyHandler)
