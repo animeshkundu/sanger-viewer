@@ -65,7 +65,7 @@ test('sample load button fetches and loads the sample trace', async ({ page }) =
   await expect(page.locator('#success-banner')).toBeVisible()
   await expect(page.locator('#error-banner')).toBeHidden()
 
-  const isCanvasPainted = await page.locator('canvas').evaluate((canvasEl) => {
+  const isCanvasPainted = await page.locator('[data-testid="chromatogram-canvas"]').evaluate((canvasEl) => {
     const ctx = (canvasEl as HTMLCanvasElement).getContext('2d')
     if (!ctx) return false
     const { width, height } = canvasEl as HTMLCanvasElement
