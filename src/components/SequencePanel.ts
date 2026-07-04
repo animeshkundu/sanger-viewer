@@ -112,7 +112,7 @@ export function renderSequence(
 
   const updateSpan = (span: HTMLSpanElement, base: string, absolute: number, visibleMatches: SubsequenceMatch[]) => {
     span.textContent = base
-    span.tabIndex = 0
+    span.tabIndex = absolute === selectedIndex ? 0 : -1
     span.setAttribute('role', 'button')
     span.setAttribute('aria-haspopup', 'dialog')
     span.setAttribute('aria-expanded', 'false')
@@ -170,4 +170,10 @@ export function renderSequence(
   }
 
   panel.setAttribute('data-ambiguous-visible-count', String(ambiguousVisibleCount))
+
+  // Roving tabindex: ensure at least one span is in the Tab sequence when no base is selected.
+  if (!panel.querySelector('span[tabindex="0"]')) {
+    const first = panel.querySelector<HTMLSpanElement>('span[data-base-index]')
+    if (first) first.tabIndex = 0
+  }
 }

@@ -345,6 +345,22 @@ export function createTraceViewer(): HTMLDivElement {
     })
   }
   updateSidebarToggleState(true)
+  // Arrow-key navigation for the sidebar tablist (ARIA tablist pattern).
+  sidebarTabsEl.addEventListener('keydown', (event) => {
+    if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft' && event.key !== 'Home' && event.key !== 'End') return
+    const tabs = [...sidebarTabsEl.querySelectorAll<HTMLElement>('[data-tab]')]
+    const currentIdx = tabs.findIndex((t) => t === document.activeElement)
+    if (currentIdx < 0) return
+    event.preventDefault()
+    let nextIdx: number
+    if (event.key === 'ArrowRight') nextIdx = (currentIdx + 1) % tabs.length
+    else if (event.key === 'ArrowLeft') nextIdx = (currentIdx - 1 + tabs.length) % tabs.length
+    else if (event.key === 'Home') nextIdx = 0
+    else nextIdx = tabs.length - 1
+    const nextTab = tabs[nextIdx]
+    nextTab.focus()
+    setActiveSidebarTab(nextTab.getAttribute('data-tab')!)
+  })
   setVariantTableVisible(variantTableElements, false)
 
   const fileInput = root.querySelector<HTMLInputElement>('#file-input')!
