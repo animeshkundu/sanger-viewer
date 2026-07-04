@@ -23,6 +23,7 @@ import { createPositionReadout, updatePositionReadout } from './PositionReadout'
 import { createMetadataPanel, updateMetadataPanel } from './MetadataPanel'
 import { createWorkspaceBar, renderWorkspaceBar } from './WorkspaceBar'
 import { createAnnotationTrack } from './AnnotationTrack'
+import { createPlasmidMap } from './PlasmidMap'
 import { createQualityTrack } from './QualityTrack'
 import { createConsensusRow, renderConsensusRow, hideConsensusRow } from './ConsensusRow'
 import { createReferencePanel, setReferencePanelStatus, type ReferencePanelElements } from './ReferencePanel'
@@ -65,6 +66,7 @@ import {
 import { TraceWorkspace, makeSlot } from '../workspace/TraceWorkspace'
 import { decodePermalinkState, encodePermalinkState, type PermalinkSource, type PermalinkStateV1 } from '../workspace/permalink'
 import { buildAnnotationFeatures, filterAnnotationFeaturesByRange, type AnnotationFeature } from '../annotations'
+import { findRestrictionSites, type RestrictionSitePosition } from '../plasmidMap/restriction'
 import { mapSampleViewportToBaseRange } from '../render/viewport'
 import { BaseEditModel } from '../editing'
 import { alignReadToReference, parseFastaSequence } from '../alignment/aligner'
@@ -207,6 +209,13 @@ export function createTraceViewer(): HTMLDivElement {
     renderer.focusBaseRange(feature.start, feature.end)
     refreshReadout()
   })
+  const plasmidMap = createPlasmidMap(({ start, end }) => {
+    const safeEnd = end > start ? end : start + 1
+    renderer.focusBaseRange(start, safeEnd)
+    refreshReadout()
+    openBaseInspector(start)
+    refreshSequence()
+  })
   const qualityTrack = createQualityTrack()
   const consensusRow = createConsensusRow()
   const referencePanelElements: ReferencePanelElements = createReferencePanel()
@@ -215,7 +224,7 @@ export function createTraceViewer(): HTMLDivElement {
   const primerPanelElements: PrimerPanelElements = createPrimerPanel()
   const canvasWrap = root.querySelector<HTMLElement>('.canvas-wrap')!
   root.insertBefore(annotationTrack.element, canvasWrap)
-  root.append(qualityTrack.element, controls, workspaceBar, readout, sequencePanel, baseInspector, metadataPanel, consensusRow, referencePanelElements.root, variantTableElements.root, contigPanelElements.root, primerPanelElements.root, tooltip)
+  root.append(qualityTrack.element, controls, workspaceBar, plasmidMap.element, readout, sequencePanel, baseInspector, metadataPanel, consensusRow, referencePanelElements.root, variantTableElements.root, contigPanelElements.root, primerPanelElements.root, tooltip)
   setVariantTableVisible(variantTableElements, false)
 
   const fileInput = root.querySelector<HTMLInputElement>('#file-input')!
@@ -273,6 +282,7 @@ export function createTraceViewer(): HTMLDivElement {
   let viewerState: ViewerState = 'empty'
   let searchState: SearchState = { query: '', matches: [], activeIndex: -1 }
   let annotationFeatures: AnnotationFeature[] = []
+  let restrictionSites: RestrictionSitePosition[] = []
   const workspace = new TraceWorkspace(5)
   let activeSlotId: string | null = null
   let sampleRibbonDismissed = false
@@ -503,6 +513,7 @@ export function createTraceViewer(): HTMLDivElement {
 
     setMixedSummary(controls, mixedBaseResult.ambiguousCount)
     annotationFeatures = buildAnnotationFeatures(mixedBaseResult.sequence)
+    restrictionSites = findRestrictionSites(mixedBaseResult.sequence, undefined, { circular: true })
     return {
       ...strandTrace,
       baseCalls: mixedBaseResult.baseCalls,
@@ -605,6 +616,7 @@ export function createTraceViewer(): HTMLDivElement {
     const vp = renderer.getViewportInfo()
     updatePositionReadout(readout, vp.start, vp.end)
     refreshAnnotationTrack()
+    refreshPlasmidMap()
     refreshQualityTrack()
     schedulePermalinkPersist()
   }
@@ -645,6 +657,26 @@ export function createTraceViewer(): HTMLDivElement {
       visibleFeatures,
       visibleRange,
       totalCount: annotationFeatures.length,
+    })
+  }
+
+  const refreshPlasmidMap = () => {
+    const trace = renderer.getCurrentTrace()
+    if (!trace) {
+      plasmidMap.clear()
+      return
+    }
+    const viewportSamples = renderer.getViewportInfo()
+    const visibleRange = mapSampleViewportToBaseRange(trace.peakPositions, {
+      startSample: viewportSamples.start,
+      endSample: viewportSamples.end,
+    }, ANNOTATION_VIEWPORT_EXTRA_BASES)
+    const orfFeatures = annotationFeatures.filter((feature) => feature.type === 'orf')
+    plasmidMap.render({
+      sequenceLength: trace.baseCalls.length,
+      activeRange: visibleRange,
+      orfFeatures,
+      restrictionSites,
     })
   }
 
@@ -979,7 +1011,9 @@ export function createTraceViewer(): HTMLDivElement {
   const clearRenderPanels = () => {
     renderer.clearTrace()
     annotationFeatures = []
+    restrictionSites = []
     annotationTrack.clear()
+    plasmidMap.clear()
     qualityTrack.clear()
     readout.textContent = 'Position: -'
     sequencePanel.textContent = 'Load a trace to inspect sequence'
