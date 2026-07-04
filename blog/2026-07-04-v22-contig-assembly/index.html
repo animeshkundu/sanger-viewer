@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>2026-07-04 — v22 contig assembly: ungapped greedy overlap + paired-read consensus with FASTA export | sanger-viewer devlog</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-shell">
+        <a class="site-title" href="../../">sanger-viewer</a>
+        <nav class="site-nav" aria-label="Site">
+          <a href="../">Devlog</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="site-shell blog-entry">
+      <p><a href="../">← Back to devlog</a></p>
+      <h1>2026-07-04 — v22 contig assembly</h1>
+      <p><time datetime="2026-07-04">July 4, 2026</time></p>
+
+      <p>
+        Work unit 3: load two Sanger reads (typically a forward + reverse pair) and the viewer
+        assembles them into a consensus contig entirely in the browser — no server, no upload,
+        no new npm dependencies. The overlap is found by an ungapped greedy algorithm that
+        tries all four strand orientations, builds a per-position layout, calls IUPAC ambiguity
+        codes at mismatched positions, and exports a clean FASTA. The privacy wedge — data
+        never leaving the machine — is preserved end-to-end.
+      </p>
+
+      <h2>What changed</h2>
+      <ul>
+        <li>
+          <strong>Ungapped overlap finder (<code>src/consensus/overlap.ts</code>).</strong>
+          Scores every suffix/prefix pairing of length <em>k</em> ≥ minOverlap across
+          four orientations (fwd, fwd-rc, rev, rev-rc) and returns the highest-scoring
+          candidate. Per-position scoring: exact match = +1, IUPAC-compatible partial match
+          = +0.5, mismatch = −1, N or gap = 0 (neutral). For Sanger reads of ~800 bases
+          the inner loop is ~640 k iterations — fast enough to run synchronously.
+          Exports <code>reverseComplement</code>, <code>scoreOverlap</code>, and
+          <code>findBestOverlap</code>.
+        </li>
+        <li>
+          <strong>Contig builder (<code>src/consensus/contig.ts</code>).</strong>
+          <code>buildPairedContig</code> calls <code>findBestOverlap</code>, lays the upstream
+          read at offset 0 and the downstream read at offset = upstreamLength − overlapLength,
+          then walks every contig position to build per-position <code>PositionSupport</code>
+          objects and a full consensus string. Quality-weighted consensus: when both reads
+          cover a position and their bases differ, the higher-quality read's base wins; when
+          quality is equal or unavailable, an IUPAC ambiguity code is emitted and
+          <code>mismatchCount</code> is incremented.
+          <code>toContigFasta</code> serialises to standard FASTA (80-char line wrap, trailing
+          newline, header format <code>&gt;contig [nameA + nameB] N bp</code>).
+        </li>
+        <li>
+          <strong>Contig panel UI (<code>src/components/ContigPanel.ts</code>).</strong>
+          A panel below the reference-alignment section showing three labelled sequence rows
+          (forward / reverse / consensus) with the overlap region highlighted, a summary
+          line reporting contig length, overlap length, mismatch count, and single-coverage
+          count, plus "Assemble pair" and "Export contig FASTA" action buttons. The panel
+          is always visible; the Assemble button is only enabled when exactly two traces
+          are loaded. Fully accessible: <code>role="table"</code> row/cell semantics,
+          <code>aria-live</code> status region, keyboard-focusable buttons, visible focus
+          rings.
+        </li>
+        <li>
+          <strong>TraceViewer wiring (<code>src/components/TraceViewer.ts</code>).</strong>
+          <code>syncContigPanel()</code> — mirroring the existing <code>syncConsensus()</code>
+          pattern — enables/disables the Assemble button based on the slot count and clears
+          any stale contig when the trace set changes. <code>runContigAssembly()</code>
+          extracts base-call sequences and quality arrays from the two active slots, calls
+          <code>buildPairedContig</code>, renders the result, and enables the export button.
+          <code>syncContigPanel()</code> is called alongside every existing
+          <code>refreshConsensus()</code> call so the two panels stay in sync.
+        </li>
+        <li>
+          <strong>Full light + dark theme (<code>src/style.css</code>).</strong>
+          <code>--color-contig-*</code> design tokens in both <code>:root</code> (light) and
+          the dark-mode media query. Overlap cells are highlighted with a distinct tint;
+          mismatch bases are shown in amber/amber-dark; single-coverage regions are subtly
+          dimmed. Three-row sequence display uses <code>overflow-x: scroll</code> so it
+          stays readable at any viewport width.
+        </li>
+      </ul>
+
+      <h2>Spec grounding</h2>
+      <ul>
+        <li><a href="../../docs/specs/05-paired-read-contig-assembly.md"><code>docs/specs/05-paired-read-contig-assembly.md</code></a></li>
+      </ul>
+
+      <h2>Tests</h2>
+      <table>
+        <caption class="sr-only">New test coverage for v22</caption>
+        <thead>
+          <tr><th>File</th><th>Count</th><th>What is asserted</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>tests/core/contig.test.ts</code></td>
+            <td>33</td>
+            <td>
+              <code>reverseComplement</code> exact output including IUPAC bases;
+              <code>scoreOverlap</code> exact numeric values for match / mismatch / N /
+              IUPAC near-match / gap; <code>findBestOverlap</code> null on no-overlap,
+              null on all-mismatch, fwd orientation, fwd-rc orientation, rev (B upstream)
+              orientation, best-score selection across lengths;
+              <code>buildPairedContig</code> exact contig length, consensus string,
+              overlapStart/End, coverage array, mismatchCount=0 for identical overlap,
+              singleCoverageCount, IUPAC ambiguity code at mismatch position,
+              quality-weighted winner, fwdName/revName assignment, readIds pairing,
+              support array length and sequential consensusIndex values;
+              <code>toContigFasta</code> exact header + sequence bytes and 80-char
+              line wrap.
+            </td>
+          </tr>
+          <tr>
+            <td><code>tests/e2e/contig.e2e.test.ts</code></td>
+            <td>6</td>
+            <td>
+              Panel visible after load; Assemble disabled with one trace; Assemble
+              enabled with two traces; clicking Assemble shows summary with numeric
+              contig info; FASTA download header starts with <code>&gt;contig [</code>;
+              Assemble re-disabled after closing second trace.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>Design decisions</h2>
+      <ul>
+        <li>
+          <strong>No new npm dependencies.</strong> The overlap finder, contig builder,
+          and FASTA exporter are pure TypeScript with zero runtime imports beyond the
+          existing codebase.
+        </li>
+        <li>
+          <strong>Ungapped assembly (v1).</strong> The greedy suffix/prefix algorithm
+          handles the primary Sanger use-case — a forward and reverse read that overlap
+          cleanly — without the complexity of gapped alignment. A gapped follow-up
+          (Smith-Waterman or banded DP over the overlap region) is noted as a
+          <code>// TODO</code> in <code>overlap.ts</code>.
+        </li>
+        <li>
+          <strong>Four-orientation search.</strong> Rather than requiring the caller to
+          know which read is forward and which is reverse, <code>findBestOverlap</code>
+          tries all four orientations (A→B fwd, A→RC(B) fwd-rc, B→A rev, B→RC(A)
+          rev-rc) and returns the best-scoring candidate. This means loading two reads
+          in any order — or in their raw sequencer orientation — always produces a
+          result.
+        </li>
+        <li>
+          <strong>Exactly-two-trace gate.</strong> The Assemble button is enabled only
+          when exactly two traces are loaded (not ≥ 2), since pairwise assembly is
+          meaningless for three or more reads. The consensus row uses ≥ 2, so the two
+          panels are complementary rather than redundant.
+        </li>
+        <li>
+          <strong>Contig not encoded in permalink.</strong> A full consensus contig can
+          be hundreds to thousands of bases; encoding it in the URL hash would routinely
+          exceed the 1800-character guardrail. The user can re-run assembly from the
+          original traces, which are themselves re-attachable via the existing privacy-safe
+          reattach flow.
+        </li>
+      </ul>
+    </main>
+  </body>
+</html>

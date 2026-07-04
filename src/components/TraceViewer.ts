@@ -27,12 +27,21 @@ import { createQualityTrack } from './QualityTrack'
 import { createConsensusRow, renderConsensusRow, hideConsensusRow } from './ConsensusRow'
 import { createReferencePanel, setReferencePanelStatus, type ReferencePanelElements } from './ReferencePanel'
 import { createVariantTable, renderVariantTable, setVariantTableVisible, type VariantTableElements } from './VariantTable'
+import {
+  createContigPanel,
+  setAssembleButtonEnabled,
+  renderContigPanel,
+  setContigPanelStatus,
+  clearContigPanel,
+  type ContigPanelElements,
+} from './ContigPanel'
 import { downloadBlob } from '../export/png'
 import { toFasta } from '../export/fasta'
 import { toFastq, toQual } from '../export/fastq'
 import { exportSvg } from '../export/svg'
 import { toVariantsCsv, toVariantsVcf } from '../export/variants'
 import { computeConsensus, toConsensusFasta } from '../consensus/consensus'
+import { buildPairedContig, toContigFasta } from '../consensus/contig'
 import { buildPrintSection, type PrintSectionData } from '../export/print'
 import { reverseComplementTrace, iupacComplement } from '../revcomp'
 import { mottTrim, DEFAULT_TRIM_SETTINGS } from '../quality/mottTrim'
@@ -192,9 +201,10 @@ export function createTraceViewer(): HTMLDivElement {
   const consensusRow = createConsensusRow()
   const referencePanelElements: ReferencePanelElements = createReferencePanel()
   const variantTableElements: VariantTableElements = createVariantTable()
+  const contigPanelElements: ContigPanelElements = createContigPanel()
   const canvasWrap = root.querySelector<HTMLElement>('.canvas-wrap')!
   root.insertBefore(annotationTrack.element, canvasWrap)
-  root.append(qualityTrack.element, controls, workspaceBar, readout, sequencePanel, baseInspector, metadataPanel, consensusRow, referencePanelElements.root, variantTableElements.root, tooltip)
+  root.append(qualityTrack.element, controls, workspaceBar, readout, sequencePanel, baseInspector, metadataPanel, consensusRow, referencePanelElements.root, variantTableElements.root, contigPanelElements.root, tooltip)
   setVariantTableVisible(variantTableElements, false)
 
   const fileInput = root.querySelector<HTMLInputElement>('#file-input')!
@@ -271,6 +281,8 @@ export function createTraceViewer(): HTMLDivElement {
   let variantReviews: Record<string, CalledVariant['review']> = {}
   let variantFilterMode: VariantFilterMode = 'all'
   let selectedVariantId: string | null = null
+  // ── Contig assembly state ─────────────────────────────────────────────────
+  let currentContig: import('../consensus/contig').PairedContig | null = null
   setMixedThresholdDisplay(controls, mixedBaseThreshold)
   setMixedSummary(controls, 0)
   setUndoRedoState(controls, false, false)
@@ -783,6 +795,57 @@ export function createTraceViewer(): HTMLDivElement {
   }
 
   /**
+   * Sync the ContigPanel enabled/disabled state based on resident-slot count.
+   * Enables "Assemble pair" only when exactly 2 traces are resident.
+   * Clears any stale contig result when the trace set changes.
+   */
+  const syncContigPanel = () => {
+    const residentSlots = workspace.getAll().filter((s) => s.rawTrace !== null)
+    const canAssemble = residentSlots.length === 2
+    setAssembleButtonEnabled(contigPanelElements, canAssemble)
+    // Clear previous result whenever the resident trace set changes.
+    currentContig = null
+    clearContigPanel(contigPanelElements)
+  }
+
+  /**
+   * Run the overlap-based contig assembly for the two resident traces
+   * and render the result in the ContigPanel.
+   */
+  const runContigAssembly = () => {
+    const residentSlots = workspace.getAll().filter((s) => s.rawTrace !== null)
+    if (residentSlots.length !== 2) {
+      setContigPanelStatus(contigPanelElements, 'Exactly 2 traces must be loaded to assemble.', 'error')
+      return
+    }
+    const [slotA, slotB] = residentSlots
+    const seqA = slotA.rawTrace!.sequence
+    const seqB = slotB.rawTrace!.sequence
+    const qualA = slotA.rawTrace!.qualities ? Array.from(slotA.rawTrace!.qualities) : null
+    const qualB = slotB.rawTrace!.qualities ? Array.from(slotB.rawTrace!.qualities) : null
+
+    setContigPanelStatus(contigPanelElements, 'Assembling…', 'idle')
+    const contig = buildPairedContig(
+      slotA.id, slotA.fileName, seqA, qualA,
+      slotB.id, slotB.fileName, seqB, qualB,
+    )
+
+    if (!contig) {
+      currentContig = null
+      setContigPanelStatus(
+        contigPanelElements,
+        'No overlap found between the two reads (minimum 20 bp required). Try loading a forward + reverse pair from the same amplicon.',
+        'error',
+      )
+      return
+    }
+
+    currentContig = contig
+    renderContigPanel(contigPanelElements, contig)
+    setContigPanelStatus(contigPanelElements, '', 'success')
+  }
+
+  /**
    * Apply per-variant review overrides from `variantReviews` to the
    * base `calledVariants` array and sync the variant table.
    */
@@ -946,6 +1009,7 @@ export function createTraceViewer(): HTMLDivElement {
 
   syncWorkspaceBar()
   refreshConsensus()
+  syncContigPanel()
 
   /**
    * Activate a workspace slot: save the current slot, switch to the new one,
@@ -1018,6 +1082,7 @@ export function createTraceViewer(): HTMLDivElement {
 
     syncWorkspaceBar()
     refreshConsensus()
+    syncContigPanel()
   }
 
   const beginLoad = (message: string) => {
@@ -1081,6 +1146,7 @@ export function createTraceViewer(): HTMLDivElement {
     saveCurrentSlot()
     syncWorkspaceBar()
     refreshConsensus()
+    syncContigPanel()
     const msg = `Loaded ${trace.fileName} (${trace.baseCalls.length} bases)`
     setState('loaded', msg)
   }
@@ -1099,6 +1165,7 @@ export function createTraceViewer(): HTMLDivElement {
       activeSlotId = null
       syncWorkspaceBar()
       refreshConsensus()
+      syncContigPanel()
       const msg = error instanceof Error ? error.message : 'Failed to parse file'
       setState('error', msg)
     }
@@ -1122,6 +1189,7 @@ export function createTraceViewer(): HTMLDivElement {
       activeSlotId = null
       syncWorkspaceBar()
       refreshConsensus()
+      syncContigPanel()
       const msg = error instanceof Error ? error.message : 'Failed to load sample'
       setState('error', msg)
     }
@@ -1211,15 +1279,29 @@ export function createTraceViewer(): HTMLDivElement {
         setState('empty')
         syncWorkspaceBar()
         refreshConsensus()
+        syncContigPanel()
       }
     } else {
       syncWorkspaceBar()
       refreshConsensus()
+      syncContigPanel()
     }
   })
 
   root.addEventListener('workspace-open', () => {
     fileInputExtra.click()
+  })
+
+  // ── Contig assembly events ────────────────────────────────────────────────
+  contigPanelElements.assembleBtn.addEventListener('click', () => {
+    runContigAssembly()
+  })
+
+  contigPanelElements.exportBtn.addEventListener('click', () => {
+    if (!currentContig) return
+    const fasta = toContigFasta(currentContig)
+    const blob = new Blob([fasta], { type: 'text/plain' })
+    downloadBlob(blob, 'contig.fasta')
   })
 
   // ── Reference alignment events ─────────────────────────────────────────────
