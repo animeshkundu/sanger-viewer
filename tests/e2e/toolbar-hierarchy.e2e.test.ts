@@ -154,7 +154,7 @@ test('after loading a trace, view group buttons and export toggle are enabled', 
 
   // View group buttons
   await expect(page.getByRole('button', { name: 'Zoom +' })).toBeEnabled()
-  await expect(page.getByRole('button', { name: 'Zoom −' })).toBeEnabled()
+  await expect(page.getByRole('button', { name: 'Zoom -' })).toBeEnabled()
   await expect(page.getByRole('button', { name: '← Pan' })).toBeEnabled()
   await expect(page.getByRole('button', { name: 'Pan →' })).toBeEnabled()
   await expect(page.getByRole('button', { name: 'Fit' })).toBeEnabled()
