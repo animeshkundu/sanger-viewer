@@ -129,7 +129,7 @@ export function createControls(): HTMLDivElement {
 }
 
 /** Update the strand toggle button to reflect the current strand state. */
-export function setStrandToggleState(controls: HTMLDivElement, isRevcomp: boolean): void {
+export function setStrandToggleState(controls: HTMLElement, isRevcomp: boolean): void {
   const btn = controls.querySelector<HTMLButtonElement>('[data-action="toggle-strand"]')
   if (!btn) return
   btn.setAttribute('aria-pressed', String(isRevcomp))
@@ -137,9 +137,9 @@ export function setStrandToggleState(controls: HTMLDivElement, isRevcomp: boolea
   btn.title = isRevcomp ? 'Showing reverse complement — click to show forward strand' : 'Showing forward strand — click to show reverse complement'
 }
 
-export function setControlsDisabled(controls: HTMLDivElement, disabled: boolean): void {
-  controls.querySelectorAll('button').forEach((btn) => {
-    const action = (btn as HTMLButtonElement).getAttribute('data-action')
+export function setControlsDisabled(controls: HTMLElement, disabled: boolean): void {
+  controls.querySelectorAll<HTMLButtonElement>('[data-action], [data-trim-mode]').forEach((btn) => {
+    const action = btn.getAttribute('data-action')
     // Export dropdown children are managed via the menu toggle button as a unit;
     // individual menu items are never directly toggled by setControlsDisabled.
     if (action && /^export-(?!menu-toggle)/.test(action)) return
@@ -147,7 +147,7 @@ export function setControlsDisabled(controls: HTMLDivElement, disabled: boolean)
     // Undo/redo and export-consensus-fasta have their own enabled-state management;
     // only force-disable them during loading, never auto-enable on re-enable.
     if (!disabled && (action === 'undo' || action === 'redo')) return
-    ;(btn as HTMLButtonElement).disabled = disabled
+    btn.disabled = disabled
   })
   const slider = controls.querySelector<HTMLInputElement>('[data-trim="threshold"]')
   if (slider) slider.disabled = disabled
@@ -158,7 +158,7 @@ export function setControlsDisabled(controls: HTMLDivElement, disabled: boolean)
 }
 
 /** Open or close the export dropdown menu. */
-export function setExportMenuOpen(controls: HTMLDivElement, open: boolean): void {
+export function setExportMenuOpen(controls: HTMLElement, open: boolean): void {
   const toggle = controls.querySelector<HTMLButtonElement>('[data-action="export-menu-toggle"]')
   const dropdown = controls.querySelector<HTMLElement>('.export-menu__dropdown')
   if (toggle) toggle.setAttribute('aria-expanded', String(open))
@@ -172,7 +172,7 @@ export function setExportMenuOpen(controls: HTMLDivElement, open: boolean): void
 }
 
 /** Update the trim summary display after a trim recompute. */
-export function setTrimSummary(controls: HTMLDivElement, result: TrimResult | null): void {
+export function setTrimSummary(controls: HTMLElement, result: TrimResult | null): void {
   const summary = controls.querySelector<HTMLElement>('#trim-summary')
   if (!summary) return
   if (!result) {
@@ -192,7 +192,7 @@ export function setTrimSummary(controls: HTMLDivElement, result: TrimResult | nu
 }
 
 /** Set which mode button is active and keep aria-pressed in sync. */
-export function setTrimMode(controls: HTMLDivElement, mode: 'full' | 'trimmed'): void {
+export function setTrimMode(controls: HTMLElement, mode: 'full' | 'trimmed'): void {
   controls.querySelectorAll<HTMLButtonElement>('[data-trim-mode]').forEach((btn) => {
     const active = btn.getAttribute('data-trim-mode') === mode
     btn.setAttribute('aria-pressed', String(active))
@@ -201,23 +201,23 @@ export function setTrimMode(controls: HTMLDivElement, mode: 'full' | 'trimmed'):
 }
 
 /** Read the current threshold from the slider. */
-export function getTrimThreshold(controls: HTMLDivElement): number {
+export function getTrimThreshold(controls: HTMLElement): number {
   const slider = controls.querySelector<HTMLInputElement>('[data-trim="threshold"]')
   return slider ? Number(slider.value) : 20
 }
 
-export function setSearchSummary(controls: HTMLDivElement, summary: string): void {
+export function setSearchSummary(controls: HTMLElement, summary: string): void {
   const el = controls.querySelector<HTMLElement>('#search-summary')
   if (el) el.textContent = summary
 }
 
-export function setSearchEmptyState(controls: HTMLDivElement, visible: boolean): void {
+export function setSearchEmptyState(controls: HTMLElement, visible: boolean): void {
   const el = controls.querySelector<HTMLElement>('#search-empty-state')
   if (el) el.classList.toggle('hidden', !visible)
 }
 
 export function setSearchNavigationState(
-  controls: HTMLDivElement,
+  controls: HTMLElement,
   options: { canNavigate: boolean; canClear: boolean },
 ): void {
   const prev = controls.querySelector<HTMLButtonElement>('[data-action="search-prev"]')
@@ -228,26 +228,26 @@ export function setSearchNavigationState(
   if (clear) clear.disabled = !options.canClear
 }
 
-export function setMixedThresholdDisplay(controls: HTMLDivElement, threshold: number): void {
+export function setMixedThresholdDisplay(controls: HTMLElement, threshold: number): void {
   const slider = controls.querySelector<HTMLInputElement>('[data-mixed="threshold"]')
   if (slider) slider.value = threshold.toFixed(2)
   const output = controls.querySelector<HTMLOutputElement>('#mixed-threshold-display')
   if (output) output.value = threshold.toFixed(2)
 }
 
-export function setMixedSummary(controls: HTMLDivElement, ambiguousCount: number): void {
+export function setMixedSummary(controls: HTMLElement, ambiguousCount: number): void {
   const summary = controls.querySelector<HTMLElement>('#mixed-summary')
   if (!summary) return
   summary.textContent = `${ambiguousCount} ambiguous base${ambiguousCount === 1 ? '' : 's'}`
 }
 
-export function setShareStatus(controls: HTMLDivElement, message: string): void {
+export function setShareStatus(controls: HTMLElement, message: string): void {
   const el = controls.querySelector<HTMLElement>('#share-status')
   if (el) el.textContent = message
 }
 
 /** Update disabled state of the undo and redo toolbar buttons. */
-export function setUndoRedoState(controls: HTMLDivElement, canUndo: boolean, canRedo: boolean): void {
+export function setUndoRedoState(controls: HTMLElement, canUndo: boolean, canRedo: boolean): void {
   const undoBtn = controls.querySelector<HTMLButtonElement>('[data-action="undo"]')
   const redoBtn = controls.querySelector<HTMLButtonElement>('[data-action="redo"]')
   if (undoBtn) undoBtn.disabled = !canUndo
@@ -258,7 +258,7 @@ export function setUndoRedoState(controls: HTMLDivElement, canUndo: boolean, can
  * Enable or disable the "Export Consensus FASTA" button.
  * The button should be enabled only when at least 2 resident (non-evicted) traces are loaded.
  */
-export function setConsensusFastaButtonState(controls: HTMLDivElement, enabled: boolean): void {
+export function setConsensusFastaButtonState(controls: HTMLElement, enabled: boolean): void {
   const btn = controls.querySelector<HTMLButtonElement>('[data-action="export-consensus-fasta"]')
   if (btn) btn.disabled = !enabled
 }
@@ -267,7 +267,7 @@ export function setConsensusFastaButtonState(controls: HTMLDivElement, enabled: 
  * Enable or disable the "Print / Save as PDF" button.
  * Enabled only when a trace is currently loaded (rawTrace !== null).
  */
-export function setPrintButtonState(controls: HTMLDivElement, enabled: boolean): void {
+export function setPrintButtonState(controls: HTMLElement, enabled: boolean): void {
   const btn = controls.querySelector<HTMLButtonElement>('[data-action="print"]')
   if (btn) btn.disabled = !enabled
 }

@@ -38,7 +38,8 @@ export default defineConfig(({ command }) => ({
         blogPrimerDesignEntry: fileURLToPath(new URL('./blog/2026-07-04-v23-primer-design/index.html', import.meta.url)),
         blogDesignSystemEntry: fileURLToPath(new URL('./blog/2026-07-04-v24-design-system/index.html', import.meta.url)),
         blogPlasmidMapEntry: fileURLToPath(new URL('./blog/2026-07-04-v25-plasmid-map/index.html', import.meta.url)),
-        blogManualAssemblyControlsEntry: fileURLToPath(new URL('./blog/2026-07-04-v26-manual-assembly-controls/index.html', import.meta.url))
+        blogManualAssemblyControlsEntry: fileURLToPath(new URL('./blog/2026-07-04-v26-manual-assembly-controls/index.html', import.meta.url)),
+        blogWorkspaceShellEntry: fileURLToPath(new URL('./blog/2026-07-04-v27-workspace-shell/index.html', import.meta.url))
       }
     }
   },

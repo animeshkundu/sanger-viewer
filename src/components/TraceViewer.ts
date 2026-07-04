@@ -201,6 +201,11 @@ export function createTraceViewer(): HTMLDivElement {
   `
 
   const controls = createControls()
+  const searchGroup = controls.querySelector<HTMLElement>('[data-group="search"]')!
+  const trimGroup = controls.querySelector<HTMLElement>('[data-group="trim"]')!
+  const mixedGroup = controls.querySelector<HTMLElement>('[data-group="mixed"]')!
+  const shareGroup = controls.querySelector<HTMLElement>('.share-controls')!
+  ;[searchGroup, trimGroup, mixedGroup, shareGroup].forEach((group) => group.remove())
   const sequencePanel = createSequencePanel()
   const readout = createPositionReadout()
   const tooltip = createTooltip()
@@ -225,14 +230,126 @@ export function createTraceViewer(): HTMLDivElement {
   const contigPanelElements: ContigPanelElements = createContigPanel()
   const primerPanelElements: PrimerPanelElements = createPrimerPanel()
   const canvasWrap = root.querySelector<HTMLElement>('.canvas-wrap')!
+  const dropzone = root.querySelector<HTMLElement>('.dropzone')!
+  const sampleRibbon = root.querySelector<HTMLElement>('#sample-ribbon')!
   root.insertBefore(annotationTrack.element, canvasWrap)
-  root.append(qualityTrack.element, controls, workspaceBar, plasmidMap.element, readout, sequencePanel, baseInspector, metadataPanel, consensusRow, referencePanelElements.root, variantTableElements.root, contigPanelElements.root, primerPanelElements.root, tooltip)
+  root.append(
+    qualityTrack.element,
+    controls,
+    workspaceBar,
+    plasmidMap.element,
+    readout,
+    sequencePanel,
+    baseInspector,
+    metadataPanel,
+    consensusRow,
+    referencePanelElements.root,
+    variantTableElements.root,
+    contigPanelElements.root,
+    primerPanelElements.root,
+    tooltip,
+  )
+
+  const appShell = document.createElement('div')
+  appShell.className = 'app-shell'
+  const shellHero = document.createElement('div')
+  shellHero.className = 'shell-hero'
+  const shellSidebar = document.createElement('div')
+  shellSidebar.className = 'shell-sidebar'
+  const sidebarToggleBtn = document.createElement('button')
+  sidebarToggleBtn.type = 'button'
+  sidebarToggleBtn.className = 'sidebar-toggle-btn'
+  sidebarToggleBtn.setAttribute('aria-label', 'Toggle tool sidebar')
+  const sidebarInner = document.createElement('div')
+  sidebarInner.className = 'sidebar-inner'
+  const sidebarTabsEl = document.createElement('div')
+  sidebarTabsEl.className = 'sidebar-tabs'
+  sidebarTabsEl.setAttribute('role', 'tablist')
+  sidebarTabsEl.setAttribute('aria-label', 'Tool panels')
+  const createSidebarTab = (tabName: string, label: string, selected: boolean) => {
+    const tab = document.createElement('button')
+    tab.type = 'button'
+    tab.className = 'sidebar-tab'
+    tab.id = `sidebar-tab-${tabName}`
+    tab.setAttribute('role', 'tab')
+    tab.setAttribute('data-tab', tabName)
+    tab.setAttribute('aria-selected', String(selected))
+    tab.setAttribute('aria-controls', `sidebar-panel-${tabName}`)
+    tab.setAttribute('tabindex', selected ? '0' : '-1')
+    tab.textContent = label
+    return tab
+  }
+  const createSidebarPanel = (tabName: string, label: string, selected: boolean) => {
+    const panel = document.createElement('div')
+    panel.className = 'sidebar-panel'
+    panel.id = `sidebar-panel-${tabName}`
+    panel.setAttribute('role', 'tabpanel')
+    panel.setAttribute('aria-label', label)
+    panel.setAttribute('aria-labelledby', `sidebar-tab-${tabName}`)
+    if (!selected) panel.setAttribute('hidden', '')
+    return panel
+  }
+  const inspectPanel = createSidebarPanel('inspect', 'Inspect tools', true)
+  const mapPanel = createSidebarPanel('map', 'Map tools', false)
+  const analyzePanel = createSidebarPanel('analyze', 'Analyze tools', false)
+  const sharePanel = createSidebarPanel('share', 'Share tools', false)
+  inspectPanel.append(searchGroup, trimGroup, mixedGroup, metadataPanel)
+  mapPanel.append(plasmidMap.element)
+  analyzePanel.append(
+    consensusRow,
+    referencePanelElements.root,
+    variantTableElements.root,
+    contigPanelElements.root,
+    primerPanelElements.root,
+  )
+  sharePanel.append(shareGroup)
+  sidebarTabsEl.append(
+    createSidebarTab('inspect', 'Inspect', true),
+    createSidebarTab('map', 'Map', false),
+    createSidebarTab('analyze', 'Analyze', false),
+    createSidebarTab('share', 'Share', false),
+  )
+  sidebarInner.append(sidebarTabsEl, inspectPanel, mapPanel, analyzePanel, sharePanel)
+  shellSidebar.append(sidebarToggleBtn, sidebarInner)
+  appShell.append(shellHero, shellSidebar)
+  root.insertBefore(appShell, dropzone)
+  shellHero.append(
+    dropzone,
+    workspaceBar,
+    sampleRibbon,
+    annotationTrack.element,
+    canvasWrap,
+    qualityTrack.element,
+    controls,
+    readout,
+    sequencePanel,
+    baseInspector,
+  )
+  const updateSidebarToggleState = (open: boolean) => {
+    shellSidebar.setAttribute('data-sidebar-open', String(open))
+    sidebarToggleBtn.setAttribute('aria-expanded', String(open))
+    sidebarToggleBtn.textContent = open ? 'Hide tools' : 'Show tools'
+  }
+  const setActiveSidebarTab = (tabName: string) => {
+    sidebarTabsEl.querySelectorAll<HTMLElement>('[data-tab]').forEach((tab) => {
+      const selected = tab.getAttribute('data-tab') == tabName
+      tab.setAttribute('aria-selected', String(selected))
+      tab.setAttribute('tabindex', selected ? '0' : '-1')
+    })
+    shellSidebar.querySelectorAll<HTMLElement>('.sidebar-panel').forEach((panel) => {
+      if (panel.id === `sidebar-panel-${tabName}`) {
+        panel.removeAttribute('hidden')
+      } else {
+        panel.setAttribute('hidden', '')
+      }
+    })
+  }
+  updateSidebarToggleState(true)
   setVariantTableVisible(variantTableElements, false)
 
   const fileInput = root.querySelector<HTMLInputElement>('#file-input')!
   const fileInputExtra = root.querySelector<HTMLInputElement>('#file-input-extra')!
   const status = root.querySelector<HTMLElement>('#status')!
-  const dropzone = root.querySelector<HTMLElement>('.dropzone')!
   const emptyStateEl = root.querySelector<HTMLElement>('#empty-state')!
   const dropzoneHeader = root.querySelector<HTMLElement>('#dropzone-header')!
   const loadingBanner = root.querySelector<HTMLElement>('#loading-banner')!
@@ -243,9 +360,8 @@ export function createTraceViewer(): HTMLDivElement {
   const successText = root.querySelector<HTMLElement>('#success-text')!
   const sampleBtn = root.querySelector<HTMLButtonElement>('#sample-load-btn')!
   const permalinkHint = root.querySelector<HTMLElement>('#permalink-hint')!
-  const sampleRibbon = root.querySelector<HTMLElement>('#sample-ribbon')!
   const sampleRibbonDismissBtn = root.querySelector<HTMLButtonElement>('#sample-ribbon-dismiss')!
-  const searchInput = controls.querySelector<HTMLInputElement>('#search-input')!
+  const searchInput = root.querySelector<HTMLInputElement>('#search-input')!
   const canvas = root.querySelector<HTMLCanvasElement>('[data-testid="chromatogram-canvas"]')!
   canvas.style.touchAction = 'none'
 
@@ -306,9 +422,36 @@ export function createTraceViewer(): HTMLDivElement {
   let selectedVariantId: string | null = null
   // ── Contig assembly state ─────────────────────────────────────────────────
   let currentContig: import('../consensus/contig').PairedContig | null = null
-  setMixedThresholdDisplay(controls, mixedBaseThreshold)
-  setMixedSummary(controls, 0)
+  const setAllControlsDisabled = (disabled: boolean) => {
+    setControlsDisabled(controls, disabled)
+    ;[
+      root.querySelector<HTMLInputElement>('[data-trim="threshold"]'),
+      root.querySelector<HTMLInputElement>('[data-mixed="threshold"]'),
+      root.querySelector<HTMLInputElement>('#search-input'),
+    ].filter((el): el is HTMLInputElement => el !== null).forEach((el) => {
+      el.disabled = disabled
+    })
+    root.querySelectorAll<HTMLButtonElement>('[data-trim-mode]').forEach((btn) => {
+      btn.disabled = disabled
+    })
+    const shareBtn = root.querySelector<HTMLButtonElement>('[data-action="share-view"]')
+    if (shareBtn) shareBtn.disabled = disabled
+  }
+  setMixedThresholdDisplay(root, mixedBaseThreshold)
+  setMixedSummary(root, 0)
   setUndoRedoState(controls, false, false)
+  sidebarToggleBtn.addEventListener('click', () => {
+    const isOpen = shellSidebar.getAttribute('data-sidebar-open') === 'true'
+    updateSidebarToggleState(!isOpen)
+  })
+  sidebarTabsEl.addEventListener('click', (event) => {
+    const tab = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-tab]')
+    if (!tab) return
+    const tabName = tab.getAttribute('data-tab')
+    if (!tabName) return
+    setActiveSidebarTab(tabName)
+    updateSidebarToggleState(true)
+  })
 
   const getDisplaySearchMatches = () =>
     rawTrace ? mapCanonicalMatchesToDisplay(searchState.matches, rawTrace.baseCalls.length, isRevcomp) : []
@@ -329,26 +472,26 @@ export function createTraceViewer(): HTMLDivElement {
     if (searchInput.value !== searchState.query) searchInput.value = searchState.query
 
     if (!canSearch) {
-      setSearchSummary(controls, '')
-      setSearchEmptyState(controls, false)
-      setSearchNavigationState(controls, { canNavigate: false, canClear: false })
+      setSearchSummary(root, '')
+      setSearchEmptyState(root, false)
+      setSearchNavigationState(root, { canNavigate: false, canClear: false })
       renderer.setSearchMatches([], -1)
       return
     }
 
     if (!hasQuery) {
-      setSearchSummary(controls, '')
-      setSearchEmptyState(controls, false)
+      setSearchSummary(root, '')
+      setSearchEmptyState(root, false)
     } else if (!hasMatches) {
-      setSearchSummary(controls, '0 matches')
-      setSearchEmptyState(controls, true)
+      setSearchSummary(root, '0 matches')
+      setSearchEmptyState(root, true)
     } else {
       const count = searchState.matches.length
-      setSearchSummary(controls, `${count} match${count === 1 ? '' : 'es'} · ${searchState.activeIndex + 1} of ${count}`)
-      setSearchEmptyState(controls, false)
+      setSearchSummary(root, `${count} match${count === 1 ? '' : 'es'} · ${searchState.activeIndex + 1} of ${count}`)
+      setSearchEmptyState(root, false)
     }
 
-    setSearchNavigationState(controls, {
+    setSearchNavigationState(root, {
       canNavigate: hasMatches,
       canClear: hasQuery,
     })
@@ -438,14 +581,14 @@ export function createTraceViewer(): HTMLDivElement {
     if (!rawTrace) return
     isRevcomp = state.strand === 'reverse'
     trimSettings = { ...state.trim }
-    setTrimMode(controls, trimSettings.mode)
-    const trimSlider = controls.querySelector<HTMLInputElement>('[data-trim="threshold"]')
+    setTrimMode(root, trimSettings.mode)
+    const trimSlider = root.querySelector<HTMLInputElement>('[data-trim="threshold"]')
     if (trimSlider) trimSlider.value = String(trimSettings.threshold)
-    const trimOutput = controls.querySelector<HTMLOutputElement>('#trim-threshold-display')
+    const trimOutput = root.querySelector<HTMLOutputElement>('#trim-threshold-display')
     if (trimOutput) trimOutput.value = String(trimSettings.threshold)
     editModel.replace(state.edits)
     setStrandToggleState(controls, isRevcomp)
-    setMixedThresholdDisplay(controls, mixedBaseThreshold)
+    setMixedThresholdDisplay(root, mixedBaseThreshold)
     setUndoRedoState(controls, false, false)
     qualityTrack.setVisible(state.overlays.quality)
     applyDisplayTrace()
@@ -462,7 +605,7 @@ export function createTraceViewer(): HTMLDivElement {
     syncSearchUi(false)
     refreshReadout()
     refreshSequence()
-    setShareStatus(controls, '')
+    setShareStatus(root, '')
     schedulePermalinkPersist()
   }
 
@@ -513,7 +656,7 @@ export function createTraceViewer(): HTMLDivElement {
       }
     }
 
-    setMixedSummary(controls, mixedBaseResult.ambiguousCount)
+    setMixedSummary(root, mixedBaseResult.ambiguousCount)
     annotationFeatures = buildAnnotationFeatures(mixedBaseResult.sequence)
     restrictionSites = findRestrictionSites(mixedBaseResult.sequence, undefined, { circular: true })
     return {
@@ -546,7 +689,7 @@ export function createTraceViewer(): HTMLDivElement {
       : null
     renderer.setTrimBoundaries(boundaries)
     // Update controls summary
-    setTrimSummary(controls, result)
+    setTrimSummary(root, result)
     // Re-render sequence panel with new trim info
     refreshSequence()
     refreshQualityTrack()
@@ -594,20 +737,20 @@ export function createTraceViewer(): HTMLDivElement {
     if (state === 'loading') {
       loadingText.textContent = message || 'Loading…'
       status.textContent = message || 'Loading…'
-      setControlsDisabled(controls, true)
+      setAllControlsDisabled(true)
     } else if (state === 'error') {
       errorText.textContent = message
       status.textContent = message
-      setControlsDisabled(controls, false)
+      setAllControlsDisabled(false)
       setPrintButtonState(controls, false)
     } else if (state === 'loaded') {
       successText.textContent = message
       status.textContent = message
-      setControlsDisabled(controls, false)
+      setAllControlsDisabled(false)
       setPrintButtonState(controls, true)
     } else {
       status.textContent = 'No trace loaded.'
-      setControlsDisabled(controls, false)
+      setAllControlsDisabled(false)
       setPrintButtonState(controls, false)
     }
     syncSearchUi(false)
@@ -1051,9 +1194,9 @@ export function createTraceViewer(): HTMLDivElement {
     hideTooltip(tooltip)
     closeBaseInspector()
     setStrandToggleState(controls, false)
-    setMixedThresholdDisplay(controls, mixedBaseThreshold)
-    setMixedSummary(controls, 0)
-    setShareStatus(controls, '')
+    setMixedThresholdDisplay(root, mixedBaseThreshold)
+    setMixedSummary(root, 0)
+    setShareStatus(root, '')
     updateMetadataPanel(metadataPanel, null)
     setReferencePanelStatus(referencePanelElements, '', 'idle')
     setVariantTableVisible(variantTableElements, false)
@@ -1097,8 +1240,8 @@ export function createTraceViewer(): HTMLDivElement {
     hoveredBaseIndex = null
     hideTooltip(tooltip)
     setStrandToggleState(controls, isRevcomp)
-    setMixedThresholdDisplay(controls, mixedBaseThreshold)
-    setMixedSummary(controls, mixedBaseResult?.ambiguousCount ?? 0)
+    setMixedThresholdDisplay(root, mixedBaseThreshold)
+    setMixedSummary(root, mixedBaseResult?.ambiguousCount ?? 0)
 
     if (rawTrace) {
       updateMetadataPanel(metadataPanel, rawTrace.metadata)
@@ -1181,7 +1324,7 @@ export function createTraceViewer(): HTMLDivElement {
     editingIndex = -1
     editModel.reset()
     setStrandToggleState(controls, false)
-    setMixedThresholdDisplay(controls, mixedBaseThreshold)
+    setMixedThresholdDisplay(root, mixedBaseThreshold)
     setUndoRedoState(controls, false, false)
     hideTooltip(tooltip)
     updateMetadataPanel(metadataPanel, trace.metadata)
@@ -1477,8 +1620,9 @@ export function createTraceViewer(): HTMLDivElement {
     }
   })
 
-  controls.addEventListener('click', async (event) => {
-    const target = event.target as HTMLElement
+  root.addEventListener('click', async (event) => {
+    const target = (event.target as HTMLElement).closest<HTMLElement>('[data-action], [data-trim-mode]')
+    if (!target) return
     const action = target.getAttribute('data-action')
     const trimMode = target.getAttribute('data-trim-mode') as 'full' | 'trimmed' | null
     const trace = renderer.getCurrentTrace()
@@ -1506,18 +1650,18 @@ export function createTraceViewer(): HTMLDivElement {
     if (action === 'share-view') {
       const permalinkState = getPermalinkState()
       if (!permalinkState) {
-        setShareStatus(controls, 'Load a trace before sharing a permalink.')
+        setShareStatus(root, 'Load a trace before sharing a permalink.')
       } else {
         const encoded = encodePermalinkState(permalinkState, { maxChars: 1800 })
         if (!encoded.hash) {
-          setShareStatus(controls, encoded.error ?? 'Could not create permalink.')
+          setShareStatus(root, encoded.error ?? 'Could not create permalink.')
         } else {
           const permalinkUrl = `${location.origin}${location.pathname}${location.search}${encoded.hash}`
           try {
             await copyToClipboard(permalinkUrl)
-            setShareStatus(controls, 'Link copied. Local files still require reattaching the source trace.')
+            setShareStatus(root, 'Link copied. Local files still require reattaching the source trace.')
           } catch {
-            setShareStatus(controls, 'Copy failed. Copy the URL from your browser address bar.')
+            setShareStatus(root, 'Copy failed. Copy the URL from your browser address bar.')
           }
         }
       }
@@ -1647,7 +1791,7 @@ export function createTraceViewer(): HTMLDivElement {
     // Trim mode toggle (Full / Trimmed buttons)
     if (trimMode) {
       trimSettings = { ...trimSettings, mode: trimMode }
-      setTrimMode(controls, trimMode)
+      setTrimMode(root, trimMode)
       const currentTrace = renderer.getCurrentTrace()
       if (currentTrace) applyTrim(currentTrace)
     }
@@ -1663,7 +1807,7 @@ export function createTraceViewer(): HTMLDivElement {
   })
 
   // Threshold slider — rAF-throttled for smoothness on large fixtures.
-  controls.addEventListener('input', (event) => {
+  root.addEventListener('input', (event) => {
     const target = event.target as HTMLInputElement
     if (target.id === 'search-input') {
       applySearchQuery(target.value)
@@ -1673,7 +1817,7 @@ export function createTraceViewer(): HTMLDivElement {
     if (target.getAttribute('data-mixed') === 'threshold') {
       const value = Number(target.value)
       mixedBaseThreshold = Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : DEFAULT_MIXED_BASE_THRESHOLD
-      setMixedThresholdDisplay(controls, mixedBaseThreshold)
+      setMixedThresholdDisplay(root, mixedBaseThreshold)
       scheduleMixedBaseRecompute()
       schedulePermalinkPersist()
       return
@@ -1682,13 +1826,13 @@ export function createTraceViewer(): HTMLDivElement {
     const value = Number(target.value)
     trimSettings = { ...trimSettings, threshold: value }
     // Update numeric display next to slider
-    const display = controls.querySelector<HTMLOutputElement>('#trim-threshold-display')
+    const display = root.querySelector<HTMLOutputElement>('#trim-threshold-display')
     if (display) display.value = String(value)
     scheduleTrim()
     schedulePermalinkPersist()
   })
 
-  controls.addEventListener('keydown', (event) => {
+  root.addEventListener('keydown', (event) => {
     const target = event.target as HTMLElement
     if (event.key === 'Escape') {
       const dropdown = controls.querySelector<HTMLElement>('.export-menu__dropdown')
