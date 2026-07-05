@@ -100,7 +100,7 @@ test('narrow-viewport: sidebar tabs remain sticky (visible) while panel content 
   // Switch to Analyze which has many items, making the panel overflow
   await openSidebarTab(page, 'analyze')
 
-  const tabsRect = await page.locator('.sidebar-tabs').evaluate((el) => {
+  const tabsRectBefore = await page.locator('.sidebar-tabs').evaluate((el) => {
     const r = el.getBoundingClientRect()
     return { top: r.top, bottom: r.bottom }
   })
@@ -109,11 +109,23 @@ test('narrow-viewport: sidebar tabs remain sticky (visible) while panel content 
     return { top: r.top }
   })
 
-  // The tabs bar should be at or near the top of the inner panel (sticky)
-  expect(tabsRect.top).toBeGreaterThanOrEqual(innerRect.top - 1)
-  // Tabs bar must be visible (within the viewport)
-  expect(tabsRect.top).toBeGreaterThanOrEqual(0)
-  expect(tabsRect.bottom).toBeGreaterThanOrEqual(tabsRect.top)
+  // Scroll the content; sticky tabs should stay pinned at the top of sidebar-inner.
+  const scrollState = await page.locator('.sidebar-inner').evaluate((el) => {
+    el.scrollTop = 180
+    return { scrollTop: el.scrollTop, maxScroll: el.scrollHeight - el.clientHeight }
+  })
+  expect(scrollState.maxScroll).toBeGreaterThan(0)
+  expect(scrollState.scrollTop).toBeGreaterThan(0)
+
+  const tabsRectAfter = await page.locator('.sidebar-tabs').evaluate((el) => {
+    const r = el.getBoundingClientRect()
+    return { top: r.top, bottom: r.bottom }
+  })
+
+  // Tabs remain visible and pinned to the inner container top after scrolling.
+  expect(Math.abs(tabsRectAfter.top - innerRect.top)).toBeLessThanOrEqual(1)
+  expect(Math.abs(tabsRectAfter.top - tabsRectBefore.top)).toBeLessThanOrEqual(1)
+  expect(tabsRectAfter.bottom).toBeGreaterThanOrEqual(tabsRectAfter.top)
 })
 
 // ── 3. Permalink round-trips active sidebar tab and open/closed state ──────

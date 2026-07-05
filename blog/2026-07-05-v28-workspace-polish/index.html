@@ -33,11 +33,12 @@
 
       <h3>Motion / prefers-reduced-motion</h3>
       <p>
-        A <code>@media (prefers-reduced-motion: reduce)</code> guard now zeros out transitions on
-        <code>.shell-sidebar</code>, <code>.sidebar-toggle-btn</code>, <code>.sidebar-tab</code>, and
-        <code>.sidebar-panel</code>. The existing guards for the clone-screen were already in place;
-        this pass extends the same discipline to the workspace shell so users who opt out of motion
-        get a completely still UI, not a partially still one.
+        A <code>@media (prefers-reduced-motion: reduce)</code> guard now zeros out transition and
+        animation durations across the entire workspace shell subtree
+        (<code>.app-shell</code>, descendants, and pseudo-elements). The existing guards for the
+        clone-screen were already in place; this pass extends the same discipline to the full
+        workspace shell so users who opt out of motion get a completely still UI, not a partially
+        still one.
       </p>
 
       <h3>Density refinements</h3>
