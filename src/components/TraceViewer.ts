@@ -265,7 +265,6 @@ export function createTraceViewer(): HTMLDivElement {
   const sidebarToggleBtn = document.createElement('button')
   sidebarToggleBtn.type = 'button'
   sidebarToggleBtn.className = 'sidebar-toggle-btn'
-  sidebarToggleBtn.setAttribute('aria-label', 'Toggle tool sidebar')
   sidebarToggleBtn.setAttribute('aria-controls', 'sidebar-inner')
   const sidebarInner = document.createElement('div')
   sidebarInner.id = 'sidebar-inner'

@@ -44,6 +44,7 @@ test.describe('Workspace shell', () => {
     const inner = page.locator('.sidebar-inner')
 
     await expect(sidebar).toHaveAttribute('data-sidebar-open', 'true')
+    await expect(toggle).toHaveAccessibleName('Hide tools')
     await expect(toggle).toHaveAttribute('aria-controls', 'sidebar-inner')
     await expect(toggle).toHaveAttribute('aria-expanded', 'true')
     await expect(inner).toHaveAttribute('id', 'sidebar-inner')
@@ -51,11 +52,13 @@ test.describe('Workspace shell', () => {
 
     await toggle.click()
     await expect(sidebar).toHaveAttribute('data-sidebar-open', 'false')
+    await expect(toggle).toHaveAccessibleName('Show tools')
     await expect(toggle).toHaveAttribute('aria-expanded', 'false')
     await expect(inner).toBeHidden()
 
     await toggle.click()
     await expect(sidebar).toHaveAttribute('data-sidebar-open', 'true')
+    await expect(toggle).toHaveAccessibleName('Hide tools')
     await expect(toggle).toHaveAttribute('aria-expanded', 'true')
     await expect(inner).toBeVisible()
   })
