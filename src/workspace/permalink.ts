@@ -125,8 +125,9 @@ function normalizeUiState(ui: unknown): PermalinkStateV1['ui'] {
   const u = ui as { sidebarOpen?: unknown; activeTab?: unknown }
   const validTabs = ['inspect', 'map', 'analyze', 'share'] as const
   const sidebarOpen = typeof u.sidebarOpen === 'boolean' ? u.sidebarOpen : true
-  const activeTab = validTabs.includes(u.activeTab as (typeof validTabs)[number])
-    ? (u.activeTab as (typeof validTabs)[number])
+  const rawTab = u.activeTab
+  const activeTab = validTabs.includes(rawTab as (typeof validTabs)[number])
+    ? (rawTab as (typeof validTabs)[number])
     : 'inspect'
   return { sidebarOpen, activeTab }
 }

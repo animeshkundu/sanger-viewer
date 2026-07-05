@@ -343,9 +343,9 @@ export function createTraceViewer(): HTMLDivElement {
     sidebarToggleBtn.textContent = open ? 'Hide tools' : 'Show tools'
   }
   const setActiveSidebarTab = (tabName: string) => {
-    if (['inspect', 'map', 'analyze', 'share'].includes(tabName)) {
-      activeSidebarTab = tabName as typeof activeSidebarTab
-    }
+    const validTabs = ['inspect', 'map', 'analyze', 'share'] as const
+    if (!validTabs.includes(tabName as (typeof validTabs)[number])) return
+    activeSidebarTab = tabName as typeof activeSidebarTab
     sidebarTabsEl.querySelectorAll<HTMLElement>('[data-tab]').forEach((tab) => {
       const selected = tab.getAttribute('data-tab') === tabName
       tab.setAttribute('aria-selected', String(selected))
