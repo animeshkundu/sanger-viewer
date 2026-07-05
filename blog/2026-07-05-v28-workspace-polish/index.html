@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>2026-07-05 — v28 workspace polish | sanger-viewer devlog</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-shell">
+        <a class="site-title" href="../../">sanger-viewer</a>
+        <nav class="site-nav" aria-label="Site">
+          <a href="../">Devlog</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="site-shell blog-entry">
+      <p><a href="../">← Back to devlog</a></p>
+      <h1>2026-07-05 — v28 workspace delight + responsive + state-persistence polish</h1>
+      <p><time datetime="2026-07-05">July 5, 2026</time></p>
+
+      <p>
+        The v27 shell restructure gave us the right bones — hero chromatogram, collapsible tabbed sidebar,
+        two-column layout. This pass adds the finish that makes it genuinely frictionless: motion that
+        respects user preferences, a narrower density that fits more tool surface without crowding, a
+        sidebar that gracefully adapts at tablet widths, and a permalink that actually reproduces the
+        exact workspace layout the sender was looking at.
+      </p>
+
+      <h2>What changed</h2>
+
+      <h3>Motion / prefers-reduced-motion</h3>
+      <p>
+        A <code>@media (prefers-reduced-motion: reduce)</code> guard now zeros out transitions on
+        <code>.shell-sidebar</code>, <code>.sidebar-toggle-btn</code>, <code>.sidebar-tab</code>, and
+        <code>.sidebar-panel</code>. The existing guards for the clone-screen were already in place;
+        this pass extends the same discipline to the workspace shell so users who opt out of motion
+        get a completely still UI, not a partially still one.
+      </p>
+
+      <h3>Density refinements</h3>
+      <ul>
+        <li>
+          <strong>Sidebar tab height</strong> reduced from 36 px to 32 px — still above the 24 px
+          design floor, and the row is noticeably thinner on desktop where the chromatogram is long.
+        </li>
+        <li>
+          <strong>Panel gap</strong> tightened from <code>var(--space-3)</code> to
+          <code>var(--space-2)</code> so tool sections sit closer together and more panel content
+          fits without scrolling.
+        </li>
+        <li>
+          <strong>Sidebar scrollbar</strong> set to <code>scrollbar-width: thin</code> with a muted
+          token colour — the overflow scroller on the Analyze panel (which has many items) now looks
+          intentional rather than accidental.
+        </li>
+        <li>
+          <strong>Tabs row is now sticky</strong> inside the scrollable
+          <code>.sidebar-inner</code> (<code>position: sticky; top: 0</code>). You can scroll deep
+          into the Analyze panel and switch tabs without having to scroll back to the top.
+        </li>
+        <li>
+          <strong>Hover indicator on tabs</strong> — a <code>border-bottom</code> in
+          <code>var(--color-border-strong)</code> now appears on hover so the tab feels interactive
+          before you click, consistent with the active-tab underline.
+        </li>
+      </ul>
+
+      <h3>Narrow-viewport (tablet) refinements</h3>
+      <p>
+        At ≤ 900 px the sidebar already stacks below the hero. This pass tightens the UX:
+      </p>
+      <ul>
+        <li>
+          The sidebar toggle is now full-width (<code>align-self: stretch; width: 100%</code>) with
+          centred text, so it reads as a clear section expander rather than a floating button.
+        </li>
+        <li>
+          <code>overflow-y: auto</code> is explicitly set on <code>.sidebar-inner</code> at this
+          breakpoint, ensuring the 60 vh cap scrolls the panel rather than clips it.
+        </li>
+        <li>
+          The sticky tabs row works at this breakpoint too — tabs stay pinned at the top of the
+          inner panel while the content underneath scrolls.
+        </li>
+      </ul>
+
+      <h3>Permalink state persistence for sidebar UI</h3>
+      <p>
+        Before this pass, copying a link and sending it to a colleague would restore the trace state
+        but drop them onto the default Inspect tab regardless of which tab the sender had open. Now
+        <code>PermalinkStateV1</code> carries an optional <code>ui</code> field:
+      </p>
+      <pre><code>ui?: { sidebarOpen: boolean; activeTab: 'inspect' | 'map' | 'analyze' | 'share' }</code></pre>
+      <p>
+        <code>getPermalinkState()</code> reads the live DOM to capture sidebar-open state and active
+        tab; <code>applyPermalinkState()</code> restores both when hydrating from a hash.
+        The sidebar toggle and tab clicks now call <code>schedulePermalinkPersist()</code> so the
+        hash updates immediately on interaction — no reload required to keep the link current.
+        Links without a <code>ui</code> key (old links) continue to work and default to
+        sidebar-open + Inspect tab.
+      </p>
+
+      <h2>Tests</h2>
+      <p>
+        <code>tests/e2e/workspace-polish.e2e.test.ts</code> contains ten genuine behavior assertions:
+      </p>
+      <ul>
+        <li>Three reduced-motion tests asserting <code>transitionDuration === "0s"</code> on each shell element.</li>
+        <li>Three narrow-viewport tests (toggle full-width; 60 vh cap; sticky tabs).</li>
+        <li>Five permalink round-trip tests: closed sidebar restores, Map tab restores, Analyze tab restores, toggling sidebar updates hash and reloads correctly, switching to Share tab round-trips.</li>
+      </ul>
+
+      <h2>Zero capability regressions</h2>
+      <p>
+        The entire change is additive: new CSS media query blocks, a new optional field on the
+        permalink schema, and two lines in <code>applyPermalinkState</code>. Every existing test
+        anchor, control ID, and E2E selector is unchanged.
+      </p>
+    </main>
+  </body>
+</html>

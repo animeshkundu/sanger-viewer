@@ -343,6 +343,9 @@ export function createTraceViewer(): HTMLDivElement {
     sidebarToggleBtn.textContent = open ? 'Hide tools' : 'Show tools'
   }
   const setActiveSidebarTab = (tabName: string) => {
+    if (['inspect', 'map', 'analyze', 'share'].includes(tabName)) {
+      activeSidebarTab = tabName as typeof activeSidebarTab
+    }
     sidebarTabsEl.querySelectorAll<HTMLElement>('[data-tab]').forEach((tab) => {
       const selected = tab.getAttribute('data-tab') === tabName
       tab.setAttribute('aria-selected', String(selected))
@@ -374,6 +377,7 @@ export function createTraceViewer(): HTMLDivElement {
     if (!nextTabName) return
     nextTab.focus()
     setActiveSidebarTab(nextTabName)
+    schedulePermalinkPersist()
   })
   setVariantTableVisible(variantTableElements, false)
 
@@ -439,6 +443,7 @@ export function createTraceViewer(): HTMLDivElement {
   const initialPermalink = decodePermalinkState(window.location.hash)
   let pendingPermalink: PermalinkStateV1 | null = initialPermalink
   let permalinkRaf = 0
+  let activeSidebarTab: 'inspect' | 'map' | 'analyze' | 'share' = 'inspect'
   let editingIndex: number = -1  // display index of the span currently in "edit mode" (-1 = none)
   let inspectorDisplayIndex: number | null = null
   let inspectorActiveSpan: HTMLElement | null = null
@@ -473,6 +478,7 @@ export function createTraceViewer(): HTMLDivElement {
   sidebarToggleBtn.addEventListener('click', () => {
     const isOpen = shellSidebar.getAttribute('data-sidebar-open') === 'true'
     updateSidebarToggleState(!isOpen)
+    schedulePermalinkPersist()
   })
   sidebarTabsEl.addEventListener('click', (event) => {
     const tab = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-tab]')
@@ -481,6 +487,7 @@ export function createTraceViewer(): HTMLDivElement {
     if (!tabName) return
     setActiveSidebarTab(tabName)
     updateSidebarToggleState(true)
+    schedulePermalinkPersist()
   })
 
   const getDisplaySearchMatches = () =>
@@ -588,6 +595,10 @@ export function createTraceViewer(): HTMLDivElement {
         annotations: true,
         mixedBases: true,
       },
+      ui: {
+        sidebarOpen: shellSidebar.getAttribute('data-sidebar-open') === 'true',
+        activeTab: activeSidebarTab,
+      },
     }
   }
 
@@ -636,6 +647,10 @@ export function createTraceViewer(): HTMLDivElement {
     refreshReadout()
     refreshSequence()
     setShareStatus(root, '')
+    if (state.ui) {
+      updateSidebarToggleState(state.ui.sidebarOpen)
+      setActiveSidebarTab(state.ui.activeTab)
+    }
     schedulePermalinkPersist()
   }
 
