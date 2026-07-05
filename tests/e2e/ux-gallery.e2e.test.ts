@@ -243,11 +243,11 @@ test.describe('UX gallery capture', () => {
         await waitForSampleLoad(page)
         await assertCanvasNonBlank(page)
 
-        // Open the Export ▾ dropdown
-        const exportBtn = page.locator('[data-testid="export-menu-btn"]')
+        // Open the Export ▾ dropdown (toggle button uses data-action, not data-testid)
+        const exportBtn = page.getByRole('button', { name: 'Export menu' })
         await expect(exportBtn).toBeVisible({ timeout: 10_000 })
         await exportBtn.click()
-        await expect(page.locator('[data-testid="export-menu"]')).toBeVisible()
+        await expect(page.locator('.export-menu__dropdown')).toBeVisible()
 
         registry.add(await captureState(page, 'toolbar-export-menu', theme, OUTPUT_DIR))
       })
