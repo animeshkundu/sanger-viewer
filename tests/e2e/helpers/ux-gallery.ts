@@ -63,8 +63,9 @@ export const MIN_CANVAS_VARIANCE_THRESHOLD = 100
  * Compute luminance variance across pixels from raw ImageData bytes.
  * Exported so unit tests can verify the check against synthetic pixel arrays.
  *
- * Luminance per pixel is approximated as (R + G + B) / 3.  Variance of
- * these values is 0 for any uniform fill and increases with visual content.
+ * Uses Welford's online algorithm for a single-pass, numerically stable
+ * variance computation.  Luminance per pixel is (R + G + B) / 3.
+ * Returns 0 for any uniform fill and increases with visual content.
  *
  * @param data       Raw RGBA bytes from `ctx.getImageData(...).data`
  * @param pixelCount Total number of pixels (width × height)
@@ -72,19 +73,18 @@ export const MIN_CANVAS_VARIANCE_THRESHOLD = 100
  */
 export function computePixelVariance(data: Uint8ClampedArray, pixelCount: number): number {
   if (pixelCount === 0) return 0
-  // Compute mean luminance across all pixels
-  let sum = 0
-  for (let i = 0; i < data.length; i += 4) {
-    sum += (data[i] + data[i + 1] + data[i + 2]) / 3
-  }
-  const mean = sum / pixelCount
-  // Compute variance of per-pixel luminance
-  let variance = 0
+  // Welford's online algorithm — single pass, numerically stable
+  let mean = 0
+  let m2 = 0
+  let count = 0
   for (let i = 0; i < data.length; i += 4) {
     const lum = (data[i] + data[i + 1] + data[i + 2]) / 3
-    variance += (lum - mean) ** 2
+    count++
+    const delta = lum - mean
+    mean += delta / count
+    m2 += delta * (lum - mean)
   }
-  return variance / pixelCount
+  return count < 2 ? 0 : m2 / count
 }
 
 /**
@@ -105,19 +105,19 @@ export async function assertCanvasNonBlank(page: Page): Promise<void> {
     if (width === 0 || height === 0) return false
     const pixelCount = width * height
     const data = ctx.getImageData(0, 0, width, height).data
-    // Per-pixel luminance mean
-    let sum = 0
-    for (let i = 0; i < data.length; i += 4) {
-      sum += (data[i] + data[i + 1] + data[i + 2]) / 3
-    }
-    const mean = sum / pixelCount
-    // Variance of luminance across pixels — 0 for ANY uniform fill
-    let variance = 0
+    // Welford's online algorithm — single-pass luminance variance
+    // Uniform fill (any color) → variance ≈ 0; real trace → variance >> threshold
+    let mean = 0
+    let m2 = 0
+    let count = 0
     for (let i = 0; i < data.length; i += 4) {
       const lum = (data[i] + data[i + 1] + data[i + 2]) / 3
-      variance += (lum - mean) ** 2
+      count++
+      const delta = lum - mean
+      mean += delta / count
+      m2 += delta * (lum - mean)
     }
-    variance /= pixelCount
+    const variance = count < 2 ? 0 : m2 / count
     return variance > threshold
   }, MIN_CANVAS_VARIANCE_THRESHOLD)
   if (!isNonBlank) {
