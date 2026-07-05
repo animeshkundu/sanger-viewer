@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>2026-07-05 — v30 agentic development setup planning | sanger-viewer devlog</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-shell">
+        <a class="site-title" href="../../">sanger-viewer</a>
+        <nav class="site-nav" aria-label="Site">
+          <a href="../">Devlog</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="site-shell blog-entry">
+      <p><a href="../">← Back to devlog</a></p>
+      <h1>2026-07-05 — v30 agentic development setup planning</h1>
+      <p><time datetime="2026-07-05">July 5, 2026</time></p>
+
+      <p>
+        This pass lays down the written runway for focused future agent work: a research note, an
+        implementation plan, a first ADR, and a LEARNINGS file that captures the repo conventions
+        future contributors should not have to rediscover.
+      </p>
+
+      <h2>What changed</h2>
+      <ul>
+        <li>
+          Added a research artifact mapping the needed role-specialized custom agents to their
+          purpose, when-to-use triggers, preferred tools, and Definition of Done.
+        </li>
+        <li>
+          Added a focused implementation plan for the custom-agent definitions, domain-tuned
+          guidance, deterministic setup workflow, ADR, LEARNINGS, and devlog updates.
+        </li>
+        <li>
+          Recorded the architectural decision to use role-specialized development guidance for
+          feature building, UI review, UX review, E2E authoring, performance auditing,
+          bench-scientist testing, and documentation/devlog writing.
+        </li>
+        <li>
+          Started <code>LEARNINGS.md</code> with the durable repo rules: client-side TypeScript,
+          bench-scientist audience, GitHub Pages base path, exact validation commands, and the
+          UX-screenshot gate.
+        </li>
+      </ul>
+
+      <h2>Why it matters</h2>
+      <p>
+        sanger-viewer has enough surface area now that “just work on the app” is too blunt. Parser
+        changes, canvas rendering, responsive UI, true-user browser tests, performance budgets, and
+        human-readable documentation each need different habits. Capturing those habits in durable
+        repo docs should make future PRs smaller, easier to review, and safer for the live GitHub
+        Pages site.
+      </p>
+
+      <h2>Validation</h2>
+      <p>
+        This is a docs/setup-planning change. The baseline repo passed
+        <code>npm run lint && npm run typecheck && npm run test</code> before edits; the same
+        validation plus <code>npm run build</code> should remain green after the new published
+        devlog page is wired into the Vite inputs.
+      </p>
+    </main>
+  </body>
+</html>
