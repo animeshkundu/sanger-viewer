@@ -44,12 +44,15 @@ export async function waitForSampleLoad(page: Page): Promise<void> {
   await expect(page.locator('#status')).toContainText('Loaded sample.ab1', { timeout: 30_000 })
 }
 
+/** Minimum total RGB pixel deviation from white to consider the canvas non-blank. */
+const MIN_CANVAS_DEVIATION_THRESHOLD = 1000
+
 /**
  * Assert the chromatogram canvas has non-blank pixel content.
  * Throws if the canvas is blank — prevents vacuous screenshots.
  */
 export async function assertCanvasNonBlank(page: Page): Promise<void> {
-  const isNonBlank = await page.locator('[data-testid="chromatogram-canvas"]').evaluate((el) => {
+  const isNonBlank = await page.locator('[data-testid="chromatogram-canvas"]').evaluate((el, threshold) => {
     const canvas = el as HTMLCanvasElement
     const ctx = canvas.getContext('2d')
     if (!ctx) return false
@@ -61,8 +64,8 @@ export async function assertCanvasNonBlank(page: Page): Promise<void> {
     for (let i = 0; i < data.length; i += 4) {
       deviation += Math.abs(255 - data[i]) + Math.abs(255 - data[i + 1]) + Math.abs(255 - data[i + 2])
     }
-    return deviation > 1000
-  })
+    return deviation > threshold
+  }, MIN_CANVAS_DEVIATION_THRESHOLD)
   if (!isNonBlank) {
     throw new Error('Chromatogram canvas is blank — aborting screenshot to prevent vacuous capture')
   }

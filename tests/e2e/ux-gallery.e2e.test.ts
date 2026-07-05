@@ -53,6 +53,9 @@ import {
 
 const OUTPUT_DIR = path.resolve(process.cwd(), 'ux-gallery-screenshots')
 
+/** Safety limit on Tab presses when searching for a specific focusable element. */
+const MAX_TAB_ITERATIONS = 30
+
 /** Every state that must be captured. Test fails if any is missing. */
 const REQUIRED_STATES: UxState[] = [
   'hero-on-load',
@@ -258,7 +261,7 @@ test.describe('UX gallery capture', () => {
 
         // Tab until the sidebar toggle is focused — it's early in the tab order
         // and produces a clear, representative focus-ring screenshot.
-        for (let i = 0; i < 30; i++) {
+        for (let i = 0; i < MAX_TAB_ITERATIONS; i++) {
           await page.keyboard.press('Tab')
           const matches = await page.evaluate(() =>
             document.activeElement?.matches('.sidebar-toggle-btn') ?? false
