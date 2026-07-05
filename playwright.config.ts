@@ -34,8 +34,8 @@ export default defineConfig({
         isMobile: true,
         hasTouch: true,
       },
-      // Limit to the UX gallery spec so existing tests are not affected.
-      testMatch: '**/ux-gallery.e2e.test.ts',
+      // Limit to the UX gallery spec and the front-door-polish spec so existing tests are not affected.
+      testMatch: ['**/ux-gallery.e2e.test.ts', '**/front-door-polish.e2e.test.ts'],
     }
   ]
 })

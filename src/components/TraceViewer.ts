@@ -141,22 +141,21 @@ export function createTraceViewer(): HTMLDivElement {
       <input type="file" id="file-input-extra" accept=".ab1,.scf" class="sr-only" tabindex="-1" />
 
       <!-- Empty state (shown when no trace is loaded) -->
-      <div id="empty-state" class="empty-state">
+      <div id="empty-state" class="empty-state" data-testid="empty-state-dropzone">
         <div class="empty-state__icon" aria-hidden="true">🧬</div>
-        <h2 class="empty-state__title">Load a Sanger trace</h2>
+        <h2 class="empty-state__title">Drop an .ab1 or .scf file to start</h2>
         <p class="empty-state__body">
-          Open an <strong>.ab1</strong> or <strong>.scf</strong> file from your sequencing run,
-          or try the built-in sample trace to explore the viewer.
+          Your sequencing trace opens entirely in-browser — nothing is uploaded.
         </p>
         <div class="empty-state__actions">
           <label class="empty-state__file-label" for="file-input">
             📂 Choose file
           </label>
           <button id="sample-load-btn" class="empty-state__sample-btn">
-            ✨ Load sample
+            ✨ Try the sample
           </button>
         </div>
-        <p class="empty-state__hint">or drag &amp; drop a file anywhere in this area</p>
+        <p class="empty-state__hint">or drag &amp; drop anywhere in this box</p>
         <p id="permalink-hint" class="empty-state__hint hidden" role="status" aria-live="polite" aria-atomic="true"></p>
       </div>
 
@@ -1412,7 +1411,7 @@ export function createTraceViewer(): HTMLDivElement {
   }
 
   const load = async (file: File) => {
-    const requestId = beginLoad(`Loading ${file.name}…`)
+    const requestId = beginLoad(`Loading your trace… ${file.name}`)
     try {
       const buffer = await file.arrayBuffer()
       if (requestId !== loadRequestId) return
@@ -1431,7 +1430,7 @@ export function createTraceViewer(): HTMLDivElement {
   }
 
   const loadSample = async () => {
-    const requestId = beginLoad('Loading sample trace…')
+    const requestId = beginLoad('Loading your trace… sample.ab1')
     try {
       const sampleBaseUrl = (import.meta.env.BASE_URL as string).replace(/\/?$/, '/')
       const sampleUrl = `${sampleBaseUrl}sample.ab1`
