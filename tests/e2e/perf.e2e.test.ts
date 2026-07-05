@@ -70,6 +70,22 @@ function median(samples: number[]): number {
 }
 
 /**
+ * Run `measureLoadTime` N times (navigating back to the start page between
+ * each run) and return the median wall-clock time.  Using the median instead
+ * of a single sample eliminates 1-ms CI-runner jitter failures on tight
+ * budgets while keeping the assertion genuinely meaningful.
+ */
+async function measureLoadTimeMedian(page: Page, fixturePath: string, n = 5): Promise<number> {
+  const samples: number[] = []
+  for (let i = 0; i < n; i++) {
+    await page.goto('')
+    await expect(page.locator('#status')).toContainText('Loaded', { timeout: 10_000 })
+    samples.push(await measureLoadTime(page, fixturePath))
+  }
+  return median(samples)
+}
+
+/**
  * Run `action` N times with a 50 ms repaint wait each time and return the
  * median wall-clock time.  Using the median instead of a single sample makes
  * CI-runner jitter (a one-off slow sample) unable to fail a genuinely fast
@@ -108,48 +124,45 @@ const FIX = {
 // We allow 500 ms for larger or metadata-heavier traces (the real 3730 fixture
 // and the synthetic 3 k–5 k traces) to keep the assertions useful without
 // making them flaky on shared CI runners.
+//
+// All load-time budget assertions use the MEDIAN of 5 samples so that a single
+// slow CI-runner sample cannot fail a genuinely fast load.
 // ---------------------------------------------------------------------------
 
 test.describe('first-render budgets', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto('')
-    // Wait for initial sample load so the app is fully ready
-    await expect(page.locator('#status')).toContainText('Loaded', { timeout: 10_000 })
-  })
-
-  test('synth-small-500bp loads and renders within 300 ms', async ({ page }) => {
-    const elapsed = await measureLoadTime(page, FIX.small)
-    expect(elapsed, `load time ${elapsed} ms exceeds 300 ms budget`).toBeLessThan(300)
+  test('synth-small-500bp loads and renders within 300 ms (median of 5)', async ({ page }) => {
+    const med = await measureLoadTimeMedian(page, FIX.small)
+    expect(med, `load time median ${med} ms exceeds 300 ms budget`).toBeLessThan(300)
     expect(await canvasIsNonBlank(page)).toBe(true)
   })
 
-  test('3100.ab1 (existing medium) loads and renders within 300 ms', async ({ page }) => {
-    const elapsed = await measureLoadTime(page, FIX.existing)
-    expect(elapsed, `load time ${elapsed} ms exceeds 300 ms budget`).toBeLessThan(300)
+  test('3100.ab1 (existing medium) loads and renders within 300 ms (median of 5)', async ({ page }) => {
+    const med = await measureLoadTimeMedian(page, FIX.existing)
+    expect(med, `load time median ${med} ms exceeds 300 ms budget`).toBeLessThan(300)
     expect(await canvasIsNonBlank(page)).toBe(true)
   })
 
-  test('3730.ab1 (existing real large) loads and renders within 500 ms', async ({ page }) => {
-    const elapsed = await measureLoadTime(page, FIX.realLarge)
-    expect(elapsed, `load time ${elapsed} ms exceeds 500 ms budget`).toBeLessThan(500)
+  test('3730.ab1 (existing real large) loads and renders within 500 ms (median of 5)', async ({ page }) => {
+    const med = await measureLoadTimeMedian(page, FIX.realLarge)
+    expect(med, `load time median ${med} ms exceeds 500 ms budget`).toBeLessThan(500)
     expect(await canvasIsNonBlank(page)).toBe(true)
   })
 
-  test('synth-large-3kbp loads and renders within 500 ms', async ({ page }) => {
-    const elapsed = await measureLoadTime(page, FIX.large)
-    expect(elapsed, `load time ${elapsed} ms exceeds 500 ms budget`).toBeLessThan(500)
+  test('synth-large-3kbp loads and renders within 500 ms (median of 5)', async ({ page }) => {
+    const med = await measureLoadTimeMedian(page, FIX.large)
+    expect(med, `load time median ${med} ms exceeds 500 ms budget`).toBeLessThan(500)
     expect(await canvasIsNonBlank(page)).toBe(true)
   })
 
-  test('synth-lowq-800bp loads and renders within 300 ms', async ({ page }) => {
-    const elapsed = await measureLoadTime(page, FIX.lowq)
-    expect(elapsed, `load time ${elapsed} ms exceeds 300 ms budget`).toBeLessThan(300)
+  test('synth-lowq-800bp loads and renders within 300 ms (median of 5)', async ({ page }) => {
+    const med = await measureLoadTimeMedian(page, FIX.lowq)
+    expect(med, `load time median ${med} ms exceeds 300 ms budget`).toBeLessThan(300)
     expect(await canvasIsNonBlank(page)).toBe(true)
   })
 
-  test('synth-longread-5kbp loads and renders within 800 ms', async ({ page }) => {
-    const elapsed = await measureLoadTime(page, FIX.longread)
-    expect(elapsed, `load time ${elapsed} ms exceeds 800 ms budget`).toBeLessThan(800)
+  test('synth-longread-5kbp loads and renders within 800 ms (median of 5)', async ({ page }) => {
+    const med = await measureLoadTimeMedian(page, FIX.longread)
+    expect(med, `load time median ${med} ms exceeds 800 ms budget`).toBeLessThan(800)
     expect(await canvasIsNonBlank(page)).toBe(true)
   })
 })
