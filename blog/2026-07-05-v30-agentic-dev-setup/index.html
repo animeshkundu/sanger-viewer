@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>2026-07-05 — v30 agentic development setup | sanger-viewer devlog</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-shell">
+        <a class="site-title" href="../../">sanger-viewer</a>
+        <nav class="site-nav" aria-label="Site">
+          <a href="../">Devlog</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="site-shell blog-entry">
+      <p><a href="../">← Back to devlog</a></p>
+      <h1>2026-07-05 — v30 agentic development setup: domain guidance, Playwright-ready setup, and durable learnings</h1>
+      <p><time datetime="2026-07-05">July 5, 2026</time></p>
+
+      <p>
+        This pass makes the repository friendlier for the next small, careful change. The guidance now
+        says plainly what sanger-viewer is: a private, client-side Sanger chromatogram workbench for
+        bench scientists, deployed on GitHub Pages and held to true-user browser validation.
+      </p>
+
+      <h2>What changed</h2>
+      <ul>
+        <li>
+          <code>AGENTS.md</code> and <code>.github/copilot-instructions.md</code> now document the
+          TypeScript/Vite/GitHub Pages stack, exact validation commands, privacy model, UX screenshot
+          gate, small-PR rhythm, devlog expectations, ADR expectations, and Definition of Done.
+        </li>
+        <li>
+          <code>.github/workflows/copilot-setup-steps.yml</code> installs npm dependencies and Chromium
+          with <code>npx playwright install --with-deps chromium</code> inside the required
+          <code>copilot-setup-steps</code> job, capped at 59 minutes.
+        </li>
+        <li>
+          <code>docs/adr/0001-agentic-development-setup.md</code> records why this setup belongs in the
+          repo instead of being rediscovered in each session.
+        </li>
+        <li>
+          <code>LEARNINGS.md</code> starts a durable notebook for bench-scientist UX, client-side
+          privacy, Playwright setup, UX screenshots, and documentation conventions.
+        </li>
+      </ul>
+
+      <h2>UX assessment</h2>
+      <p>
+        <strong>Is this great UX?</strong> This is not a product UI change, so no chromatogram screen
+        moved. It should improve future UX work indirectly by making the desktop, tablet, and mobile
+        screenshot gate harder to miss and by asking every change to be judged from a bench scientist's
+        point of view.
+      </p>
+      <p>
+        <strong>What to improve next:</strong> The next setup pass should add focused role-specific
+        reviewer and builder definitions once that PR owns the custom-agent files. Those definitions
+        should point back to the same Definition of Done so specialists do not drift from the repository
+        standard.
+      </p>
+    </main>
+  </body>
+</html>
