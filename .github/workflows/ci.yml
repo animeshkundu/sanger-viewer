@@ -53,7 +53,7 @@ jobs:
           GITHUB_SHA: ${{ github.sha }}
           GITHUB_RUN_ID: ${{ github.run_id }}
       # Generate the self-contained HTML gallery from the captured screenshots.
-      - run: npx tsx scripts/generate-ux-gallery-html.ts
+      - run: tsx scripts/generate-ux-gallery-html.ts
         env:
           GITHUB_SHA: ${{ github.sha }}
           GITHUB_RUN_ID: ${{ github.run_id }}

@@ -19,7 +19,10 @@
  *   - prefers-reduced-motion: reduce (emulated)
  *   - fixed viewport per project
  *   - deterministic sample.ab1 auto-load
- *   - time-varying content (banners, timestamps) masked/stabilized
+ *   - no time-varying elements are present in the captured states
+ *     (trace run-date comes from the fixture file and is deterministic;
+ *     if future states expose dynamic content, add a `mask:` option to
+ *     captureState() in helpers/ux-gallery.ts)
  *
  * Genuineness guards:
  *   - canvas non-blank check before every chromatogram screenshot

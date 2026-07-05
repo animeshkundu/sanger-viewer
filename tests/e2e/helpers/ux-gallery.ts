@@ -3,9 +3,13 @@
  *
  * Reusable capture primitives for the UX gallery spec.
  * Provides deterministic screenshot helpers that:
- *   - gate each capture on real rendered content
- *   - mask time-varying elements (status banners, timestamps)
+ *   - gate each capture on real rendered content (canvas variance check)
  *   - return structured metadata alongside the image buffer
+ *
+ * Note: none of the captured states currently contain time-varying elements
+ * (banners or timestamps) — the trace run-date is read from the fixture file
+ * and is therefore deterministic.  If future states expose dynamic content,
+ * add a `mask` option to `page.screenshot()` in captureState().
  */
 
 import path from 'node:path'
@@ -44,11 +48,52 @@ export async function waitForSampleLoad(page: Page): Promise<void> {
   await expect(page.locator('#status')).toContainText('Loaded sample.ab1', { timeout: 30_000 })
 }
 
-/** Minimum total RGB pixel deviation from white to consider the canvas non-blank. */
-const MIN_CANVAS_DEVIATION_THRESHOLD = 1000
+/** Minimum luminance variance across pixels to consider the canvas non-blank.
+ *
+ * Variance is computed over per-pixel luminance: Σ((L_i − mean)²) / N
+ * where L_i = (R_i + G_i + B_i) / 3.  A canvas uniformly filled with
+ * any single colour (white, the dark-theme surface #1e293b, any other
+ * background) has L_i = constant → variance = 0 and will FAIL this check.
+ * A chromatogram with coloured peaks (A/C/G/T on a contrasting background)
+ * has luminances that vary significantly → variance >> 100.
+ */
+export const MIN_CANVAS_VARIANCE_THRESHOLD = 100
+
+/**
+ * Compute luminance variance across pixels from raw ImageData bytes.
+ * Exported so unit tests can verify the check against synthetic pixel arrays.
+ *
+ * Luminance per pixel is approximated as (R + G + B) / 3.  Variance of
+ * these values is 0 for any uniform fill and increases with visual content.
+ *
+ * @param data       Raw RGBA bytes from `ctx.getImageData(...).data`
+ * @param pixelCount Total number of pixels (width × height)
+ * @returns          Luminance variance across pixels; 0 for a uniform fill.
+ */
+export function computePixelVariance(data: Uint8ClampedArray, pixelCount: number): number {
+  if (pixelCount === 0) return 0
+  // Compute mean luminance across all pixels
+  let sum = 0
+  for (let i = 0; i < data.length; i += 4) {
+    sum += (data[i] + data[i + 1] + data[i + 2]) / 3
+  }
+  const mean = sum / pixelCount
+  // Compute variance of per-pixel luminance
+  let variance = 0
+  for (let i = 0; i < data.length; i += 4) {
+    const lum = (data[i] + data[i + 1] + data[i + 2]) / 3
+    variance += (lum - mean) ** 2
+  }
+  return variance / pixelCount
+}
 
 /**
  * Assert the chromatogram canvas has non-blank pixel content.
+ *
+ * Uses luminance VARIANCE across pixels so a canvas uniformly filled with
+ * any single colour (white light-theme fill or the dark-theme surface
+ * #1e293b) is correctly detected as blank.  Only a canvas with genuinely
+ * distinct pixel luminances (i.e. real trace peaks) passes the check.
  * Throws if the canvas is blank — prevents vacuous screenshots.
  */
 export async function assertCanvasNonBlank(page: Page): Promise<void> {
@@ -58,16 +103,25 @@ export async function assertCanvasNonBlank(page: Page): Promise<void> {
     if (!ctx) return false
     const { width, height } = canvas
     if (width === 0 || height === 0) return false
+    const pixelCount = width * height
     const data = ctx.getImageData(0, 0, width, height).data
-    // Compute deviation from white (#fff = 255,255,255)
-    let deviation = 0
+    // Per-pixel luminance mean
+    let sum = 0
     for (let i = 0; i < data.length; i += 4) {
-      deviation += Math.abs(255 - data[i]) + Math.abs(255 - data[i + 1]) + Math.abs(255 - data[i + 2])
+      sum += (data[i] + data[i + 1] + data[i + 2]) / 3
     }
-    return deviation > threshold
-  }, MIN_CANVAS_DEVIATION_THRESHOLD)
+    const mean = sum / pixelCount
+    // Variance of luminance across pixels — 0 for ANY uniform fill
+    let variance = 0
+    for (let i = 0; i < data.length; i += 4) {
+      const lum = (data[i] + data[i + 1] + data[i + 2]) / 3
+      variance += (lum - mean) ** 2
+    }
+    variance /= pixelCount
+    return variance > threshold
+  }, MIN_CANVAS_VARIANCE_THRESHOLD)
   if (!isNonBlank) {
-    throw new Error('Chromatogram canvas is blank — aborting screenshot to prevent vacuous capture')
+    throw new Error('Chromatogram canvas is blank (uniform fill detected) — aborting screenshot to prevent vacuous capture')
   }
 }
 
