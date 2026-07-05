@@ -53,9 +53,6 @@ import {
 
 const OUTPUT_DIR = path.resolve(process.cwd(), 'ux-gallery-screenshots')
 
-/** Safety limit on Tab presses when searching for a specific focusable element. */
-const MAX_TAB_ITERATIONS = 30
-
 /** Every state that must be captured. Test fails if any is missing. */
 const REQUIRED_STATES: UxState[] = [
   'hero-on-load',
@@ -263,15 +260,14 @@ test.describe('UX gallery capture', () => {
         await page.goto('')
         await waitForSampleLoad(page)
 
-        // Tab until the sidebar toggle is focused — it's early in the tab order
-        // and produces a clear, representative focus-ring screenshot.
-        for (let i = 0; i < MAX_TAB_ITERATIONS; i++) {
-          await page.keyboard.press('Tab')
-          const matches = await page.evaluate(() =>
-            document.activeElement?.matches('.sidebar-toggle-btn') ?? false
-          )
-          if (matches) break
-        }
+        // Press Tab once to activate keyboard-navigation mode in the browser so
+        // the :focus-visible pseudo-class (and its focus ring styles) becomes
+        // active. Then programmatically focus the sidebar toggle — a prominent,
+        // clearly-styled focusable control — so the ring is visible in the
+        // screenshot without relying on an exact Tab-order count (which shifts
+        // as toolbar controls are added/removed across workspace-shell redesigns).
+        await page.keyboard.press('Tab')
+        await page.locator('.sidebar-toggle-btn').focus()
         await expect(page.locator('.sidebar-toggle-btn')).toBeFocused()
 
         registry.add(await captureState(page, 'keyboard-focus', theme, OUTPUT_DIR))
