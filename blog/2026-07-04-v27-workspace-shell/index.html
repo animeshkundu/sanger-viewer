@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>2026-07-04 — v27 workspace-shell IA restructure | sanger-viewer devlog</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-shell">
+        <a class="site-title" href="../../">sanger-viewer</a>
+        <nav class="site-nav" aria-label="Site">
+          <a href="../">Devlog</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="site-shell blog-entry">
+      <p><a href="../">← Back to devlog</a></p>
+      <h1>2026-07-04 — v27 workspace-shell IA restructure</h1>
+      <p><time datetime="2026-07-04">July 4, 2026</time></p>
+
+      <p>
+        The app had quietly turned into a vertical wall. Useful tools kept landing below the fold,
+        and the first thing a new person saw was not the chromatogram — it was a stack of panels.
+        That felt backwards for a trace viewer. This pass fixes the information architecture without
+        cutting any capability.
+      </p>
+
+      <h2>What changed</h2>
+      <ul>
+        <li><strong>Hero-first layout.</strong> The chromatogram and primary toolbar now live in a left-hand hero column that stays visible immediately on load.</li>
+        <li><strong>Collapsible right sidebar.</strong> Secondary tools moved into a sticky sidebar with Inspect, Map, Analyze, and Share tabs.</li>
+        <li><strong>Primary vs. secondary split.</strong> View, Export, and Edit stay in the main toolbar; search, Q-trim, mixed-base calling, metadata, plasmid map, alignment, contig assembly, primer analysis, and sharing moved into panels.</li>
+        <li><strong>No ID churn.</strong> Existing control IDs and test anchors were preserved so the rest of the app and automation could keep working.</li>
+      </ul>
+
+      <h2>Implementation notes</h2>
+      <p>
+        The change is mostly a DOM restructure inside <code>TraceViewer</code>. Rather than rebuilding
+        feature components, the viewer now creates the same controls and panels, then moves them into
+        a new <code>.app-shell</code> with a hero region and tabbed sidebar. That kept the behavior code
+        stable while letting the layout change dramatically.
+      </p>
+      <p>
+        I also tightened control disabling so broad loading-state updates only target the intended
+        toolbar actions. That matters now that panel-specific actions like assembly and PCR live next
+        to the toolbar in the same overall workspace shell.
+      </p>
+
+      <h2>Why this version feels better</h2>
+      <p>
+        The viewer finally opens on the thing you came to inspect: the trace itself. Everything else
+        is still there, but it no longer competes with the chromatogram for first attention. This is
+        the kind of IA cleanup that makes the app feel calmer without removing power.
+      </p>
+    </main>
+  </body>
+</html>

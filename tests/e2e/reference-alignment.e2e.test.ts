@@ -17,6 +17,7 @@
 
 import path from 'node:path'
 import { test, expect } from '@playwright/test'
+import { openSidebarTab } from './helpers/sidebar'
 
 const FIXTURE = path.resolve(process.cwd(), 'fixtures/ab1/310.ab1')
 
@@ -25,6 +26,7 @@ test.describe('Reference alignment + variant calling', () => {
     await page.goto('')
     await page.setInputFiles('#file-input', FIXTURE)
     await expect(page.locator('#status')).toContainText('Loaded')
+    await openSidebarTab(page, 'analyze')
   })
 
   // ── Test 1: Reference panel is rendered ────────────────────────────────────

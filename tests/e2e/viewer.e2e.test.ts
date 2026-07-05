@@ -27,6 +27,10 @@ test('loads fixture set and renders interactions', async ({ page }) => {
     await page.getByRole('button', { name: '← Pan' }).click()
 
     const canvas = page.locator('[data-testid="chromatogram-canvas"]')
+    // Controls are below the canvas in the shell layout; clicking them scrolls
+    // the page and can push the canvas above the viewport top.  Scroll back so
+    // the canvas centre is reachable by mouse.move before we hover over it.
+    await canvas.scrollIntoViewIfNeeded()
     const box = await canvas.boundingBox()
     if (!box) throw new Error('Canvas not visible')
     for (let step = 1; step <= 6; step += 1) {

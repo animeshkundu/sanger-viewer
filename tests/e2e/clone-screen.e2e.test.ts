@@ -19,6 +19,7 @@
 
 import path from 'node:path'
 import { test, expect } from '@playwright/test'
+import { openSidebarTab } from './helpers/sidebar'
 
 const FIXTURE_A = path.resolve(process.cwd(), 'fixtures/ab1/310.ab1')
 const FIXTURE_B = path.resolve(process.cwd(), 'fixtures/ab1/3100.ab1')
@@ -40,6 +41,7 @@ test.describe('Clone-screen stacked viewer', () => {
   // ── Test 1: Panel hidden with one trace ──────────────────────────────────────
   test('clone screen panel is hidden when only one trace is loaded', async ({ page }) => {
     await loadTrace(page, FIXTURE_A)
+    await openSidebarTab(page, 'analyze')
     const panel = page.locator('[data-testid="clone-screen-panel"]')
     await expect(panel).toBeHidden()
   })
@@ -48,6 +50,7 @@ test.describe('Clone-screen stacked viewer', () => {
   test('clone screen panel becomes visible after loading a second trace', async ({ page }) => {
     await loadTrace(page, FIXTURE_A)
     await loadTrace(page, FIXTURE_B)
+    await openSidebarTab(page, 'analyze')
     const panel = page.locator('[data-testid="clone-screen-panel"]')
     await expect(panel).toBeVisible()
   })
@@ -56,6 +59,7 @@ test.describe('Clone-screen stacked viewer', () => {
   test('EXACT: loading the same trace twice gives 0 mismatches', async ({ page }) => {
     await loadTrace(page, FIXTURE_A)
     await loadTrace(page, FIXTURE_A)
+    await openSidebarTab(page, 'analyze')
     const summary = page.locator('[data-testid="clone-screen-summary"]')
     await expect(summary).toBeVisible()
     const text = await summary.textContent()
@@ -66,6 +70,7 @@ test.describe('Clone-screen stacked viewer', () => {
   test('EXACT: summary shows 2 traces when two files are loaded', async ({ page }) => {
     await loadTrace(page, FIXTURE_A)
     await loadTrace(page, FIXTURE_B)
+    await openSidebarTab(page, 'analyze')
     const summary = page.locator('[data-testid="clone-screen-summary"]')
     const text = await summary.textContent()
     expect(text).toMatch(/2 traces?/)
@@ -75,6 +80,7 @@ test.describe('Clone-screen stacked viewer', () => {
   test('clone screen panel is keyboard-focusable', async ({ page }) => {
     await loadTrace(page, FIXTURE_A)
     await loadTrace(page, FIXTURE_B)
+    await openSidebarTab(page, 'analyze')
     const panel = page.locator('[data-testid="clone-screen-panel"]')
     await panel.focus()
     await expect(panel).toBeFocused()
@@ -84,6 +90,7 @@ test.describe('Clone-screen stacked viewer', () => {
   test('EXACT: cursor moves to position 2 after pressing ArrowRight once', async ({ page }) => {
     await loadTrace(page, FIXTURE_A)
     await loadTrace(page, FIXTURE_A)  // same file → 0 mismatches → cursor nav still works
+    await openSidebarTab(page, 'analyze')
     const panel = page.locator('[data-testid="clone-screen-panel"]')
     const cursorInfo = page.locator('[data-testid="clone-screen-cursor-info"]')
 
@@ -104,6 +111,7 @@ test.describe('Clone-screen stacked viewer', () => {
   test('EXACT: cursor returns to position 1 after ArrowLeft from position 2', async ({ page }) => {
     await loadTrace(page, FIXTURE_A)
     await loadTrace(page, FIXTURE_A)
+    await openSidebarTab(page, 'analyze')
     const panel = page.locator('[data-testid="clone-screen-panel"]')
     const cursorInfo = page.locator('[data-testid="clone-screen-cursor-info"]')
 
@@ -119,6 +127,7 @@ test.describe('Clone-screen stacked viewer', () => {
   test('prev-mismatch and next-mismatch buttons are visible', async ({ page }) => {
     await loadTrace(page, FIXTURE_A)
     await loadTrace(page, FIXTURE_B)
+    await openSidebarTab(page, 'analyze')
     await expect(page.locator('[data-testid="clone-screen-prev-mismatch"]')).toBeVisible()
     await expect(page.locator('[data-testid="clone-screen-next-mismatch"]')).toBeVisible()
   })
@@ -127,6 +136,7 @@ test.describe('Clone-screen stacked viewer', () => {
   test('copy report button is visible', async ({ page }) => {
     await loadTrace(page, FIXTURE_A)
     await loadTrace(page, FIXTURE_B)
+    await openSidebarTab(page, 'analyze')
     await expect(page.locator('[data-testid="clone-screen-copy-report"]')).toBeVisible()
   })
 
@@ -134,6 +144,7 @@ test.describe('Clone-screen stacked viewer', () => {
   test('EXACT: two trace rows are rendered when two traces are loaded', async ({ page }) => {
     await loadTrace(page, FIXTURE_A)
     await loadTrace(page, FIXTURE_B)
+    await openSidebarTab(page, 'analyze')
     const row0 = page.locator('[data-testid="clone-screen-row-0"]')
     const row1 = page.locator('[data-testid="clone-screen-row-1"]')
     await expect(row0).toBeVisible()
@@ -146,6 +157,7 @@ test.describe('Clone-screen stacked viewer', () => {
   test('EXACT: base cell at trace 0, position 0 has the cursor class on load', async ({ page }) => {
     await loadTrace(page, FIXTURE_A)
     await loadTrace(page, FIXTURE_A)
+    await openSidebarTab(page, 'analyze')
     // p0 is 0-based position 0 (1-based position 1)
     const cell = page.locator('[data-testid="clone-screen-base-t0-p0"]')
     await expect(cell).toHaveClass(/clone-screen__base--cursor/)
@@ -155,6 +167,7 @@ test.describe('Clone-screen stacked viewer', () => {
   test('loading two different AB1 files produces at least 1 mismatch', async ({ page }) => {
     await loadTrace(page, FIXTURE_A)
     await loadTrace(page, FIXTURE_B)
+    await openSidebarTab(page, 'analyze')
     const summary = page.locator('[data-testid="clone-screen-summary"]')
     const text = await summary.textContent()
     // Extract mismatch count from summary text like "Clone screen · 2 traces · 868 bp · 0 mismatches"
@@ -169,6 +182,7 @@ test.describe('Clone-screen stacked viewer', () => {
   test('keyboard hint paragraph is present in the panel', async ({ page }) => {
     await loadTrace(page, FIXTURE_A)
     await loadTrace(page, FIXTURE_B)
+    await openSidebarTab(page, 'analyze')
     const panel = page.locator('[data-testid="clone-screen-panel"]')
     const hint = panel.locator('.clone-screen__keyboard-hint')
     await expect(hint).toBeVisible()
@@ -178,6 +192,7 @@ test.describe('Clone-screen stacked viewer', () => {
   test('panel has role=region and a non-empty aria-label', async ({ page }) => {
     await loadTrace(page, FIXTURE_A)
     await loadTrace(page, FIXTURE_B)
+    await openSidebarTab(page, 'analyze')
     const panel = page.locator('[data-testid="clone-screen-panel"]')
     const role = await panel.getAttribute('role')
     expect(role).toBe('region')
@@ -190,6 +205,7 @@ test.describe('Clone-screen stacked viewer', () => {
   test('EXACT: summary includes bp count (> 0) matching min sequence length', async ({ page }) => {
     await loadTrace(page, FIXTURE_A)
     await loadTrace(page, FIXTURE_A)
+    await openSidebarTab(page, 'analyze')
     const summary = page.locator('[data-testid="clone-screen-summary"]')
     const text = await summary.textContent()
     const bpMatch = text?.match(/(\d+) bp/)
@@ -203,6 +219,7 @@ test.describe('Clone-screen stacked viewer', () => {
     // FIXTURE_A vs FIXTURE_B produces mismatches — use them for bracket navigation.
     await loadTrace(page, FIXTURE_A)
     await loadTrace(page, FIXTURE_B)
+    await openSidebarTab(page, 'analyze')
     const panel = page.locator('[data-testid="clone-screen-panel"]')
     const cursorInfo = page.locator('[data-testid="clone-screen-cursor-info"]')
 
@@ -233,6 +250,7 @@ test.describe('Clone-screen stacked viewer', () => {
   test('EXACT: many cursor moves then one keypress moves exactly one position (no listener leak)', async ({ page }) => {
     await loadTrace(page, FIXTURE_A)
     await loadTrace(page, FIXTURE_A)
+    await openSidebarTab(page, 'analyze')
     const panel = page.locator('[data-testid="clone-screen-panel"]')
     const cursorInfo = page.locator('[data-testid="clone-screen-cursor-info"]')
 

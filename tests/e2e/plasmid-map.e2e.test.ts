@@ -1,5 +1,6 @@
 import path from 'node:path'
 import { test, expect } from '@playwright/test'
+import { openSidebarTab } from './helpers/sidebar'
 
 const FIXTURE = path.resolve(process.cwd(), 'fixtures/ab1/3100.ab1')
 
@@ -36,6 +37,8 @@ function contrastRatio(a: string, b: string): number {
 
 test('plasmid map hides cleanly when no trace is loaded', async ({ page }) => {
   await page.goto('')
+  // Open the Map tab so the plasmid map panel is reachable.
+  await openSidebarTab(page, 'map')
   await expect(page.locator('[data-testid="plasmid-map"]')).toBeVisible()
 
   await page.locator('.workspace-bar__tab .workspace-bar__tab-close').click()
@@ -47,6 +50,9 @@ test('plasmid map exposes exact deterministic attributes and topology toggle', a
   await page.goto('')
   await page.setInputFiles('#file-input', FIXTURE)
   await expect(page.locator('#status')).toContainText('Loaded 3100.ab1')
+
+  // Open the Map tab so the plasmid map panel is reachable.
+  await openSidebarTab(page, 'map')
 
   const map = page.locator('[data-testid="plasmid-map"]')
   await expect(map).toBeVisible()
@@ -70,6 +76,9 @@ test('click and keyboard activation jump to the exact base range start', async (
   await page.setInputFiles('#file-input', FIXTURE)
   await expect(page.locator('#status')).toContainText('Loaded 3100.ab1')
 
+  // Open the Map tab so the plasmid map panel is reachable.
+  await openSidebarTab(page, 'map')
+
   const map = page.locator('[data-testid="plasmid-map"]')
   const marker = map.locator('.plasmid-map__marker[data-feature-type="restriction"][data-enzyme="HindIII"][data-position="252"]').first()
   await expect(marker).toBeVisible()
@@ -91,6 +100,9 @@ test('plasmid map meets contrast thresholds in light and dark themes', async ({ 
     await page.goto('')
     await page.setInputFiles('#file-input', FIXTURE)
     await expect(page.locator('#status')).toContainText('Loaded 3100.ab1')
+
+    // Open the Map tab so the plasmid map is rendered in its visible state.
+    await openSidebarTab(page, 'map')
 
     const colors = await page.evaluate(() => {
       const map = document.querySelector<HTMLElement>('[data-testid="plasmid-map"]')
