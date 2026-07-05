@@ -130,6 +130,7 @@ export async function routeSampleWithDelay(page: Page, delayMs = 300): Promise<(
   })
 
   return async () => {
+    handled = false
     await page.unroute('**/sample.ab1')
   }
 }
