@@ -210,6 +210,7 @@ test.describe('UX gallery capture', () => {
         await expect(page.locator('#loading-banner')).toBeVisible({ timeout: 10_000 })
 
         await captureState(page, 'loading-state', theme, OUTPUT_DIR)
+        await expect(page.locator('#loading-banner')).toBeHidden({ timeout: 30_000 })
         await cleanup()
       })
 
