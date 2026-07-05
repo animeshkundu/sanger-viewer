@@ -280,18 +280,19 @@ test.describe('UX gallery capture', () => {
       // Filesystem-based: reads OUTPUT_DIR directly so this test is independent
       // of which Playwright worker ran the capture tests.
       // -----------------------------------------------------------------------
-      test(`${theme} — completeness gate`, async ({ page }) => {
+      test(`${theme} — completeness gate`, async ({ page, isMobile }) => {
         const viewportSize = page.viewportSize()
         const viewport = viewportSize
           ? `${viewportSize.width}x${viewportSize.height}`
           : 'unknown'
 
-        // On mobile projects, keyboard-focus and hover-tooltip are intentionally
-        // skipped; exclude them from the completeness check.
-        const isMobileViewport = (viewportSize?.width ?? 1280) < 600
+        // On mobile projects (isMobile fixture === true), keyboard-focus and
+        // hover-tooltip are intentionally skipped by the capture tests via
+        // test.skip(isMobile, ...).  Use the SAME predicate here so the gate
+        // excludes exactly the states that were not captured.
         const skipOnMobile: UxState[] = ['keyboard-focus', 'hover-tooltip']
 
-        const expected = isMobileViewport
+        const expected = isMobile
           ? REQUIRED_STATES.filter((s) => !skipOnMobile.includes(s))
           : REQUIRED_STATES
 
