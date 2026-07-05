@@ -45,7 +45,7 @@ This work unit is a docs/research implementation task, not an app behavior chang
 3. **Generate the local UX gallery**
    - Run `npm run ux:gallery`.
    - Inspect `ux-gallery-screenshots/index.html` and the generated PNG names.
-   - Confirm coverage of desktop, tablet, and narrow-mobile; light/dark themes; and all required states from the harness.
+   - Confirm coverage of desktop, tablet, and narrow-mobile; light/dark themes; and all required UI states from the harness.
    - Do not commit the generated screenshot folder unless explicitly requested.
 
 4. **Measure performance/reliability/consistency**

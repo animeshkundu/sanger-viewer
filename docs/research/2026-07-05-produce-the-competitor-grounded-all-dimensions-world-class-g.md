@@ -17,13 +17,13 @@ This is the durable research/finding artifact for the next implementation pass. 
 
 ### Existing UX-gallery harness to reuse
 
-- `npm run ux:gallery` runs `playwright test tests/e2e/ux-gallery.e2e.test.ts && tsx scripts/generate-ux-gallery-html.ts`.
+- `npm run ux:gallery` runs Playwright via `playwright test tests/e2e/ux-gallery.e2e.test.ts && tsx scripts/generate-ux-gallery-html.ts`.
 - `tests/e2e/ux-gallery.e2e.test.ts` captures the enumerated state × theme × viewport matrix:
   - States: `hero-on-load`, `sidebar-expanded`, `sidebar-collapsed`, `inspect-panel`, `map-panel`, `analyze-panel`, `share-panel`, `empty-state`, `loading-state`, `toolbar-export-menu`, `keyboard-focus`, `hover-tooltip`.
   - Themes: light and dark.
   - Viewports: desktop 1280×720, tablet 810×1080, narrow-mobile 360×640.
   - Mobile skips `keyboard-focus` and `hover-tooltip` by design.
-- `tests/e2e/helpers/ux-gallery.ts` includes deterministic setup, sample-load wait, non-blank chromatogram canvas checks, and screenshot capture helpers.
+- `tests/e2e/helpers/ux-gallery.ts` includes deterministic setup, sample-load wait, checks that the chromatogram canvas contains rendered pixel variation rather than a blank uniform fill, and screenshot capture helpers.
 - `scripts/generate-ux-gallery-html.ts` bundles screenshots into a self-contained `ux-gallery-screenshots/index.html` artifact with commit/run metadata and grouped thumbnails.
 - `blog/2026-07-05-v28-ux-gallery/index.html` documents the harness and contains an initial UX assessment with known issues: narrow-mobile sidebar overflow, empty-state visual weight, loading guidance, export discoverability, and hover tooltip hit target.
 
