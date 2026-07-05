@@ -345,7 +345,7 @@ export function createTraceViewer(): HTMLDivElement {
   }
   const setActiveSidebarTab = (tabName: string) => {
     sidebarTabsEl.querySelectorAll<HTMLElement>('[data-tab]').forEach((tab) => {
-      const selected = tab.getAttribute('data-tab') == tabName
+      const selected = tab.getAttribute('data-tab') === tabName
       tab.setAttribute('aria-selected', String(selected))
       tab.setAttribute('tabindex', selected ? '0' : '-1')
     })
