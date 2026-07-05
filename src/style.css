@@ -2757,13 +2757,15 @@ canvas {
 }
 
 /* ─── Workspace shell reduced-motion guard ────────────────────────────── */
+/* Placed before shell rules; !important ensures it wins over later declarations */
 
 @media (prefers-reduced-motion: reduce) {
-  .shell-sidebar,
-  .sidebar-toggle-btn,
-  .sidebar-tab,
-  .sidebar-panel {
-    transition: none;
+  .app-shell,
+  .app-shell *,
+  .app-shell *::before,
+  .app-shell *::after {
+    transition-duration: 0s !important;
+    animation-duration: 0s !important;
   }
 }
 
