@@ -103,12 +103,24 @@ export async function captureState(
 /**
  * Route sample.ab1 through a 300 ms artificial delay so the loading banner
  * is reliably visible before it resolves.  Returns a cleanup function.
+ *
+ * Guards against double-handling: some Chromium configurations (e.g. iPad
+ * emulation) issue more than one request for the same resource (a speculative
+ * prefetch plus the actual fetch).  Only the FIRST request gets the delay +
+ * fulfil; any subsequent requests are passed straight through to the network
+ * so they do not cause a "Route is already handled!" error.
  */
 export async function routeSampleWithDelay(page: Page, delayMs = 300): Promise<() => Promise<void>> {
   const samplePath = path.resolve(process.cwd(), 'public/sample.ab1')
   const sampleBytes = await fs.readFile(samplePath)
 
+  let handled = false
   await page.route('**/sample.ab1', async (route) => {
+    if (handled) {
+      await route.continue()
+      return
+    }
+    handled = true
     await new Promise<void>((resolve) => setTimeout(resolve, delayMs))
     await route.fulfill({
       status: 200,
