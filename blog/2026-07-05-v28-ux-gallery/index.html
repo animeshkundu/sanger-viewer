@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>2026-07-05 — v28 automated UX gallery + assessment gate | sanger-viewer devlog</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-shell">
+        <a class="site-title" href="../../">sanger-viewer</a>
+        <nav class="site-nav" aria-label="Site">
+          <a href="../">Devlog</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="site-shell blog-entry">
+      <p><a href="../">← Back to devlog</a></p>
+      <h1>2026-07-05 — v28 automated UX gallery + assessment gate</h1>
+      <p><time datetime="2026-07-05">July 5, 2026</time></p>
+
+      <p>
+        Every PR that ships visual changes should come with proof. Up until now, "does this look right?"
+        was answered by trust and convention. This pass wires in a systematic, automated answer: a full
+        UX gallery captured by Playwright on every PR, plus a mandatory written UX assessment in the PR
+        template.
+      </p>
+
+      <h2>What shipped</h2>
+      <ul>
+        <li>
+          <strong>Dedicated UX gallery capture spec</strong>
+          (<code>tests/e2e/ux-gallery.e2e.test.ts</code>). Screenshots the full state × theme × viewport
+          matrix: chromatogram hero on load, sidebar expanded and collapsed, Inspect / Map / Analyze /
+          Share panels opened, empty state, loading state, Export menu open, keyboard-focus ring, and
+          hover tooltip — across light and dark themes and desktop (1280×720), tablet (810×1080), and
+          narrow-mobile (360×640) viewports.
+        </li>
+        <li>
+          <strong>Deterministic capture.</strong> Every run forces <code>prefers-reduced-motion: reduce</code>,
+          emulates a fixed colour scheme before any page navigation, uses the deterministic
+          <code>sample.ab1</code> auto-load, and disables animations in the screenshot call. The
+          loading-state capture uses a routed 300 ms delay so the banner is reliably visible.
+        </li>
+        <li>
+          <strong>Genuineness guards.</strong> Every chromatogram screenshot is gated on a non-blank
+          canvas assertion — computed as total pixel deviation from white — before the shutter fires.
+          Panel screenshots assert the expected element is visible. The completeness gate test fails
+          the suite if any required state is missing.
+        </li>
+        <li>
+          <strong>Self-contained HTML gallery.</strong>
+          <code>scripts/generate-ux-gallery-html.ts</code> reads the manifest JSON files written by the
+          capture spec and generates a single <code>index.html</code> with all screenshots embedded as
+          base64 data URLs, grouped by state → theme → viewport. No external dependencies — the file
+          opens standalone from the CI artifact download.
+        </li>
+        <li>
+          <strong>CI gate on every PR.</strong> The <code>ux-gallery</code> job in
+          <code>.github/workflows/ci.yml</code> runs the capture spec, then the generator, then uploads
+          the entire <code>ux-gallery-screenshots/</code> folder — HTML and PNGs — as a
+          <code>ux-gallery</code> artifact retained for 30 days. If any capture assertion fails, CI
+          fails.
+        </li>
+        <li>
+          <strong>Narrow-mobile viewport.</strong> <code>playwright.config.ts</code> now includes a
+          <code>narrow-mobile</code> project (360×640, <code>isMobile: true</code>,
+          <code>hasTouch: true</code>) scoped to the gallery spec, so existing tests are unaffected.
+        </li>
+        <li>
+          <strong>Mandatory PR template.</strong>
+          <code>.github/pull_request_template.md</code> requires every PR to link the UX gallery
+          artifact and complete a written UX assessment structured around the heuristics from the merged
+          design-research (#19): visual hierarchy, progressive disclosure, measured a11y, consistency,
+          and delight. The Copilot reviewer and first-mate judge examine this section.
+        </li>
+      </ul>
+
+      <h2>Initial UX assessment — shipped workspace-shell app</h2>
+
+      <p>
+        The following assessment is grounded in the design-research (#19) and perf-audit (#20) heuristics
+        and reflects the state of the app as of the v27 workspace-shell. Wherever possible, I describe
+        what I see in the gallery screenshots rather than making assumptions.
+      </p>
+
+      <h3>What works well</h3>
+      <ul>
+        <li>
+          <strong>Hero-first information architecture.</strong> The chromatogram is immediately
+          above the fold on load in all three viewports. The workspace-shell redesign fixed the most
+          important ordering problem: the thing you came to see is the first thing you see.
+        </li>
+        <li>
+          <strong>Sidebar progressive disclosure.</strong> Collapsing the sidebar reclaims the full
+          width for the trace. The toggle is keyboard-reachable (Tab + Enter), has a clear accessible
+          name ("Hide tools" / "Show tools"), and the aria-expanded / aria-controls pair is correct.
+        </li>
+        <li>
+          <strong>Dark mode surface parity.</strong> The dark-mode gallery screenshots show consistent
+          surface colour (#1e293b) across the shell, the canvas background, and the sidebar — no
+          mismatched regions.
+        </li>
+        <li>
+          <strong>Measured contrast.</strong> The ux-a11y test suite verifies text ≥ 4.5 : 1, UI
+          border ≥ 3 : 1, and focus ring ≥ 3 : 1 in both themes. These are not estimates — they are
+          computed from resolved CSS custom properties at runtime.
+        </li>
+      </ul>
+
+      <h3>What needs to improve</h3>
+      <ol>
+        <li>
+          <strong>Narrow-mobile sidebar overflow (P1).</strong> At 360×640 the sidebar panels are
+          full-width and stack below the hero canvas. There is no responsive breakpoint to switch to
+          a bottom-sheet or sheet-overlay pattern for narrow viewports. The Inspect panel is likely
+          cut off. Filed as a scoped follow-up.
+        </li>
+        <li>
+          <strong>Empty-state visual weight (P2).</strong> The empty-state dropzone is text-only and
+          blends into the background in dark mode. A light illustrated placeholder or a subtle dashed
+          border around the drop target would improve discoverability and delight.
+        </li>
+        <li>
+          <strong>Loading-state spinner legibility (P2).</strong> The spinner is visible but the
+          surrounding loading banner lacks secondary guidance ("Loading your trace…" with a file name
+          if known). First-time users have no indication of what is happening or how long it will take.
+        </li>
+        <li>
+          <strong>Export menu discoverability (P2).</strong> The Export ▾ button is visually
+          de-emphasised relative to the View controls. On narrow-mobile it may be clipped. Consider
+          promoting the most common export action (FASTA) to a persistent button with the menu serving
+          secondary formats.
+        </li>
+        <li>
+          <strong>Hover tooltip hit target (P3).</strong> The hover tooltip appears only when the
+          pointer is precisely on a base peak. The hit area is one base wide. On high-resolution traces
+          with tight peak spacing, this makes the tooltip feel fussy. A wider hit region with a brief
+          delay would reduce friction.
+        </li>
+      </ol>
+
+      <h3>Accessibility (measured)</h3>
+      <ul>
+        <li>Text contrast: ≥ 4.5 : 1 in both themes (CI-verified).</li>
+        <li>UI / border contrast: ≥ 3 : 1 in both themes (CI-verified).</li>
+        <li>Focus rings: visible in keyboard-focus gallery screenshots; outline-width ≠ 0 (CI-verified).</li>
+        <li>Keyboard operability: sidebar toggle, tab strip, search, and export are all Tab-reachable on desktop.</li>
+        <li>Gap: narrow-mobile keyboard operability not tested (touch-only device emulation).</li>
+      </ul>
+
+      <h2>Prioritised follow-ups</h2>
+      <ol>
+        <li>Narrow-mobile responsive sidebar (bottom-sheet or slide-over overlay pattern).</li>
+        <li>Empty-state dropzone visual improvement (illustrated placeholder + dashed border).</li>
+        <li>Loading-state secondary guidance (file name + progress hint).</li>
+        <li>Export menu: promote most-common action to persistent button.</li>
+        <li>Hover tooltip: widen hit target + add configurable delay.</li>
+      </ol>
+
+      <h2>CI status after this pass</h2>
+      <p>
+        Lint, typecheck, all Vitest unit tests, all Playwright E2E tests (desktop + tablet), the
+        perf smoke tests, and the new UX gallery capture spec pass. The <code>ux-gallery</code> CI
+        job uploads the HTML gallery artifact on every PR.
+      </p>
+    </main>
+  </body>
+</html>

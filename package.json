@@ -12,7 +12,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "perf:smoke": "vitest run tests/core/performance-smoke.test.ts"
+    "perf:smoke": "vitest run tests/core/performance-smoke.test.ts",
+    "ux:gallery": "playwright test tests/e2e/ux-gallery.e2e.test.ts && tsx scripts/generate-ux-gallery-html.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",
@@ -20,6 +21,7 @@
     "@typescript-eslint/eslint-plugin": "^8.62.1",
     "@typescript-eslint/parser": "^8.62.1",
     "eslint": "^10.6.0",
+    "tsx": "^4.23.0",
     "typescript": "~6.0.2",
     "vite": "^8.1.1",
     "vitest": "^4.1.9"
