@@ -130,6 +130,29 @@ test('narrow-viewport: sidebar tabs remain sticky (visible) while panel content 
 
 // ── 3. Permalink round-trips active sidebar tab and open/closed state ──────
 
+test('permalink backward-compat: legacy hash without ui defaults to open Inspect tab', async ({ page }) => {
+  const encoded = encodePermalinkState(
+    {
+      source: { kind: 'sample', value: 'sample.ab1' },
+      view: { startSample: 0, samplesPerPixel: 6 },
+      strand: 'forward',
+      trim: { mode: 'full', threshold: 20 },
+      search: { query: '', activeIndex: -1 },
+      selection: { baseIndex: null },
+      edits: [],
+      overlays: { quality: true, annotations: true, mixedBases: true },
+    },
+    { maxChars: 1800 },
+  )
+  if (!encoded.hash) throw new Error(encoded.error ?? 'Failed to encode test permalink')
+
+  await page.goto(`/${encoded.hash}`)
+  await expect(page.locator('#status')).toContainText('Loaded', { timeout: 10000 })
+  await expect(page.locator('.shell-sidebar')).toHaveAttribute('data-sidebar-open', 'true')
+  await expect(page.locator('[data-tab="inspect"]')).toHaveAttribute('aria-selected', 'true')
+  await expect(page.locator('#sidebar-panel-inspect')).toBeVisible()
+})
+
 test('permalink round-trip: restores closed sidebar state', async ({ page }) => {
   const encoded = encodePermalinkState(
     {
