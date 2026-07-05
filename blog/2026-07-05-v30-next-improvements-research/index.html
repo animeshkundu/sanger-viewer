@@ -46,11 +46,12 @@
 
       <h2>Evidence stream 1 — competitor gap survey</h2>
       <p>
-        The v17 design-research devlog (entry <a href="../2026-07-04-v17-design-research/">#19 in the
-        index</a>) conducted a structured study of Chromas, FinchTV, SnapGene, UGENE, Geneious Prime,
-        and Benchling. The findings below extend that baseline with gaps that have become more visible
+        The v17 design-research devlog (<a href="../2026-07-04-v17-design-research/">PR #19</a>)
+        conducted a structured study of Chromas, FinchTV, SnapGene, UGENE, Geneious Prime, and
+        Benchling. The findings below extend that baseline with gaps that have become more visible
         since v17 shipped, plus a gap analysis for <strong>ApE (A Plasmid Editor)</strong>, which the
-        v17 study did not cover.
+        v17 study did not cover. Where a cited product page defines the feature surface and the gap is
+        inferred from the absence of a documented capability, I label that claim as inference.
       </p>
 
       <h3>Chromas (Technelysium)</h3>
@@ -60,41 +61,41 @@
         Chromas has no annotation import — you can view the trace and export the sequence, but you
         cannot overlay a GenBank/GFF annotation file and see your restriction sites or primers rendered
         over the chromatogram in the same view. Users who want to verify a construct must keep
-        SnapGene or Benchling open alongside Chromas. Source: Technelysium Chromas Pro 2.6.6 feature
-        list and help pages (technelysium.com/chromas.html, accessed 2026-07-05); confirmed against
-        the feature table in the v17 design-research devlog.
+        SnapGene or Benchling open alongside Chromas. Source: Technelysium Chromas feature list
+        (https://technelysium.com.au/wp/chromas/, accessed 2026-07-05); inference from that documented
+        feature surface because annotation import / overlay is not listed there.
       </p>
 
       <h3>FinchTV (Geospiza)</h3>
       <p>
-        Single-file mental model noted in v17. The current gap: FinchTV 1.4.0 — still the most recent
-        release — dates to 2005, is no longer maintained, and has no web or mobile story whatsoever.
-        Protocol writers at Addgene and NEB continue to recommend it for basic trace viewing (e.g.,
-        Addgene's "How to Use FinchTV" guide, addgene.org/protocols/how-to-use-finchtv/, accessed
-        2026-07-05), which means bench scientists encounter it through institution protocols but have
-        no upgrade path when it fails to install on macOS Ventura or later. That's a real opening:
-        any browser tool that loads the same .ab1 file without installation friction captures that
-        user immediately.
+        Single-file mental model noted in v17. The current gap: FinchTV remains a desktop-only tool
+        that bench scientists still encounter through sequence-analysis protocols rather than through a
+        maintained web or mobile product. Source: Addgene's sequence-analysis protocol
+        (https://www.addgene.org/protocols/sequence-analysis/, accessed 2026-07-05), which still walks
+        readers through downloading and inspecting AB1 traces in desktop software; inference from the
+        absence of any current FinchTV web/mobile distribution channel in the protocol guidance. That
+        is a real opening: any browser tool that loads the same .ab1 file without installation
+        friction captures that user immediately.
       </p>
 
       <h3>SnapGene (Dotmatics)</h3>
       <p>
         The v17 study noted excellent contextual layering but feature sprawl. The additional gap:
-        SnapGene's web-share feature (SnapGene Viewer and the "Share" function in SnapGene desktop)
-        produces a read-only snapshot link — the recipient cannot re-align, edit bases, or export a
-        variant report. The sharing is presentation, not collaboration. Source: SnapGene Viewer FAQ
-        (snapgene.com/snapgene-viewer/, accessed 2026-07-05) and Dotmatics product page. This matters
-        because the dominant lab workflow is "sequencing service returns file → PI or colleague
-        reviews it" — and that handoff currently requires both parties to have the same tool
-        installed.
+        SnapGene's web-share feature is bounded by Viewer mode: the official page positions the free
+        mode as "view, annotate and share," while editing, alignment, and cloning require the
+        unrestricted version. That means the shared experience is presentation, not a fully editable
+        handoff. Source: SnapGene Viewer page (https://www.snapgene.com/snapgene-viewer, accessed
+        2026-07-05). This matters because the dominant lab workflow is "sequencing service returns
+        file → PI or colleague reviews it" — and that handoff currently requires both parties to have
+        the same tool installed if they need to do more than inspect.
       </p>
 
       <h3>UGENE (Unipro)</h3>
       <p>
         The v17 study noted composable suite architecture and high novice cognitive load. The current
         gap that sharpens the contrast: UGENE has no meaningful mobile story. The official UGENE
-        documentation (ugene.net, accessed 2026-07-05) lists Windows, macOS (Intel), and Linux
-        installers — no iOS or Android app, no browser interface. Researchers reviewing sequencing
+        download page (https://ugene.net/download-all.html, accessed 2026-07-05) lists Windows,
+        macOS, and Linux packages — no iOS or Android app, no browser interface. Researchers reviewing sequencing
         results on a tablet or phone during field work or while away from their desk have no UGENE
         option. The sanger-viewer already runs in any browser and the v28 UX gallery confirms it
         renders correctly at 360×640. That is a gap UGENE cannot close without a full re-architecture.
@@ -103,8 +104,8 @@
       <h3>Geneious Prime (Dotmatics)</h3>
       <p>
         Clean visual hierarchy and bulk workflows noted in v17. The additional gap: Geneious Prime
-        requires a paid commercial subscription starting at several hundred USD per year (dotmatics.com/
-        products/geneious, accessed 2026-07-05). Academic discounts exist but require institutional
+        requires a paid commercial subscription starting at several hundred USD per year
+        (https://www.geneious.com/pricing/, accessed 2026-07-05). Academic discounts exist but require institutional
         purchase. This pricing creates a hard floor — a student or collaborator at an under-resourced
         institution simply cannot access the tool. For routine Sanger trace review, that cost is
         difficult to justify. A free, capable, browser-based alternative that covers 80% of the daily
@@ -114,14 +115,16 @@
       <h3>Benchling</h3>
       <p>
         The v17 study noted browser-native collaboration and annotations as first-class objects as
-        positives. The additional gap that has become more visible: Benchling has no meaningful offline
-        mode. Every operation — including opening a trace you uploaded five minutes ago — requires an
-        active internet connection and a live session with Benchling's servers. The sanger-viewer's
-        core privacy wedge ("nothing is uploaded") is also, incidentally, an offline-capability wedge.
-        The file stays local; parsing happens in the browser; the app works from a file:// URL with no
-        network. This matters in sequencing service labs where network access is inconsistent, and in
-        shared compute environments where institutional Benchling seats are not available on every
-        machine.
+        positives. The additional gap that has become more visible: Benchling is explicitly a
+        cloud-based collaborative platform. Source: Benchling product page (https://www.benchling.com)
+        and account-navigation help page (https://help.benchling.com/hc/en-us/articles/
+        9684267691021-Navigate-your-Benchling-account, accessed 2026-07-05). Inference: that
+        cloud-first, account-backed model leaves no local-only review mode comparable to a client-side
+        trace viewer. The sanger-viewer's core privacy wedge ("nothing is uploaded") therefore doubles
+        as a local-processing wedge: once the app is loaded from its normal hosted origin, the file
+        stays local and parsing happens in the browser. This matters in sequencing service labs where
+        network access is inconsistent, and in shared compute environments where institutional
+        Benchling seats are not available on every machine.
       </p>
 
       <h3>ApE — A Plasmid Editor (M. Wayne Davis, University of Utah)</h3>
@@ -131,8 +134,9 @@
         restriction map, and basic trace viewer in one application. It is actively used for cloning
         design and Sanger verification in academic labs, and it appears in published protocols as a
         routine instrument (Davis 2020 "ApE: a plasmid editor" and downstream citations tracked in
-        Google Scholar). Source: official ApE site (jorgensen.biology.utah.edu/wayned/ape/, accessed
-        2026-07-05); Utah Department of Biology distribution page.
+        Google Scholar). Source: official ApE site (https://jorgensen.biology.utah.edu/wayned/ape/,
+        accessed 2026-07-05); unless otherwise noted, the feature-gap bullets below are inference from
+        that download/manual surface rather than from an explicit "not supported" statement.
       </p>
       <p>
         What ApE gets right: it is genuinely free, genuinely lightweight, and bundles sequence
@@ -145,27 +149,30 @@
       </p>
       <ul>
         <li>
-          <strong>Desktop-only, no web access.</strong> ApE requires a Java runtime and a local
-          install. A researcher who receives a trace file on their phone, or who is using a shared
-          computer at a sequencing service counter, cannot use ApE without installation.
+          <strong>Desktop-only, no web access.</strong> ApE requires a local install. A researcher
+          who receives a trace file on their phone, or who is using a shared computer at a sequencing
+          service counter, cannot use ApE without installation.
         </li>
         <li>
-          <strong>No dark mode.</strong> ApE's UI is a Swing application with a fixed light theme.
+          <strong>No dark mode.</strong> Inference from the current ApE download/manual surface: the
+          main UI is presented as a Swing desktop application and no dark-theme support is documented.
           Extended reading sessions in low-light conditions are uncomfortable.
         </li>
         <li>
-          <strong>No keyboard accessibility story.</strong> Navigation is primarily mouse-driven with
-          a traditional menu bar; no ARIA, no focus rings, no published a11y compliance.
+          <strong>No keyboard accessibility story.</strong> Inference from the current ApE
+          download/manual surface: navigation is presented as a traditional desktop menu workflow,
+          with no published web-style accessibility contract comparable to ARIA/focus-ring support.
         </li>
         <li>
-          <strong>No batch queue.</strong> ApE opens one file at a time in separate windows. Reviewing
-          96-well plate results requires 96 manual file-open operations.
+          <strong>No batch queue.</strong> Inference from the current ApE feature surface: trace work
+          is file-at-a-time rather than a documented sequential review queue. Reviewing 96-well plate
+          results still implies repeated manual file-open operations.
         </li>
         <li>
-          <strong>No quality-based confidence coloring on the sequence strip.</strong> ApE displays
-          the chromatogram and the called sequence but does not color individual bases by PHRED
-          quality score. Low-confidence calls are not visually distinguished from high-confidence
-          ones at the sequence strip level — you must read the chromatogram peak shape manually.
+          <strong>No quality-based confidence coloring on the sequence strip.</strong> Inference from
+          the current ApE feature surface: ApE documents chromatogram viewing and sequence editing,
+          but not per-base PHRED color coding on the displayed sequence strip. Low-confidence calls
+          are therefore not visually distinguished from high-confidence ones at the strip level.
         </li>
       </ul>
       <p>
@@ -181,12 +188,12 @@
         Sequencing services return results in batches — 8, 24, or 96 files per plate. The standard
         workflow is: download the zip, unzip, and then open each .ab1 file one at a time in Chromas,
         FinchTV, or a similar tool. This is the most consistently reported workflow complaint in online
-        biology forums. A 2019 Biostars thread titled "Viewing multiple ab1 files" (biostars.org/p/
-        9475248/, archived) gathered multiple responses confirming that no free tool offers a
-        streamlined "load a folder, flip through results" interface — users resort to writing bash
-        scripts or using paid software. A similar thread on SEQanswers ("batch chromatogram review")
-        from 2021 describes the same workflow. The pain is not exotic: it is the everyday cost of
-        doing Sanger sequencing at any scale.
+        biology forums. A concrete forum example is the Biostars discussion "R package to visualize
+        multiple aligned chromatograms" (https://www.biostars.org/p/9601070/, accessed 2026-07-05),
+        which shows researchers explicitly looking for ways to review more than one chromatogram in a
+        coherent workflow. Inference: the repeated appearance of these multi-chromatogram discussions
+        reflects a real batch-review pain rather than an edge case. The pain is not exotic: it is the
+        everyday cost of doing Sanger sequencing at any scale.
       </p>
       <p>
         The sanger-viewer's multi-trace workspace (v10) already holds multiple open traces in a tab
@@ -203,10 +210,11 @@
         is documented in published bioinformatics methodology papers: Cock et al. (2010) "The Sanger
         FASTQ file format for sequences with quality scores, and the Solexa/Illumina FASTQ variants"
         (Nucleic Acids Research, doi:10.1093/nar/gkp1137) notes that quality-based trimming decisions
-        are opaque even in established pipelines. Protocol posts on protocols.io (e.g., "Sanger
-        sequencing result QC workflow", protocols.io/view/sanger-sequencing-result-qc-workflow,
-        accessed 2026-07-05) describe a manual review step after trimming to check that the trim point
-        looks sensible — which means returning to the chromatogram and counting bases by eye. An
+        are opaque even in established pipelines. Addgene's sequence-analysis protocol
+        (https://www.addgene.org/protocols/sequence-analysis/, accessed 2026-07-05) separately tells
+        researchers to inspect the trace itself because sequence near the beginning or end of a run is
+        often unreliable. Together, those sources ground the same manual review step: returning to the
+        chromatogram and checking whether the trim point looks sensible. An
         interactive trim cursor that shows exactly which bases are in versus out, and lets the
         researcher nudge the boundary, would collapse that review loop significantly.
       </p>
@@ -219,15 +227,13 @@
 
       <h3>Pain point 3: no sharable result that preserves context for a non-expert reviewer</h3>
       <p>
-        The PI-reviews-postdoc-result workflow is universal in academic labs. The PI is often not the
-        person who loaded the file; they want to see the key region, possibly with a primer annotation
-        overlay, possibly with a mismatch already highlighted. Emailing a FASTA file or a screenshot
-        loses the interactive context — the PI cannot zoom in on the ambiguous region or check the
-        underlying peak. This workflow frustration is described in Addgene's "Troubleshooting Sanger
-        Sequencing Results" guide (addgene.org/protocols/sanger-sequencing/, accessed 2026-07-05),
-        which explains the manual steps a PI takes to independently verify a result, and in NEB's
-        sequencing FAQ (neb.com/tools-and-resources/troubleshooting-guides/troubleshooting-guide-for-
-        sanger-sequencing, accessed 2026-07-05). The v19 permalinks feature (shareable URL hash) is
+        The PI-reviews-postdoc-result workflow is a lab-practice inference rather than a claim from a
+        single paper. Source: Addgene's sequence-analysis protocol
+        (https://www.addgene.org/protocols/sequence-analysis/, accessed 2026-07-05), which walks
+        readers through verifying specific plasmid features by visually inspecting the returned trace.
+        Inference: when that verification is handed to a supervisor or collaborator, emailing a FASTA
+        file or a screenshot loses the interactive context — the reviewer cannot zoom in on the
+        ambiguous region or check the underlying peak. The v19 permalinks feature (shareable URL hash) is
         the right primitive here — but the permalink currently restores zoom, scroll, and sidebar
         state; it does not restore a highlighted region or an annotation overlay. A "share this
         region" link that encodes the visible window plus any active annotation would close this gap
@@ -239,13 +245,13 @@
         Three merged documents shape the next build wave directly.
       </p>
       <p>
-        The <strong>v17 design-research devlog</strong> (entry #19) established the competitor
+        The <strong>v17 design-research devlog</strong> (PR #19) established the competitor
         baseline and drove the IA restructure that became v27. It explicitly flagged "batch workflow"
         as a next-tier target and noted that annotation import was a common differentiator across
         paid tools.
       </p>
       <p>
-        The <strong>v17 perf + reliability audit devlog</strong> (entry #20,
+        The <strong>v17 perf + reliability audit devlog</strong> (PR #20,
         <a href="../2026-07-04-v17-perf-reliability-audit/">v17 performance + reliability + consistency
         audit</a>) identified parse time for large traces (>700 bases, complex dye spectra) and canvas
         re-render under rapid zoom as the two performance hot paths. Those were addressed in v20. The
@@ -292,8 +298,10 @@
         <dd>
           Plate-level batch review is the dominant unmet workflow for any lab doing non-trivial
           Sanger work. Every competitor except Geneious Prime (paid) and Benchling (cloud, requires
-          org account) requires opening files one at a time. The Biostars and SEQanswers threads
-          cited above confirm this is the complaint that drives researchers to shell scripts. It is
+          org account) requires opening files one at a time. The cited forum example above confirms
+          that researchers actively look for multi-chromatogram review workflows. Inference: when the
+          free-tool answer is still forum workarounds, the complaint is strong enough to drive people
+          toward scripts or paid suites. It is
           also the gap where ApE, Chromas, and FinchTV are all equally bad — so the bar to beat is
           low.
         </dd>
@@ -387,8 +395,9 @@
           Trim decisions are opaque in every tool that implements them, including the current app.
           The Cock et al. 2010 paper (Nucleic Acids Research doi:10.1093/nar/gkp1137) documents
           this explicitly: quality-score trimming decisions are not self-explaining even in
-          established pipelines. Protocol authors on protocols.io describe a manual after-trim
-          review step. The pain is real and measurable: researchers must compare the trimmed FASTA
+          established pipelines. Addgene's sequence-analysis protocol likewise instructs users to
+          inspect the trace directly when end regions are unreliable. The pain is real and measurable:
+          researchers must compare the trimmed FASTA
           to the original chromatogram to verify the cut point is not removing good sequence.
         </dd>
         <dt>Feasibility (2/3)</dt>
@@ -470,11 +479,11 @@
       <dl>
         <dt>User need (2/3)</dt>
         <dd>
-          The PI-reviews-postdoc-result workflow is universal, as documented in Addgene's
-          troubleshooting guide (addgene.org/protocols/sanger-sequencing/, accessed 2026-07-05)
-          and the NEB sequencing troubleshooting FAQ (neb.com/tools-and-resources/
-          troubleshooting-guides/troubleshooting-guide-for-sanger-sequencing, accessed 2026-07-05).
-          However, the need is partially met already: the v19 permalink restores scroll position,
+          The PI-reviews-postdoc-result workflow is an inference from common sequence-verification
+          practice, grounded here in Addgene's sequence-analysis protocol
+          (https://www.addgene.org/protocols/sequence-analysis/, accessed 2026-07-05), which centers
+          trace review around specific plasmid features. However, the need is partially met already:
+          the v19 permalink restores scroll position,
           zoom, and sidebar state. The missing piece is narrower — it is "share exactly this
           highlighted region" rather than "share the current view". That makes it a quality-of-life
           improvement rather than a blocking workflow gap, hence 2/3 rather than 3/3 for user need.
