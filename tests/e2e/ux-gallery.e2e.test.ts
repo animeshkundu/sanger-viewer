@@ -38,7 +38,6 @@ import { openSidebarTab } from './helpers/sidebar'
 import {
   type Theme,
   type UxState,
-  type CaptureEntry,
   setupPage,
   waitForSampleLoad,
   assertCanvasNonBlank,
@@ -72,22 +71,6 @@ const REQUIRED_STATES: UxState[] = [
 const THEMES: Theme[] = ['light', 'dark']
 
 // ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function makeRegistrar() {
-  const captured: CaptureEntry[] = []
-  return {
-    add(entry: CaptureEntry) {
-      captured.push(entry)
-    },
-    get all() {
-      return captured
-    },
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Suite
 // ---------------------------------------------------------------------------
 
@@ -97,12 +80,8 @@ test.describe('UX gallery capture', () => {
 
   for (const theme of THEMES) {
     test.describe(`theme: ${theme}`, () => {
-      // Track which states were captured for this theme × viewport combination.
-      let registry: ReturnType<typeof makeRegistrar>
-
       test.beforeAll(async () => {
         await ensureOutputDir(OUTPUT_DIR)
-        registry = makeRegistrar()
       })
 
       // -----------------------------------------------------------------------
@@ -117,8 +96,8 @@ test.describe('UX gallery capture', () => {
         // Ensure sidebar is open (default)
         await expect(page.locator('.shell-sidebar')).toHaveAttribute('data-sidebar-open', 'true')
 
-        registry.add(await captureState(page, 'hero-on-load', theme, OUTPUT_DIR))
-        registry.add(await captureState(page, 'sidebar-expanded', theme, OUTPUT_DIR))
+        await captureState(page, 'hero-on-load', theme, OUTPUT_DIR)
+        await captureState(page, 'sidebar-expanded', theme, OUTPUT_DIR)
       })
 
       // -----------------------------------------------------------------------
@@ -133,7 +112,7 @@ test.describe('UX gallery capture', () => {
         await page.locator('.sidebar-toggle-btn').click()
         await expect(page.locator('.shell-sidebar')).toHaveAttribute('data-sidebar-open', 'false')
 
-        registry.add(await captureState(page, 'sidebar-collapsed', theme, OUTPUT_DIR))
+        await captureState(page, 'sidebar-collapsed', theme, OUTPUT_DIR)
       })
 
       // -----------------------------------------------------------------------
@@ -148,7 +127,7 @@ test.describe('UX gallery capture', () => {
         await expect(page.locator('#sidebar-panel-inspect')).toBeVisible()
         await expect(page.locator('#search-input')).toBeVisible()
 
-        registry.add(await captureState(page, 'inspect-panel', theme, OUTPUT_DIR))
+        await captureState(page, 'inspect-panel', theme, OUTPUT_DIR)
       })
 
       // -----------------------------------------------------------------------
@@ -163,7 +142,7 @@ test.describe('UX gallery capture', () => {
         await expect(page.locator('#sidebar-panel-map')).toBeVisible()
         await expect(page.locator('[data-testid="plasmid-map"]')).toBeVisible()
 
-        registry.add(await captureState(page, 'map-panel', theme, OUTPUT_DIR))
+        await captureState(page, 'map-panel', theme, OUTPUT_DIR)
       })
 
       // -----------------------------------------------------------------------
@@ -178,7 +157,7 @@ test.describe('UX gallery capture', () => {
         await expect(page.locator('#sidebar-panel-analyze')).toBeVisible()
         await expect(page.locator('[data-testid="contig-panel"]')).toBeVisible()
 
-        registry.add(await captureState(page, 'analyze-panel', theme, OUTPUT_DIR))
+        await captureState(page, 'analyze-panel', theme, OUTPUT_DIR)
       })
 
       // -----------------------------------------------------------------------
@@ -193,7 +172,7 @@ test.describe('UX gallery capture', () => {
         await expect(page.locator('#sidebar-panel-share')).toBeVisible()
         await expect(page.locator('[data-testid="share-view-btn"]')).toBeVisible()
 
-        registry.add(await captureState(page, 'share-panel', theme, OUTPUT_DIR))
+        await captureState(page, 'share-panel', theme, OUTPUT_DIR)
       })
 
       // -----------------------------------------------------------------------
@@ -214,7 +193,7 @@ test.describe('UX gallery capture', () => {
 
         await expect(page.locator('#empty-state')).toBeVisible({ timeout: 10_000 })
 
-        registry.add(await captureState(page, 'empty-state', theme, OUTPUT_DIR))
+        await captureState(page, 'empty-state', theme, OUTPUT_DIR)
       })
 
       // -----------------------------------------------------------------------
@@ -227,7 +206,7 @@ test.describe('UX gallery capture', () => {
         await page.goto('')
         await expect(page.locator('#loading-banner')).toBeVisible({ timeout: 10_000 })
 
-        registry.add(await captureState(page, 'loading-state', theme, OUTPUT_DIR))
+        await captureState(page, 'loading-state', theme, OUTPUT_DIR)
         await cleanup()
       })
 
@@ -246,7 +225,7 @@ test.describe('UX gallery capture', () => {
         await exportBtn.click()
         await expect(page.locator('.export-menu__dropdown')).toBeVisible()
 
-        registry.add(await captureState(page, 'toolbar-export-menu', theme, OUTPUT_DIR))
+        await captureState(page, 'toolbar-export-menu', theme, OUTPUT_DIR)
       })
 
       // -----------------------------------------------------------------------
@@ -270,7 +249,7 @@ test.describe('UX gallery capture', () => {
         await page.locator('.sidebar-toggle-btn').focus()
         await expect(page.locator('.sidebar-toggle-btn')).toBeFocused()
 
-        registry.add(await captureState(page, 'keyboard-focus', theme, OUTPUT_DIR))
+        await captureState(page, 'keyboard-focus', theme, OUTPUT_DIR)
       })
 
       // -----------------------------------------------------------------------
@@ -293,31 +272,56 @@ test.describe('UX gallery capture', () => {
           await page.waitForTimeout(300)
         }
 
-        registry.add(await captureState(page, 'hover-tooltip', theme, OUTPUT_DIR))
+        await captureState(page, 'hover-tooltip', theme, OUTPUT_DIR)
       })
 
       // -----------------------------------------------------------------------
       // Completeness gate — all required states must have been captured.
+      // Filesystem-based: reads OUTPUT_DIR directly so this test is independent
+      // of which Playwright worker ran the capture tests.
       // -----------------------------------------------------------------------
       test(`${theme} — completeness gate`, async ({ page }) => {
-        const capturedStates = new Set(registry.all.map((e) => e.state))
+        const viewportSize = page.viewportSize()
+        const viewport = viewportSize
+          ? `${viewportSize.width}x${viewportSize.height}`
+          : 'unknown'
 
         // On mobile projects, keyboard-focus and hover-tooltip are intentionally
         // skipped; exclude them from the completeness check.
-        const isMobileViewport = (page.viewportSize()?.width ?? 1280) < 600
+        const isMobileViewport = (viewportSize?.width ?? 1280) < 600
         const skipOnMobile: UxState[] = ['keyboard-focus', 'hover-tooltip']
 
         const expected = isMobileViewport
           ? REQUIRED_STATES.filter((s) => !skipOnMobile.includes(s))
           : REQUIRED_STATES
 
+        // Assert each expected PNG exists on disk and is non-empty.
         for (const state of expected) {
-          expect(capturedStates.has(state), `Missing capture for state: ${state} (theme: ${theme})`).toBe(true)
+          const filePath = path.join(OUTPUT_DIR, `${state}__${theme}__${viewport}.png`)
+          let fileSize = 0
+          try {
+            const stat = await fs.stat(filePath)
+            fileSize = stat.size
+          } catch {
+            fileSize = 0
+          }
+          expect(fileSize, `Missing capture for state: ${state} (theme: ${theme}, viewport: ${viewport})`).toBeGreaterThan(0)
         }
 
         // Write a JSON manifest so the HTML generator can enumerate files.
-        const manifestPath = path.join(OUTPUT_DIR, `manifest-${theme}-${page.viewportSize()?.width ?? 'unknown'}.json`)
-        await fs.writeFile(manifestPath, JSON.stringify(registry.all, null, 2), 'utf-8')
+        // Scan OUTPUT_DIR for all PNGs for this theme × viewport combination.
+        const allFiles = await fs.readdir(OUTPUT_DIR)
+        const entries = allFiles
+          .filter((f) => f.endsWith(`__${theme}__${viewport}.png`))
+          .map((f) => ({
+            state: f.replace(`__${theme}__${viewport}.png`, '') as UxState,
+            theme,
+            viewport,
+            filePath: path.join(OUTPUT_DIR, f),
+          }))
+
+        const manifestPath = path.join(OUTPUT_DIR, `manifest-${theme}-${viewportSize?.width ?? 'unknown'}.json`)
+        await fs.writeFile(manifestPath, JSON.stringify(entries, null, 2), 'utf-8')
       })
     })
   }
