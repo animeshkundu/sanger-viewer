@@ -11,9 +11,7 @@
  *      keyboard-activatable (native <button>) even on touch-first viewports;
  *      touch targets meet the 44 px minimum; canvas touch-action is set.
  *
- * Tests run on the desktop project by default.  Tests tagged @narrow-mobile
- * also run on the narrow-mobile project (see playwright.config.ts testMatch).
- * Tests tagged @desktop-only are skipped on mobile/touch viewports.
+ * This spec is selected per-project via playwright.config.ts testMatch.
  */
 
 import path from 'node:path'
@@ -97,23 +95,11 @@ test.describe('empty-state dropzone', () => {
 // ---------------------------------------------------------------------------
 
 test.describe('loading feedback', () => {
-  test('loading banner text includes the file name when loading a user file', async ({
-    page,
-    isMobile,
-  }) => {
-    test.skip(isMobile, 'setInputFiles is unreliable on touch-emulated viewports')
-
-    await page.goto('')
-    // Set up a slow route for the sample so the loading banner is visible during user file load.
-    // Load a real file instead — use input file + a response delay trick via evaluate.
-
-    // Navigate to empty page; intercept the parse worker to introduce a measurable delay
-    // by loading a real file and asserting the banner during the async parse.
-    // The simplest deterministic approach: load the fixture and check the status sequence.
+  test('loading banner text includes sample.ab1 during sample load', async ({ page }) => {
     let loadingTextSnapshot: string | null = null
 
-    // Override the worker parse to add a measurable gap — not practical without app access.
-    // Instead: route the sample with a delay so we can assert the banner during sample load.
+    // Route the bundled sample with a delay so the loading banner remains visible long
+    // enough to assert the text deterministically across projects.
     const cleanup = await routeSampleWithDelay(page, 800)
     await page.goto('')
 
@@ -129,12 +115,7 @@ test.describe('loading feedback', () => {
     expect(loadingTextSnapshot).toContain('sample.ab1')
   })
 
-  test('loading banner text for sample load reads "Loading your trace… sample.ab1"', async ({
-    page,
-    isMobile,
-  }) => {
-    test.skip(isMobile, 'setInputFiles is unreliable on touch-emulated viewports')
-
+  test('loading banner text for sample load reads "Loading your trace… sample.ab1"', async ({ page }) => {
     const cleanup = await routeSampleWithDelay(page, 800)
     await page.goto('')
 
@@ -145,12 +126,7 @@ test.describe('loading feedback', () => {
     await cleanup()
   })
 
-  test('loading banner appears during load and is hidden after the trace is ready', async ({
-    page,
-    isMobile,
-  }) => {
-    test.skip(isMobile, 'setInputFiles is unreliable on touch-emulated viewports')
-
+  test('loading banner appears during load and is hidden after the trace is ready', async ({ page }) => {
     const cleanup = await routeSampleWithDelay(page, 600)
     await page.goto('')
 
@@ -263,8 +239,22 @@ test.describe('narrow-mobile operability', () => {
 
     await reachEmptyState(page)
 
-    await page.focus('#sample-load-btn')
+    await page.focus('body')
+    for (let i = 0; i < 20; i++) {
+      await page.keyboard.press('Tab')
+      const focused = await page.evaluate(() => document.activeElement?.id === 'sample-load-btn')
+      if (focused) break
+    }
     await expect(page.locator('#sample-load-btn')).toBeFocused()
+    const ring = await page.locator('#sample-load-btn').evaluate((el) => {
+      const styles = getComputedStyle(el)
+      return {
+        outlineStyle: styles.outlineStyle,
+        outlineWidth: styles.outlineWidth,
+      }
+    })
+    expect(ring.outlineStyle).not.toBe('none')
+    expect(ring.outlineWidth).not.toBe('0px')
 
     // Pressing Enter on the button triggers sample load
     await page.keyboard.press('Enter')
@@ -279,7 +269,7 @@ test.describe('narrow-mobile operability', () => {
 
     await waitForSampleLoad(page)
 
-    await page.focus('#sample-load-btn')
+    await page.focus('body')
     // Tab to the sidebar toggle
     for (let i = 0; i < 30; i++) {
       await page.keyboard.press('Tab')
@@ -289,6 +279,15 @@ test.describe('narrow-mobile operability', () => {
       if (matches) break
     }
     await expect(page.locator('.sidebar-toggle-btn')).toBeFocused()
+    const ring = await page.locator('.sidebar-toggle-btn').evaluate((el) => {
+      const styles = getComputedStyle(el)
+      return {
+        outlineStyle: styles.outlineStyle,
+        outlineWidth: styles.outlineWidth,
+      }
+    })
+    expect(ring.outlineStyle).not.toBe('none')
+    expect(ring.outlineWidth).not.toBe('0px')
 
     // Enter closes the sidebar
     await page.keyboard.press('Enter')
