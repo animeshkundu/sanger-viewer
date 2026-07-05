@@ -200,17 +200,21 @@ test.describe('UX gallery capture', () => {
       })
 
       // -----------------------------------------------------------------------
-      // empty-state  (navigate before sample has loaded by blocking the route)
+      // empty-state  (close the last workspace slot to reach the genuine
+      //               no-file state; blocking sample.ab1 would give error
+      //               state instead because loadSample() catches fetch errors)
       // -----------------------------------------------------------------------
       test(`${theme} — empty state`, async ({ page }) => {
         await setupPage(page, theme)
-
-        // Block sample.ab1 so the app stays in its zero-file state.
-        await page.route('**/sample.ab1', (route) => route.abort())
-
         await page.goto('')
+        await waitForSampleLoad(page)
 
-        // Wait briefly for the empty state element to appear
+        // Close the only open workspace slot — when no slots remain the app
+        // transitions to its genuine empty state (#empty-state loses 'hidden').
+        const closeBtn = page.locator('.workspace-bar__tab').first().locator('.workspace-bar__tab-close')
+        await expect(closeBtn).toBeVisible({ timeout: 5_000 })
+        await closeBtn.click()
+
         await expect(page.locator('#empty-state')).toBeVisible({ timeout: 10_000 })
 
         registry.add(await captureState(page, 'empty-state', theme, OUTPUT_DIR))
