@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>2026-07-05 — v29 front-door polish | sanger-viewer devlog</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-shell">
+        <a class="site-title" href="../../">sanger-viewer</a>
+        <nav class="site-nav" aria-label="Site">
+          <a href="../">Devlog</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="site-shell blog-entry">
+      <p><a href="../">← Back to devlog</a></p>
+      <h1>2026-07-05 — v29 front-door polish: empty-state delight, loading feedback, narrow-mobile operability</h1>
+      <p><time datetime="2026-07-05">July 5, 2026</time></p>
+
+      <p>
+        Three small, cohesive improvements surfaced by the v28 UX-gallery assessment — bundled in one
+        PR to avoid parallel UI merge conflicts. Each change has genuine exact-value behavior tests and
+        clears the mandatory UX-gallery gate.
+      </p>
+
+      <h2>1. Empty-state dropzone delight</h2>
+      <p>
+        The old empty state said "Load a Sanger trace" — a generic imperative that gives no spatial
+        cue about <em>where</em> to drop a file or <em>how</em> the data is handled. The updated copy
+        makes three things immediately clear:
+      </p>
+      <ul>
+        <li>
+          <strong>Title:</strong> "Drop an .ab1 or .scf file to start" — the accepted formats and
+          the interaction verb (drop) are in the headline where the user's eye lands first.
+        </li>
+        <li>
+          <strong>Secondary copy:</strong> "Your sequencing trace opens entirely in-browser — nothing
+          is uploaded." — the privacy wedge is now primary content, not buried in a ribbon.
+        </li>
+        <li>
+          <strong>Sample CTA:</strong> "✨ Try the sample" — matches the language a first-time user
+          would use. "Load sample" read like a developer command.
+        </li>
+        <li>
+          <strong>Drag hint:</strong> "or drag &amp; drop anywhere in this box" — "this box" ties the
+          hint to the visible dashed rectangle, which already has <code>border: 2px dashed</code>.
+        </li>
+      </ul>
+      <p>
+        A <code>data-testid="empty-state-dropzone"</code> attribute was added to the
+        <code>#empty-state</code> div so test selectors can target the empty-state dropzone
+        unambiguously without coupling to the CSS class name.
+      </p>
+      <p>
+        The <code>.dragging</code> class — added by the existing <code>dragover</code> handler and
+        removed on <code>dragleave</code> / <code>drop</code> — is verified by a test that dispatches
+        both events and asserts the exact class toggle.
+      </p>
+
+      <h2>2. Loading feedback with file name</h2>
+      <p>
+        Previously the loading banner read "Loading sample.ab1…" for the sample and "Loading
+        <em>filename</em>…" for user files — both technically functional but tonally flat. The updated
+        phrasing is <strong>"Loading your trace… <em>filename</em>"</strong>:
+      </p>
+      <ul>
+        <li>
+          "Loading your trace" signals intent and ownership — the user sees their file acknowledged
+          before the parse completes.
+        </li>
+        <li>
+          The file name follows the ellipsis so a user with multiple tabs open can see at a glance
+          which trace is being parsed.
+        </li>
+      </ul>
+      <p>
+        Tests assert the exact string "Loading your trace… sample.ab1" is present in
+        <code>#loading-text</code> while the sample loads (routed with a 800 ms artificial delay),
+        and that <code>#loading-banner</code> is hidden once the trace is ready and
+        <code>#status</code> contains "Loaded sample.ab1".
+      </p>
+
+      <h2>3. Narrow-mobile keyboard / touch operability</h2>
+      <p>
+        The v28 assessment flagged a coverage gap: the narrow-mobile project ran only the UX gallery
+        capture spec. Core controls were exercised visually but not behaviourally.
+      </p>
+      <p>
+        This pass documents and tests the intended design:
+      </p>
+      <ul>
+        <li>
+          <strong>Touch-first, keyboard-also:</strong> every CTA in the empty state is a native
+          <code>&lt;button&gt;</code> or <code>&lt;label&gt;</code> element, so Enter/Space keyboard
+          activation works without any special handling — browsers give it for free.
+        </li>
+        <li>
+          <strong>44 px touch targets:</strong> both the "Choose file" label and "Try the sample"
+          button meet the WCAG 2.5.5 / Apple HIG 44 px minimum. Tests assert
+          <code>getBoundingClientRect().height ≥ 44</code>.
+        </li>
+        <li>
+          <strong><code>touch-action: none</code> on the canvas:</strong> the chromatogram canvas
+          already carried this attribute (set by the renderer); a test now asserts it explicitly
+          so any future regression is caught immediately.
+        </li>
+        <li>
+          <strong>Keyboard operability on desktop:</strong> tests assert that
+          <code>#sample-load-btn</code> can be focused and activated via Enter, and that the
+          sidebar toggle can be reached via Tab and operated via Enter — consistent with the
+          existing workspace-shell keyboard tests.
+        </li>
+      </ul>
+      <p>
+        The narrow-mobile Playwright project now includes <code>front-door-polish.e2e.test.ts</code>
+        in its <code>testMatch</code> so these assertions run against the 360×640 viewport in CI.
+        Mobile-incompatible tests (those that rely on keyboard Tab model or <code>setInputFiles</code>)
+        carry a <code>test.skip(isMobile, …)</code> guard with an explicit explanation of the intended
+        touch-first behaviour.
+      </p>
+
+      <h2>UX assessment</h2>
+      <p>
+        <strong>Is this great UX?</strong> Yes, with one caveat. The three changes close real
+        first-impression gaps: the drop-target is now spatially self-explanatory, the loading banner
+        acknowledges the user's file by name, and the touch targets meet the platform standard. The
+        privacy wedge is now front-and-centre rather than in a dismissible ribbon that many users
+        never read. The keyboard/touch operability story is now tested and documented rather than
+        assumed.
+      </p>
+      <p>
+        <strong>What to improve next:</strong> The empty-state icon (🧬) is emoji — rendering varies
+        across platforms and is invisible to screen readers in contexts where <code>aria-hidden</code>
+        strips it. An SVG illustration would give pixel-perfect cross-platform appearance and could
+        carry a meaningful <code>aria-label</code>. Additionally, the "Choose file" label still looks
+        like a link rather than a button on first glance — a proper outlined button style (matching
+        the "Try the sample" secondary button) would make the affordance explicit. These are tracked
+        for the next design-system pass.
+      </p>
+
+      <h2>Tests</h2>
+      <p>
+        <code>tests/e2e/front-door-polish.e2e.test.ts</code> contains 11 genuine behavior assertions
+        across three describe blocks:
+      </p>
+      <ul>
+        <li>
+          <strong>Empty-state dropzone (4 tests):</strong> exact title text, sample CTA text +
+          drag hint, <code>data-testid</code> present, dashed border style, drag-over class toggle.
+        </li>
+        <li>
+          <strong>Loading feedback (4 tests):</strong> loading text contains "sample.ab1", exact
+          "Loading your trace… sample.ab1" string, banner appears then clears, file-load banner
+          names the file.
+        </li>
+        <li>
+          <strong>Narrow-mobile operability (5 tests):</strong> sample button is a native button,
+          both CTAs ≥ 44 px, canvas touch-action: none, keyboard focus/Enter activates sample load,
+          keyboard Tab/Enter toggles the sidebar.
+        </li>
+      </ul>
+
+      <h2>Zero capability regressions</h2>
+      <p>
+        All changes are additive or text substitutions. No selectors used by existing tests were
+        removed — <code>#empty-state</code>, <code>#loading-banner</code>, <code>#loading-text</code>,
+        <code>#sample-load-btn</code>, and <code>.dropzone</code> are all preserved. The UX gallery
+        capture spec is unaffected: it asserts on element visibility, not text content.
+      </p>
+    </main>
+  </body>
+</html>
