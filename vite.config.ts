@@ -40,7 +40,8 @@ export default defineConfig(({ command }) => ({
         blogPlasmidMapEntry: fileURLToPath(new URL('./blog/2026-07-04-v25-plasmid-map/index.html', import.meta.url)),
         blogManualAssemblyControlsEntry: fileURLToPath(new URL('./blog/2026-07-04-v26-manual-assembly-controls/index.html', import.meta.url)),
         blogCloneScreenEntry: fileURLToPath(new URL('./blog/2026-07-04-v27-clone-screen/index.html', import.meta.url)),
-        blogWorkspaceShellEntry: fileURLToPath(new URL('./blog/2026-07-04-v27-workspace-shell/index.html', import.meta.url))
+        blogWorkspaceShellEntry: fileURLToPath(new URL('./blog/2026-07-04-v27-workspace-shell/index.html', import.meta.url)),
+        blogUxGalleryEntry: fileURLToPath(new URL('./blog/2026-07-05-v28-ux-gallery/index.html', import.meta.url))
       }
     }
   },

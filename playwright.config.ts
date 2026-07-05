@@ -24,6 +24,18 @@ export default defineConfig({
         ...devices['iPad (gen 7)'],
         browserName: 'chromium'
       }
+    },
+    // Narrow mobile viewport (360×640) used by the UX gallery capture spec.
+    {
+      name: 'narrow-mobile',
+      use: {
+        browserName: 'chromium',
+        viewport: { width: 360, height: 640 },
+        isMobile: true,
+        hasTouch: true,
+      },
+      // Limit to the UX gallery spec so existing tests are not affected.
+      testMatch: '**/ux-gallery.e2e.test.ts',
     }
   ]
 })
