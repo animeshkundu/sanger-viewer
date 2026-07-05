@@ -2756,6 +2756,19 @@ canvas {
   }
 }
 
+/* ─── Workspace shell reduced-motion guard ────────────────────────────── */
+/* Placed before shell rules; !important ensures it wins over later declarations */
+
+@media (prefers-reduced-motion: reduce) {
+  .app-shell,
+  .app-shell *,
+  .app-shell *::before,
+  .app-shell *::after {
+    transition-duration: 0s !important;
+    animation-duration: 0s !important;
+  }
+}
+
 /* ─── Workspace shell ─────────────────────────────────────────────── */
 
 :root {
@@ -2831,6 +2844,8 @@ canvas {
   overflow: hidden;
   overflow-y: auto;
   max-height: calc(100vh - 3rem);
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
 }
 
 .shell-sidebar[data-sidebar-open="false"] .sidebar-inner {
@@ -2842,6 +2857,9 @@ canvas {
   border-bottom: 1px solid var(--color-border);
   background: var(--color-surface-raised);
   flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 .sidebar-tab {
@@ -2859,12 +2877,13 @@ canvas {
   text-transform: uppercase;
   letter-spacing: 0.04em;
   transition: color var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast);
-  min-height: 36px;
+  min-height: 32px;
 }
 
 .sidebar-tab:hover {
   color: var(--color-text);
   background: var(--color-hover);
+  border-bottom-color: var(--color-border-strong);
 }
 
 .sidebar-tab[aria-selected="true"] {
@@ -2883,7 +2902,7 @@ canvas {
   padding: var(--space-3);
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-2);
 }
 
 .sidebar-panel[hidden] {
@@ -2925,9 +2944,13 @@ canvas {
 
   .sidebar-inner {
     max-height: 60vh;
+    overflow-y: auto;
   }
 
   .sidebar-toggle-btn {
-    align-self: flex-start;
+    align-self: stretch;
+    width: 100%;
+    text-align: center;
+    margin-bottom: var(--space-1);
   }
 }

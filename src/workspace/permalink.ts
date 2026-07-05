@@ -21,6 +21,14 @@ export interface PermalinkStateV1 {
    * Review states are only encoded for 'sample' sources to avoid URL bloat.
    */
   variantReviews?: Array<{ id: string; review: 'unreviewed' | 'accepted' | 'uncertain' | 'suppressed' }>
+  /**
+   * Sidebar / workspace UI state so a shared link reproduces the exact panel
+   * layout the sender was looking at — not just the trace state.
+   */
+  ui?: {
+    sidebarOpen: boolean
+    activeTab: 'inspect' | 'map' | 'analyze' | 'share'
+  }
 }
 
 const PREFIX = '#sv='
@@ -108,7 +116,20 @@ function normalizeState(candidate: unknown): PermalinkStateV1 | null {
     edits: normalizeEdits(value.edits),
     overlays,
     variantReviews: normalizeVariantReviews(value.variantReviews),
+    ui: normalizeUiState(value.ui),
   }
+}
+
+function normalizeUiState(ui: unknown): PermalinkStateV1['ui'] {
+  if (typeof ui !== 'object' || ui === null) return undefined
+  const u = ui as { sidebarOpen?: unknown; activeTab?: unknown }
+  const validTabs = ['inspect', 'map', 'analyze', 'share'] as const
+  const sidebarOpen = typeof u.sidebarOpen === 'boolean' ? u.sidebarOpen : true
+  const rawTab = u.activeTab
+  const activeTab = validTabs.includes(rawTab as (typeof validTabs)[number])
+    ? (rawTab as (typeof validTabs)[number])
+    : 'inspect'
+  return { sidebarOpen, activeTab }
 }
 
 export function encodePermalinkState(state: Omit<PermalinkStateV1, 'version'>, options: { maxChars: number }): { hash: string | null; error?: string } {
