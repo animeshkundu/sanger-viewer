@@ -44,7 +44,8 @@ export default defineConfig(({ command }) => ({
         blogUxGalleryEntry: fileURLToPath(new URL('./blog/2026-07-05-v28-ux-gallery/index.html', import.meta.url)),
         blogWorkspacePolishEntry: fileURLToPath(new URL('./blog/2026-07-05-v28-workspace-polish/index.html', import.meta.url)),
         blogFrontDoorPolishEntry: fileURLToPath(new URL('./blog/2026-07-05-v29-front-door-polish/index.html', import.meta.url)),
-        blogNextImprovementsEntry: fileURLToPath(new URL('./blog/2026-07-05-v30-next-improvements-research/index.html', import.meta.url))
+        blogNextImprovementsEntry: fileURLToPath(new URL('./blog/2026-07-05-v30-next-improvements-research/index.html', import.meta.url)),
+        blogEnablementAgentRolesEntry: fileURLToPath(new URL('./blog/2026-07-06-enablement-agent-roles/index.html', import.meta.url))
       }
     }
   },

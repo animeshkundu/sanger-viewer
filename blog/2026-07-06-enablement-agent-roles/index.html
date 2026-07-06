@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>2026-07-06 — role-specialized UX-leadership enablement | sanger-viewer devlog</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-shell">
+        <a class="site-title" href="../../">sanger-viewer</a>
+        <nav class="site-nav" aria-label="Site">
+          <a href="../">Devlog</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="site-shell blog-entry">
+      <p><a href="../">← Back to devlog</a></p>
+      <h1>2026-07-06 — role-specialized UX-leadership enablement</h1>
+      <p><time datetime="2026-07-06">July 6, 2026</time></p>
+
+      <p>
+        This docs-and-guidance pass gives the next UX-leadership wave a shared operating contract.
+        It connects the competitor benchmark, the current UX-gallery assessment, and the no-regression
+        test gates to six focused roles: UX design, accessibility, performance, test authoring, code
+        review, and devlog writing.
+      </p>
+
+      <h2>What shipped</h2>
+      <ul>
+        <li>
+          A refreshed enablement research note under <code>docs/research/</code> comparing SnapGene,
+          Benchling, Chromas, FinchTV, and ApE against the current sanger-viewer gallery evidence.
+        </li>
+        <li>
+          A focused implementation plan under <code>docs/plans/</code> with role briefs that can be
+          mirrored into role files by a maintainer with access to that directory.
+        </li>
+        <li>
+          Repository guidance updates in <code>AGENTS.md</code> and
+          <code>.github/copilot-instructions.md</code> so future work keeps the UX-gallery gate,
+          WCAG 2.1 AA, performance budgets, design-token reuse, and feature preservation front and centre.
+        </li>
+        <li>
+          A deterministic docs test that fails if the enablement artifacts drop the required roles,
+          competitor benchmark, screenshot gate, validation contract, or attribution-sensitive wording guard.
+        </li>
+      </ul>
+
+      <h2>Screenshot UX assessment</h2>
+      <p>
+        No runtime UI changed in this PR, so the current screenshots remain the v28/v29 gallery baseline.
+        The written assessment rates the existing first-run/dropzone, hero chromatogram hierarchy,
+        design-system cohesion, accessibility, performance, and power-preservation posture, then turns
+        each gap into a testable backlog item for future visual PRs.
+      </p>
+
+      <h2>Validation</h2>
+      <ul>
+        <li><code>npm run lint &amp;&amp; npm run typecheck &amp;&amp; npm run test</code></li>
+        <li><code>npm run build</code></li>
+        <li>Secret scan on the changed documentation and test files before commit.</li>
+      </ul>
+    </main>
+  </body>
+</html>
