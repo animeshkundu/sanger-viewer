@@ -1,7 +1,7 @@
 # Enablement research — role-specialized GitHub agents for UX-leadership push
 
 Date: 2026-07-06  
-Owner: GitHub Copilot task agent  
+Owner: repository automation  
 Work unit: author tailored `.github/agents/*.md` custom-agent definitions and domain-tune `AGENTS.md` plus `.github/copilot-instructions.md` for the category-leading Sanger viewer push.
 
 ## Context
@@ -75,7 +75,7 @@ The implementation should tune repo-wide agent guidance around these durable beh
 5. Accessibility is a hard gate: keyboard operability, focus visibility, contrast, ARIA, and narrow-mobile/touch behavior must be verified.
 6. Performance-sensitive work must respect the perf harness and the v17 audit budgets, especially pan/zoom smoothness and no unnecessary recomputation.
 7. Devlog updates are part of shipped work; new entries must be wired into `blog/index.html` and `vite.config.ts`.
-8. No AI/Claude/Anthropic/LLM attribution should be added anywhere in commits, PR text, code comments, or docs.
+8. No model/tool attribution should be added anywhere in commits, PR text, code comments, or docs.
 
 ## Role-agent definition strategy
 

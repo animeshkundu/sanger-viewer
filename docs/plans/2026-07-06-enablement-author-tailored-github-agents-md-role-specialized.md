@@ -1,7 +1,7 @@
 # Implementation plan — role-specialized GitHub agents for UX-leadership push
 
 Date: 2026-07-06  
-Owner: GitHub Copilot task agent  
+Owner: repository automation  
 Work unit: enable tailored `.github/agents/*.md` custom-agent definitions and tune repository instructions for the UX-leadership push.
 
 ## Goal
@@ -36,7 +36,7 @@ This is a documentation/configuration change only. It should not change app runt
 2. Draft shared guidance updates.
    - Expand `AGENTS.md` from the current three-item workflow into a concise repo-wide workflow for small UX-leadership PRs.
    - Preserve existing requirements: run validation after code changes, keep changes surgical, preserve GitHub Pages base path support.
-   - Add gates for competitor research, UX gallery, devlog updates, accessibility, performance budgets, power-feature preservation, and no AI/LLM attribution.
+   - Add gates for competitor research, UX gallery, devlog updates, accessibility, performance budgets, power-feature preservation, and no model/tool attribution.
    - Keep wording actionable and short to avoid instruction bloat.
 
 3. Draft `.github/copilot-instructions.md` updates.
