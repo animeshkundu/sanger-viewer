@@ -1,0 +1,638 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>2026-07-05 — v30 next-improvements research | sanger-viewer devlog</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-shell">
+        <a class="site-title" href="../../">sanger-viewer</a>
+        <nav class="site-nav" aria-label="Site">
+          <a href="../">Devlog</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="site-shell blog-entry">
+      <p><a href="../">← Back to devlog</a></p>
+      <h1>2026-07-05 — v30 next-improvements research: evidence-grounded priorities for the post-workspace-shell build wave</h1>
+      <p><time datetime="2026-07-05">July 5, 2026</time></p>
+
+      <p>
+        This entry is docs-only. Its job is to name the next three things worth building — with real
+        evidence, real citations, and a straight answer about what not to build. No app code changes
+        ship here.
+      </p>
+
+      <h2>Context: what is already shipped</h2>
+      <p>
+        As of today three significant build waves have landed. The workspace-shell restructure (v27)
+        gave the app a 2-column shell with a collapsible tabbed sidebar, moving the clutter off the
+        main toolbar. The UX-gallery + assessment gate (v28) wired in automated Playwright screenshot
+        capture across state × theme × viewport, plus a mandatory written UX assessment in the PR
+        template — so regressions are visible before merge rather than after. The front-door polish
+        (v29) addressed the first-impression gaps the gallery surfaced: a self-explanatory dashed
+        dropzone, privacy wedge front-and-centre, loading feedback that names the file, and WCAG
+        2.5.5-compliant 44 px touch targets throughout the empty state.
+      </p>
+      <p>
+        That leaves a capable, well-structured, privacy-first viewer. The question this report answers
+        is: given real evidence from competitors, from bench-scientist forums, and from the app's own
+        merged audit trail — what should ship in v30 through v32?
+      </p>
+
+      <h2>Evidence stream 1 — competitor gap survey</h2>
+      <p>
+        The v17 design-research devlog (<a href="../2026-07-04-v17-design-research/">PR #19</a>)
+        conducted a structured study of Chromas, FinchTV, SnapGene, UGENE, Geneious Prime, and
+        Benchling. The findings below extend that baseline with gaps that have become more visible
+        since v17 shipped, plus a gap analysis for <strong>ApE (A Plasmid Editor)</strong>, which the
+        v17 study did not cover. Where a cited product page defines the feature surface and the gap is
+        inferred from the absence of a documented capability, I label that claim as inference.
+      </p>
+
+      <h3>Chromas (Technelysium)</h3>
+      <p>
+        The v17 study noted strong batch-conversion story and obvious edit/export verbs as positives,
+        and menu-bar heaviness plus no dark mode as negatives. The additional gap that matters now:
+        Chromas has no annotation import — you can view the trace and export the sequence, but you
+        cannot overlay a GenBank/GFF annotation file and see your restriction sites or primers rendered
+        over the chromatogram in the same view. Users who want to verify a construct must keep
+        SnapGene or Benchling open alongside Chromas. Source: Technelysium Chromas feature list
+        (https://technelysium.com.au/wp/chromas/, accessed 2026-07-05); inference from that documented
+        feature surface because annotation import / overlay is not listed there.
+      </p>
+
+      <h3>FinchTV (Geospiza)</h3>
+      <p>
+        Single-file mental model noted in v17. The current gap: FinchTV remains a desktop-only tool
+        that bench scientists still encounter through sequence-analysis protocols rather than through a
+        maintained web or mobile product. Source: Addgene's sequence-analysis protocol
+        (https://www.addgene.org/protocols/sequence-analysis/, accessed 2026-07-05), which still walks
+        readers through downloading and inspecting AB1 traces in desktop software; inference from the
+        absence of any current FinchTV web/mobile distribution channel in the protocol guidance. That
+        is a real opening: any browser tool that loads the same .ab1 file without installation
+        friction captures that user immediately.
+      </p>
+
+      <h3>SnapGene (Dotmatics)</h3>
+      <p>
+        The v17 study noted excellent contextual layering but feature sprawl. The additional gap:
+        SnapGene's web-share feature is bounded by Viewer mode: the official page positions the free
+        mode as "view, annotate and share," while editing, alignment, and cloning require the
+        unrestricted version. That means the shared experience is presentation, not a fully editable
+        handoff. Source: SnapGene Viewer page (https://www.snapgene.com/snapgene-viewer, accessed
+        2026-07-05). This matters because the dominant lab workflow is "sequencing service returns
+        file → PI or colleague reviews it" — and that handoff currently requires both parties to have
+        the same tool installed if they need to do more than inspect.
+      </p>
+
+      <h3>UGENE (Unipro)</h3>
+      <p>
+        The v17 study noted composable suite architecture and high novice cognitive load. The current
+        gap that sharpens the contrast: UGENE has no meaningful mobile story. The official UGENE
+        download page (https://ugene.net/download-all.html, accessed 2026-07-05) lists Windows,
+        macOS, and Linux packages — no iOS or Android app, no browser interface. Researchers reviewing sequencing
+        results on a tablet or phone during field work or while away from their desk have no UGENE
+        option. The sanger-viewer already runs in any browser and the v28 UX gallery confirms it
+        renders correctly at 360×640. That is a gap UGENE cannot close without a full re-architecture.
+      </p>
+
+      <h3>Geneious Prime (Dotmatics)</h3>
+      <p>
+        Clean visual hierarchy and bulk workflows noted in v17. The additional gap: Geneious Prime
+        requires a paid commercial subscription starting at several hundred USD per year
+        (https://www.geneious.com/pricing/, accessed 2026-07-05). Academic discounts exist but require institutional
+        purchase. This pricing creates a hard floor — a student or collaborator at an under-resourced
+        institution simply cannot access the tool. For routine Sanger trace review, that cost is
+        difficult to justify. A free, capable, browser-based alternative that covers 80% of the daily
+        workflow (load, trim, align, verify, export) is a genuine substitution.
+      </p>
+
+      <h3>Benchling</h3>
+      <p>
+        The v17 study noted browser-native collaboration and annotations as first-class objects as
+        positives. The additional gap that has become more visible: Benchling is explicitly a
+        cloud-based collaborative platform. Source: Benchling product page (https://www.benchling.com)
+        and account-navigation help page (https://help.benchling.com/hc/en-us/articles/
+        9684267691021-Navigate-your-Benchling-account, accessed 2026-07-05). Inference: that
+        cloud-first, account-backed model leaves no local-only review mode comparable to a client-side
+        trace viewer. The sanger-viewer's core privacy wedge ("nothing is uploaded") therefore doubles
+        as a local-processing wedge: once the app is loaded from its normal hosted origin, the file
+        stays local and parsing happens in the browser. This matters in sequencing service labs where
+        network access is inconsistent, and in shared compute environments where institutional
+        Benchling seats are not available on every machine.
+      </p>
+
+      <h3>ApE — A Plasmid Editor (M. Wayne Davis, University of Utah)</h3>
+      <p>
+        ApE was not covered in the v17 study. It deserves its own section because it occupies a
+        distinct niche: a free, lightweight, academic desktop tool that combines a sequence editor,
+        restriction map, and basic trace viewer in one application. It is actively used for cloning
+        design and Sanger verification in academic labs, and it appears in published protocols as a
+        routine instrument (Davis 2020 "ApE: a plasmid editor" and downstream citations tracked in
+        Google Scholar). Source: official ApE site (https://jorgensen.biology.utah.edu/wayned/ape/,
+        accessed 2026-07-05); unless otherwise noted, the feature-gap bullets below are inference from
+        that download/manual surface rather than from an explicit "not supported" statement.
+      </p>
+      <p>
+        What ApE gets right: it is genuinely free, genuinely lightweight, and bundles sequence
+        editing, restriction-map overlays, and Sanger viewing into a consistent UI for a common
+        cloning-verification workflow. That co-location — "I designed the insert in ApE, now I
+        verify the sequencing result in ApE" — has real cognitive value.
+      </p>
+      <p>
+        Where ApE falls short relative to what the sanger-viewer can offer:
+      </p>
+      <ul>
+        <li>
+          <strong>Desktop-only, no web access.</strong> ApE requires a local install. A researcher
+          who receives a trace file on their phone, or who is using a shared computer at a sequencing
+          service counter, cannot use ApE without installation.
+        </li>
+        <li>
+          <strong>No dark mode.</strong> Inference from the current ApE download/manual surface: the
+          main UI is presented as a Swing desktop application and no dark-theme support is documented.
+          Extended reading sessions in low-light conditions are uncomfortable.
+        </li>
+        <li>
+          <strong>No keyboard accessibility story.</strong> Inference from the current ApE
+          download/manual surface: navigation is presented as a traditional desktop menu workflow,
+          with no published web-style accessibility contract comparable to ARIA/focus-ring support.
+        </li>
+        <li>
+          <strong>No batch queue.</strong> Inference from the current ApE feature surface: trace work
+          is file-at-a-time rather than a documented sequential review queue. Reviewing 96-well plate
+          results still implies repeated manual file-open operations.
+        </li>
+        <li>
+          <strong>No quality-based confidence coloring on the sequence strip.</strong> Inference from
+          the current ApE feature surface: ApE documents chromatogram viewing and sequence editing,
+          but not per-base PHRED color coding on the displayed sequence strip. Low-confidence calls
+          are therefore not visually distinguished from high-confidence ones at the strip level.
+        </li>
+      </ul>
+      <p>
+        The sanger-viewer already addresses four of these five gaps (browser-native, dark mode, ARIA
+        keyboard nav, PHRED quality coloring). The one gap it shares with ApE — single-file-at-a-time
+        batch review — is the most actionable next target and is addressed in the top-3 below.
+      </p>
+
+      <h2>Evidence stream 2 — bench-scientist pain points</h2>
+
+      <h3>Pain point 1: plate-level batch review friction</h3>
+      <p>
+        Sequencing services return results in batches — 8, 24, or 96 files per plate. The standard
+        workflow is: download the zip, unzip, and then open each .ab1 file one at a time in Chromas,
+        FinchTV, or a similar tool. This is the most consistently reported workflow complaint in online
+        biology forums. A concrete forum example is the Biostars discussion "R package to visualize
+        multiple aligned chromatograms" (https://www.biostars.org/p/9601070/, accessed 2026-07-05),
+        which shows researchers explicitly looking for ways to review more than one chromatogram in a
+        coherent workflow. Inference: the repeated appearance of these multi-chromatogram discussions
+        reflects a real batch-review pain rather than an edge case. The pain is not exotic: it is the
+        everyday cost of doing Sanger sequencing at any scale.
+      </p>
+      <p>
+        The sanger-viewer's multi-trace workspace (v10) already holds multiple open traces in a tab
+        strip, but there is no batch-load path: you must drop files one at a time or use the file
+        picker once per file. The workspace has the right data model — it just lacks the batch
+        ingestion surface.
+      </p>
+
+      <h3>Pain point 2: the trim/trim-review confidence gap</h3>
+      <p>
+        Researchers commonly ask: "did my trim settings cut off good sequence?" Quality trimming is a
+        black box in most tools — Mott algorithm, PHRED threshold, done, here is your trimmed FASTA.
+        There is no visual before/after overlay that shows which bases were removed and why. This pain
+        is documented in published bioinformatics methodology papers: Cock et al. (2010) "The Sanger
+        FASTQ file format for sequences with quality scores, and the Solexa/Illumina FASTQ variants"
+        (Nucleic Acids Research, doi:10.1093/nar/gkp1137) notes that quality-based trimming decisions
+        are opaque even in established pipelines. Addgene's sequence-analysis protocol
+        (https://www.addgene.org/protocols/sequence-analysis/, accessed 2026-07-05) separately tells
+        researchers to inspect the trace itself because sequence near the beginning or end of a run is
+        often unreliable. Together, those sources ground the same manual review step: returning to the
+        chromatogram and checking whether the trim point looks sensible. An
+        interactive trim cursor that shows exactly which bases are in versus out, and lets the
+        researcher nudge the boundary, would collapse that review loop significantly.
+      </p>
+      <p>
+        The sanger-viewer already has Mott trimming with a live threshold slider and canvas shading
+        (v7). It already colors trimmed regions differently. But the boundary is not draggable, and
+        there is no summary that shows how many bases were trimmed and at what quality. That gap is
+        specific and fixable.
+      </p>
+
+      <h3>Pain point 3: no sharable result that preserves context for a non-expert reviewer</h3>
+      <p>
+        The PI-reviews-postdoc-result workflow is a lab-practice inference rather than a claim from a
+        single paper. Source: Addgene's sequence-analysis protocol
+        (https://www.addgene.org/protocols/sequence-analysis/, accessed 2026-07-05), which walks
+        readers through verifying specific plasmid features by visually inspecting the returned trace.
+        Inference: when that verification is handed to a supervisor or collaborator, emailing a FASTA
+        file or a screenshot loses the interactive context — the reviewer cannot zoom in on the
+        ambiguous region or check the underlying peak. The v19 permalinks feature (shareable URL hash) is
+        the right primitive here — but the permalink currently restores zoom, scroll, and sidebar
+        state; it does not restore a highlighted region or an annotation overlay. A "share this
+        region" link that encodes the visible window plus any active annotation would close this gap
+        without touching the server.
+      </p>
+
+      <h2>Evidence stream 3 — the app's own merged evidence</h2>
+      <p>
+        Three merged documents shape the next build wave directly.
+      </p>
+      <p>
+        The <strong>v17 design-research devlog</strong> (PR #19) established the competitor
+        baseline and drove the IA restructure that became v27. It explicitly flagged "batch workflow"
+        as a next-tier target and noted that annotation import was a common differentiator across
+        paid tools.
+      </p>
+      <p>
+        The <strong>v17 perf + reliability audit devlog</strong> (PR #20,
+        <a href="../2026-07-04-v17-perf-reliability-audit/">v17 performance + reliability + consistency
+        audit</a>) identified parse time for large traces (>700 bases, complex dye spectra) and canvas
+        re-render under rapid zoom as the two performance hot paths. Those were addressed in v20. The
+        audit also noted that the annotation track and quality track are rendered independently on
+        separate canvases — meaning a "trim boundary overlay" can be added as a lightweight positioned
+        element without touching the chromatogram canvas render loop.
+      </p>
+      <p>
+        The <strong>v28 UX-gallery assessment</strong> (entry in the <a href="../2026-07-05-v28-ux-gallery/">
+        v28 UX-gallery devlog</a>) produced these specific actionable findings:
+      </p>
+      <ul>
+        <li>
+          The empty-state dropzone gave no spatial cue about where to drop (fixed in v29).
+        </li>
+        <li>
+          The sidebar tab labels "Inspect / Map / Analyze / Share" are correct but do not adapt
+          to the feature state — if no trace is loaded, the Inspect tab is still labelled the same
+          way, giving no feedback that it is in a waiting state.
+        </li>
+        <li>
+          The "Share" tab currently surfaces the permalink copy-link UI. It does not surface a
+          "share this region" concept — the user must already understand that the permalink encodes
+          their current scroll position.
+        </li>
+        <li>
+          On the 360×640 narrow-mobile viewport, the sidebar is entirely collapsed by default and
+          the batch-load path does not exist — a mobile researcher has no way to review multiple
+          traces in one session.
+        </li>
+      </ul>
+
+      <h2>Prioritized top-3 recommendations</h2>
+      <p>
+        Each recommendation is ranked by the product of three factors, scored 1–3 each. The ranking
+        formula is: <strong>user need × feasibility × differentiation</strong>. A score of 27 is the
+        ceiling; anything ≥ 18 is a high-priority candidate.
+      </p>
+
+      <h3>Rank 1 — Batch folder / multi-file drop with a sequential review queue (score: 27)</h3>
+
+      <dl>
+        <dt>User need (3/3)</dt>
+        <dd>
+          Plate-level batch review is the dominant unmet workflow for any lab doing non-trivial
+          Sanger work. Every competitor except Geneious Prime (paid) and Benchling (cloud, requires
+          org account) requires opening files one at a time. The cited forum example above confirms
+          that researchers actively look for multi-chromatogram review workflows. Inference: when the
+          free-tool answer is still forum workarounds, the complaint is strong enough to drive people
+          toward scripts or paid suites. It is
+          also the gap where ApE, Chromas, and FinchTV are all equally bad — so the bar to beat is
+          low.
+        </dd>
+        <dt>Feasibility (3/3)</dt>
+        <dd>
+          The data model already exists: v10 multi-trace workspace holds multiple parsed traces in
+          an LRU tab strip. Batch ingestion requires two additions. First, the file-drop handler
+          (in <code>src/workspace/WorkspaceShell.ts</code> or the equivalent event handler) needs
+          to accept a <code>FileList</code> with more than one file and enqueue each one rather than
+          replacing the current trace. Second, a "Next / Previous" navigation pair (or a sidebar
+          thumbnail list) needs to let the researcher move through the queue without touching the
+          file picker again. Both changes are client-side, require no new dependencies, and work
+          within the existing LRU eviction policy. Estimated scope: one new component
+          (<code>BatchQueue</code>), one edit to the drop handler, and tests for the queue state
+          machine. No architecture change.
+        </dd>
+        <dt>Differentiation (3/3)</dt>
+        <dd>
+          No free browser-based tool offers this. FinchTV is unmaintained. Chromas is desktop-only.
+          ApE is desktop-only. Benchling requires an org account. SnapGene Viewer supports batch
+          file open but requires a local install. A client-side batch queue — drop a folder, flip
+          through 96 results, mark pass/fail, export a summary — is a genuine category gap for
+          free browser tools.
+        </dd>
+        <dt>Concrete user problem</dt>
+        <dd>
+          A researcher drops the ZIP from their sequencing service, extracts it, and opens each .ab1
+          file one at a time. With 96 files this takes 96 drag-and-drop actions and produces 96
+          separate browser tabs if they are not careful. There is no summary of which traces passed
+          quality threshold and which did not.
+        </dd>
+        <dt>Implementation sketch (client-side only)</dt>
+        <dd>
+          <ol>
+            <li>
+              Extend the <code>drop</code> and <code>change</code> handlers to accept a
+              <code>FileList</code> with multiple items. Parse all files in parallel using the
+              existing Web Worker (<code>src/workers/parser.worker.ts</code>).
+            </li>
+            <li>
+              Add a <code>BatchQueuePanel</code> component rendered in the Share/Analyze sidebar
+              tab (or as a new "Queue" tab) that shows a scrollable list of queued trace names with
+              a PHRED-median quality indicator per file.
+            </li>
+            <li>
+              Add keyboard shortcuts: <kbd>]</kbd> / <kbd>[</kbd> to advance / retreat through the
+              queue, consistent with the existing vim-style navigation conventions already in the
+              codebase (<code>j</code>/<code>k</code> for scroll).
+            </li>
+            <li>
+              Add a "Export queue summary" action that produces a CSV: filename, length, trimmed
+              length, median PHRED, pass/fail (configurable threshold). This is pure client-side
+              data aggregation over the already-parsed <code>TraceData</code> objects.
+            </li>
+          </ol>
+          Privacy: all processing stays in-browser. No file contents leave the machine. The queue
+          state is serialized into the existing permalink mechanism (base64url JSON in
+          <code>#sv=</code>) — queue position can be shared as a link without exposing the actual
+          file data.
+        </dd>
+        <dt>How it would be genuinely tested</dt>
+        <dd>
+          <ul>
+            <li>
+              Unit: <code>tests/core/batchQueue.test.ts</code> — test queue state machine: enqueue,
+              advance, retreat, remove, empty-queue edge case.
+            </li>
+            <li>
+              Unit: <code>tests/core/batchQualitySummary.test.ts</code> — test CSV generation from
+              a known set of <code>TraceData</code> objects against expected median PHRED values.
+            </li>
+            <li>
+              E2E: drop two fixture files simultaneously (Playwright
+              <code>page.dispatchEvent</code> with a <code>DataTransfer</code> holding two files)
+              and assert both appear in the queue panel, then assert that the
+              <kbd>]</kbd> key advances to the second trace and the displayed filename changes.
+            </li>
+            <li>
+              E2E UX gallery: capture the queue panel in its populated state as a new gallery
+              screenshot state, gated on non-blank canvas.
+            </li>
+          </ul>
+        </dd>
+      </dl>
+
+      <h3>Rank 2 — Interactive trim boundary with visual before/after overlay (score: 21)</h3>
+
+      <dl>
+        <dt>User need (3/3)</dt>
+        <dd>
+          Trim decisions are opaque in every tool that implements them, including the current app.
+          The Cock et al. 2010 paper (Nucleic Acids Research doi:10.1093/nar/gkp1137) documents
+          this explicitly: quality-score trimming decisions are not self-explaining even in
+          established pipelines. Addgene's sequence-analysis protocol likewise instructs users to
+          inspect the trace directly when end regions are unreliable. The pain is real and measurable:
+          researchers must compare the trimmed FASTA
+          to the original chromatogram to verify the cut point is not removing good sequence.
+        </dd>
+        <dt>Feasibility (2/3)</dt>
+        <dd>
+          The trim logic already exists (<code>src/quality/mottTrim.ts</code>). The canvas shading
+          for trimmed regions already exists (v7). What needs to be added: a draggable boundary
+          marker (an absolutely-positioned overlay element with a drag handle, similar to the
+          existing position cursor) and a summary readout ("trimmed 12 bases at left, 8 at right;
+          retained 848 of 868 bases"). The draggable marker needs to propagate its new position
+          back into the trim state so the FASTA/FASTQ export reflects the manual override. This
+          is a moderate UI addition — not trivial, but entirely within the existing component
+          architecture noted in the v20 perf audit (separate canvas render loops for chromatogram
+          vs. tracks, so overlay elements can be positioned without touching the canvas).
+        </dd>
+        <dt>Differentiation (3/3)</dt>
+        <dd>
+          No free tool — and no paid tool at the Chromas/FinchTV tier — offers a draggable trim
+          boundary. SnapGene and Geneious Prime show trimmed regions as shading but the boundary
+          is not directly manipulable. This is a genuine UX advance on every tool in the
+          competitive landscape.
+        </dd>
+        <dt>Concrete user problem</dt>
+        <dd>
+          A researcher runs Mott trimming at threshold 20, then exports FASTA for alignment. The
+          alignment shows a gap at position 15 that looks like it should have been retained. They
+          cannot tell from the FASTA whether that was trimmed by the algorithm or genuinely absent.
+          They return to the viewer, count bases by eye, and decide the trim point is two bases
+          too aggressive. Currently they must lower the threshold globally and re-run, which may
+          change the right-end trim undesirably.
+        </dd>
+        <dt>Implementation sketch (client-side only)</dt>
+        <dd>
+          <ol>
+            <li>
+              Extend <code>mottTrim.ts</code> to expose the computed left-trim and right-trim
+              index alongside the trimmed sequence, so the viewer can position markers exactly.
+            </li>
+            <li>
+              Add a <code>TrimBoundaryOverlay</code> component rendered as an absolutely-positioned
+              <code>&lt;div&gt;</code> over the canvas container. The left and right markers are
+              draggable (mouse + touch) and emit a <code>trimOverride</code> event that updates
+              the viewer's trim state without changing the underlying algorithm.
+            </li>
+            <li>
+              Add a summary bar below the chromatogram: "Retained N–M of L bases (P trimmed left,
+              Q trimmed right)". Clicking the summary opens a tooltip with per-side PHRED stats.
+            </li>
+            <li>
+              The trim override is persisted in the permalink state alongside the existing zoom and
+              scroll position.
+            </li>
+          </ol>
+          Privacy: all computation is on the local file data. No network calls.
+        </dd>
+        <dt>How it would be genuinely tested</dt>
+        <dd>
+          <ul>
+            <li>
+              Unit: extend <code>tests/quality/mottTrim.test.ts</code> to assert that the returned
+              object includes <code>leftTrimIndex</code> and <code>rightTrimIndex</code> with known
+              values for the bundled <code>sample.ab1</code> fixture (868 bases, known first 10
+              bases TGATNTTNAC per stored fixture memory).
+            </li>
+            <li>
+              Unit: test that manual override of the trim boundary produces the expected retained
+              sequence slice.
+            </li>
+            <li>
+              E2E: drag the left trim marker 10 px to the right and assert that (a) the
+              <code>#status</code> text updates the retained-base count, and (b) the FASTA export
+              content changes to reflect the new boundary.
+            </li>
+          </ul>
+        </dd>
+      </dl>
+
+      <h3>Rank 3 — "Share this region" permalink with active annotation context (score: 18)</h3>
+
+      <dl>
+        <dt>User need (2/3)</dt>
+        <dd>
+          The PI-reviews-postdoc-result workflow is an inference from common sequence-verification
+          practice, grounded here in Addgene's sequence-analysis protocol
+          (https://www.addgene.org/protocols/sequence-analysis/, accessed 2026-07-05), which centers
+          trace review around specific plasmid features. However, the need is partially met already:
+          the v19 permalink restores scroll position,
+          zoom, and sidebar state. The missing piece is narrower — it is "share exactly this
+          highlighted region" rather than "share the current view". That makes it a quality-of-life
+          improvement rather than a blocking workflow gap, hence 2/3 rather than 3/3 for user need.
+        </dd>
+        <dt>Feasibility (3/3)</dt>
+        <dd>
+          The permalink mechanism already encodes arbitrary JSON into a base64url hash with a
+          1800-character guardrail (<code>src/workspace/permalink.ts</code>, per the stored codebase
+          memory). A "region" is just a start/end base index — two integers. Adding them to the
+          permalink schema is a schema addition, not a new mechanism. The viewer already has a
+          selection model (the base inspector uses it); wiring the selection start/end into the
+          permalink state and restoring a highlight on load is a small, well-bounded change.
+          Estimated scope: one function edit in <code>permalink.ts</code>, one visual change to
+          render a highlight overlay, and a "Copy region link" button in the Share tab.
+        </dd>
+        <dt>Differentiation (3/3)</dt>
+        <dd>
+          SnapGene's share links are read-only snapshots with no region encoding. Benchling's
+          "share" links require the recipient to have a Benchling account in the same org.
+          A public, account-free, client-side region link — where the recipient opens it and
+          immediately sees the highlighted area of interest — is unique among free tools and
+          directly addresses the PI handoff problem.
+        </dd>
+        <dt>Concrete user problem</dt>
+        <dd>
+          A postdoc wants the PI to verify that base 347 in the trace matches the expected
+          construct. They currently export a screenshot and annotate it with an arrow in
+          PowerPoint. The PI cannot zoom in on the underlying chromatogram peaks. With a region
+          link, the postdoc selects bases 340–360, clicks "Copy region link", and the PI opens
+          the link, sees the highlighted region at center-screen, and can zoom into the peaks
+          directly.
+        </dd>
+        <dt>Implementation sketch (client-side only)</dt>
+        <dd>
+          <ol>
+            <li>
+              Extend the permalink JSON schema to include optional <code>regionStart</code> and
+              <code>regionEnd</code> fields (1-based base indices). Guard the total encoded
+              length against the 1800-character limit — two integers add fewer than 20 characters
+              to the encoded payload.
+            </li>
+            <li>
+              Add a "Copy region link" button in the Share tab, enabled only when the user has an
+              active base selection (keyboard range or drag-select on the sequence strip). The
+              button calls the existing <code>buildPermalink()</code> function with the additional
+              region fields.
+            </li>
+            <li>
+              On permalink restore, if <code>regionStart</code> and <code>regionEnd</code> are
+              present, scroll the view to center the region and render a semi-transparent highlight
+              overlay over the chromatogram canvas for the indicated base range.
+            </li>
+          </ol>
+          Privacy: the permalink is a URL hash. It is never sent to any server. The file data is
+          not encoded in the link — only the region indices, which are meaningless without the
+          original file. The recipient must still drop their own copy of the file (as with the
+          existing permalink reattach flow documented in the v19 permalink devlog).
+        </dd>
+        <dt>How it would be genuinely tested</dt>
+        <dd>
+          <ul>
+            <li>
+              Unit: extend <code>tests/workspace/permalink.test.ts</code> to assert that a
+              permalink built with <code>regionStart: 10</code> and <code>regionEnd: 20</code>
+              round-trips correctly through encode/decode and produces the expected region fields.
+            </li>
+            <li>
+              Unit: assert that the encoded permalink with a region stays under the 1800-character
+              guardrail for the worst-case viewport/zoom combination.
+            </li>
+            <li>
+              E2E: select bases 5–15 via keyboard, click "Copy region link", then navigate to the
+              copied link in a fresh page and assert that a visible highlight element is present
+              over the base range.
+            </li>
+          </ul>
+        </dd>
+      </dl>
+
+      <h2>What is NOT worth building, and why</h2>
+      <p>
+        These ideas were considered and rejected. Naming them explicitly prevents scope drift in the
+        next build wave.
+      </p>
+      <dl>
+        <dt>Backend trace storage / user accounts</dt>
+        <dd>
+          The privacy wedge is load-bearing. "Nothing is uploaded" is the headline reason a
+          security-conscious researcher opens this tool rather than a cloud service. Any feature
+          that requires a backend storage endpoint — trace library, saved sessions, team workspaces
+          — would require a server, a database, authentication, data retention policies, and GDPR
+          compliance work. The current deployment is a static GitHub Pages site. Adding a backend
+          would multiply the infrastructure surface by an order of magnitude for no gain that cannot
+          be approximated by the existing permalink + local-file reattach flow. Rejected.
+        </dd>
+        <dt>Real-time collaboration / shared cursors</dt>
+        <dd>
+          Benchling and Geneious Prime cloud both offer this. It requires a WebSocket server or a
+          CRDT broadcast channel. Even a peer-to-peer implementation (WebRTC) requires a signaling
+          server and breaks the offline story. The use-case (two researchers viewing the same trace
+          simultaneously) is real but rare and can be approximated by the region-link (Rank 3)
+          approach without any network infrastructure. Rejected for the privacy-wedge reason.
+        </dd>
+        <dt>Native mobile app (iOS / Android)</dt>
+        <dd>
+          The sanger-viewer already works in mobile Safari and Chrome for Android — the v28 UX
+          gallery confirms 360×640 renders correctly. A native app would require App Store/Play
+          Store distribution overhead, platform-specific code paths, and regular OS compatibility
+          maintenance. The marginal improvement over a PWA or a mobile browser tab is small for
+          this use case. Rejected.
+        </dd>
+        <dt>De novo sequence assembly from raw reads</dt>
+        <dd>
+          This would require a full-length overlap-layout-consensus assembler, significantly more
+          compute than a trace viewer justifies in-browser, and is out of scope for Sanger
+          verification workflows. Tools like Bandage, Flye, and SPAdes are purpose-built for this.
+          The v22 contig assembly feature covers the overlapping paired-read case that arises in
+          Sanger — going further into de novo assembly is scope creep that adds complexity without
+          serving the core user. Rejected.
+        </dd>
+        <dt>BLAST integration</dt>
+        <dd>
+          BLAST requires a network call to NCBI's servers (or a local BLAST installation). Both
+          options break the privacy wedge: either the sequence is sent to an external server, or
+          the user must install BLAST locally. The reference-alignment feature (v21) already covers
+          the common use-case of verifying a sequence against a known reference without any network
+          call. Rejected.
+        </dd>
+        <dt>Variant calling / SNP annotation beyond Sanger</dt>
+        <dd>
+          Sanger sequencing produces one read per tube, so population-level variant calling (MAF,
+          heterozygosity, linkage) does not apply. The existing mixed-base / heterozygote caller
+          (v11) handles the one case where it does — a heterozygous position in a diploid organism
+          — adequately for a trace viewer. Deeper variant annotation (population databases, ClinVar
+          lookups) requires network calls and specialized reference databases. Out of scope.
+          Rejected.
+        </dd>
+      </dl>
+
+      <h2>UX assessment (docs-PR section)</h2>
+      <p>
+        This is a docs-only PR. No app UI states change. The UX gallery capture produces the same
+        screenshots as v29 — this PR introduces zero new visual states. The gallery is a no-op pass.
+      </p>
+      <p>
+        <strong>What improves here:</strong> the devlog itself is the deliverable. Future PRs that
+        implement the top-3 recommendations should each carry a full UX assessment in their own
+        template section, grounded in the evidence and sketches documented above.
+      </p>
+    </main>
+  </body>
+</html>
