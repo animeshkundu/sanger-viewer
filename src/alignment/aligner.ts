@@ -8,19 +8,21 @@
  * Auto-detects strand: aligns the read on forward, then reverse-complement,
  * and returns the best-scoring placement.
  *
- * Banding: only cells within `bandwidth` diagonals of the main diagonal are
- * computed, giving O(n·band) time/space instead of O(n·m).
+ * Plasmid-scale path: a typed-array semi-global DP evaluates every possible
+ * read placement so reads can align anywhere within <=10KB references.
  *
  * Ground spec: docs/specs/07-reference-alignment.md
  */
 
 import type { ReferenceAlignment } from '../types/alignment'
-import { iupacScore, reverseComplement } from './iupac'
+import { reverseComplement } from './iupac'
 import { buildCigar, parseCigar, cigarRefLength } from './cigar'
 import type { CigarOp } from './cigar'
 
-const GAP_OPEN = -2
-const GAP_EXTEND = -1
+const GAP = -2
+const TRACE_DIAG = 1
+const TRACE_UP = 2
+const TRACE_LEFT = 3
 
 interface AlignResult {
   score: number
@@ -33,15 +35,14 @@ interface AlignResult {
 }
 
 /**
- * Perform banded semi-global (read vs. reference) Needleman-Wunsch.
+ * Perform typed-array semi-global (read vs. reference) Needleman-Wunsch.
  * The read may be placed anywhere along the reference.
  *
  * @param read      Query sequence (uppercase).
  * @param reference Reference sequence (uppercase).
- * @param bandwidth Half-band (diagonals either side of the main); default 15.
  * @returns Best-scoring alignment result.
  */
-function bandedSemiGlobal(read: string, reference: string, bandwidth = 15): AlignResult {
+function semiGlobal(read: string, reference: string): AlignResult {
   const n = read.length
   const m = reference.length
 
@@ -49,35 +50,43 @@ function bandedSemiGlobal(read: string, reference: string, bandwidth = 15): Alig
     return { score: 0, cigar: '', refStart: 0, refEnd: 0, mismatches: [], insertions: [], deletions: [] }
   }
 
-  // ── DP matrices ───────────────────────────────────────────────────────────
-  // We use a flat array indexed [i*(m+1) + j] but only fill within the band.
-  // Semi-global: first row (j=0 for each i) is gapped freely (read can start anywhere).
-  const NEG_INF = -1e9
-  const H = new Float32Array((n + 1) * (m + 1)).fill(NEG_INF)
+  const width = m + 1
+  const prev = new Int16Array(width)
+  const curr = new Int16Array(width)
+  const trace = new Uint8Array((n + 1) * width)
+  const readCodes = encodeBases(read)
+  const refCodes = encodeBases(reference)
 
-  // Initialise: free gap at the start of the read (row i=0, any ref position j)
-  for (let j = 0; j <= m; j++) H[j] = 0
-
-  // Column 0 penalises opening a gap in the read (read starts from base 0)
-  for (let i = 1; i <= n; i++) H[i * (m + 1)] = GAP_OPEN + GAP_EXTEND * (i - 1)
-
-  // ── Fill ────────────────────────────────────────────────────────────────
   for (let i = 1; i <= n; i++) {
-    const jLo = Math.max(1, i - bandwidth)
-    const jHi = Math.min(m, i + bandwidth)
-    for (let j = jLo; j <= jHi; j++) {
-      const diag = H[(i - 1) * (m + 1) + (j - 1)] + iupacScore(read[i - 1], reference[j - 1])
-      const gapRead = H[(i - 1) * (m + 1) + j] + (i > 1 && H[(i - 1) * (m + 1) + j] !== NEG_INF ? GAP_EXTEND : GAP_OPEN)
-      const gapRef = H[i * (m + 1) + (j - 1)] + (j > 1 && H[i * (m + 1) + (j - 1)] !== NEG_INF ? GAP_EXTEND : GAP_OPEN)
-      H[i * (m + 1) + j] = Math.max(diag, gapRead, gapRef)
+    curr[0] = i * GAP
+    const row = i * width
+    const rb = readCodes[i - 1]
+
+    for (let j = 1; j <= m; j++) {
+      const diag = prev[j - 1] + scoreCode(rb, refCodes[j - 1])
+      const up = prev[j] + GAP
+      const left = curr[j - 1] + GAP
+
+      if (diag >= up && diag >= left) {
+        curr[j] = diag
+        trace[row + j] = TRACE_DIAG
+      } else if (up >= left) {
+        curr[j] = up
+        trace[row + j] = TRACE_UP
+      } else {
+        curr[j] = left
+        trace[row + j] = TRACE_LEFT
+      }
     }
+
+    prev.set(curr)
   }
 
   // ── Find best ending position (last row, free end-gaps on read) ──────────
-  let bestScore = NEG_INF
-  let bestJ = m
+  let bestScore = prev[0]
+  let bestJ = 0
   for (let j = 0; j <= m; j++) {
-    const v = H[n * (m + 1) + j]
+    const v = prev[j]
     if (v > bestScore) { bestScore = v; bestJ = j }
   }
 
@@ -86,31 +95,28 @@ function bandedSemiGlobal(read: string, reference: string, bandwidth = 15): Alig
   let readIdx = n
   let refIdx = bestJ
 
-  while (readIdx > 0 && refIdx > 0) {
-    const cur = H[readIdx * (m + 1) + refIdx]
-    const diag = H[(readIdx - 1) * (m + 1) + (refIdx - 1)]
-    const up   = H[(readIdx - 1) * (m + 1) + refIdx]
-    const left = H[readIdx * (m + 1) + (refIdx - 1)]
+  while (readIdx > 0) {
+    if (refIdx <= 0) {
+      ops.push('I')
+      readIdx--
+      continue
+    }
 
-    const diagScore = diag + iupacScore(read[readIdx - 1], reference[refIdx - 1])
-    if (Math.abs(cur - diagScore) < 0.5) {
+    const direction = trace[readIdx * width + refIdx]
+    if (direction === TRACE_DIAG) {
       ops.push('M')
       readIdx--; refIdx--
-    } else if (Math.abs(cur - (up + GAP_EXTEND)) < 0.5 || Math.abs(cur - (up + GAP_OPEN)) < 0.5) {
+    } else if (direction === TRACE_UP) {
       ops.push('I')  // gap in reference (insertion in read)
       readIdx--
-    } else if (Math.abs(cur - (left + GAP_EXTEND)) < 0.5 || Math.abs(cur - (left + GAP_OPEN)) < 0.5) {
+    } else if (direction === TRACE_LEFT) {
       ops.push('D')  // gap in read (deletion from read)
       refIdx--
     } else {
-      // Fallback: diagonal
       ops.push('M')
       readIdx--; refIdx--
     }
   }
-
-  // Consume remaining read bases as insertions (soft-clip not used in NW)
-  while (readIdx > 0) { ops.push('I'); readIdx-- }
 
   ops.reverse()
   const cigar = buildCigar(ops)
@@ -130,10 +136,10 @@ function bandedSemiGlobal(read: string, reference: string, bandwidth = 15): Alig
         const rb = read[readPos]?.toUpperCase()
         const fb = reference[refStart + refPos]?.toUpperCase()
         if (rb && fb && rb !== 'N' && fb !== 'N' && rb !== fb) {
-          // IUPAC-aware: check if they actually mismatch
-          if (!iupacScore(rb, fb) || iupacScore(rb, fb) < 0) {
+          const score = scoreCode(codeForBase(rb), codeForBase(fb))
+          if (score < 0) {
             mismatches.push(readPos)
-          } else if (iupacScore(rb, fb) === 1) {
+          } else if (score === 1) {
             // Partial/ambiguous match — count as mismatch for variant calling
             mismatches.push(readPos)
           }
@@ -147,6 +153,39 @@ function bandedSemiGlobal(read: string, reference: string, bandwidth = 15): Alig
         deletions.push(refPos)
         refPos++
       }
+    }
+
+    function codeForBase(base: string): number {
+      switch (base.toUpperCase()) {
+        case 'A': return 1
+        case 'C': return 2
+        case 'G': return 4
+        case 'T':
+        case 'U': return 8
+        case 'R': return 1 | 4
+        case 'Y': return 2 | 8
+        case 'S': return 2 | 4
+        case 'W': return 1 | 8
+        case 'K': return 4 | 8
+        case 'M': return 1 | 2
+        case 'B': return 2 | 4 | 8
+        case 'D': return 1 | 4 | 8
+        case 'H': return 1 | 2 | 8
+        case 'V': return 1 | 2 | 4
+        case 'N': return 1 | 2 | 4 | 8
+        default: return 1 | 2 | 4 | 8
+      }
+    }
+
+    function encodeBases(sequence: string): Uint8Array {
+      const out = new Uint8Array(sequence.length)
+      for (let i = 0; i < sequence.length; i++) out[i] = codeForBase(sequence[i])
+      return out
+    }
+
+    function scoreCode(a: number, b: number): number {
+      if (a === b && (a === 1 || a === 2 || a === 4 || a === 8)) return 2
+      return (a & b) !== 0 ? 1 : -1
     }
   }
 
@@ -196,9 +235,10 @@ export function alignReadToReference(
   const cleanRef = reference.toUpperCase().replace(/[^ACGTURYSWKMBDHVN]/g, 'N')
   const cleanRead = read.toUpperCase().replace(/[^ACGTURYSWKMBDHVN]/g, 'N')
 
-  const fwdResult = bandedSemiGlobal(cleanRead, cleanRef, bandwidth)
+  void bandwidth
+  const fwdResult = semiGlobal(cleanRead, cleanRef)
   const rcRead = reverseComplement(cleanRead)
-  const revResult = bandedSemiGlobal(rcRead, cleanRef, bandwidth)
+  const revResult = semiGlobal(rcRead, cleanRef)
 
   const useFwd = fwdResult.score >= revResult.score
   const best = useFwd ? fwdResult : revResult

@@ -73,6 +73,7 @@ import { findRestrictionSites, type RestrictionSitePosition } from '../plasmidMa
 import { mapSampleViewportToBaseRange } from '../render/viewport'
 import { BaseEditModel } from '../editing'
 import { alignReadToReference, parseFastaSequence } from '../alignment/aligner'
+import { reverseComplement } from '../alignment/iupac'
 import { callVariants } from '../variants/caller'
 import type { VariantFilterMode } from '../variants/filter'
 import type { TrimResult, TrimSettings } from '../quality/mottTrim'
@@ -81,18 +82,27 @@ import type { ReferenceAlignment, CalledVariant } from '../types/alignment'
 
 // Lazily-loaded worker module (Vite ?worker import, only in browser bundles).
 type WorkerConstructor = new () => Worker
-let WorkerCtor: WorkerConstructor | null = null
-async function getWorkerCtor(): Promise<WorkerConstructor> {
-  if (!WorkerCtor) {
+let ParserWorkerCtor: WorkerConstructor | null = null
+let AlignmentWorkerCtor: WorkerConstructor | null = null
+async function getParserWorkerCtor(): Promise<WorkerConstructor> {
+  if (!ParserWorkerCtor) {
     const mod = await import('../workers/parser.worker?worker')
-    WorkerCtor = mod.default as WorkerConstructor
+    ParserWorkerCtor = mod.default as WorkerConstructor
   }
-  return WorkerCtor
+  return ParserWorkerCtor
+}
+
+async function getAlignmentWorkerCtor(): Promise<WorkerConstructor> {
+  if (!AlignmentWorkerCtor) {
+    const mod = await import('../workers/alignment.worker?worker')
+    AlignmentWorkerCtor = mod.default as WorkerConstructor
+  }
+  return AlignmentWorkerCtor
 }
 
 /** Parse a trace file in a dedicated Worker, transferring the buffer. */
 function parseInWorker(buffer: ArrayBuffer, fileName: string): Promise<TraceData> {
-  return getWorkerCtor().then(
+  return getParserWorkerCtor().then(
     (Ctor) =>
       new Promise<TraceData>((resolve, reject) => {
         const worker = new Ctor()
@@ -113,6 +123,35 @@ function parseInWorker(buffer: ArrayBuffer, fileName: string): Promise<TraceData
   )
 }
 
+function alignInWorker(
+  readSeq: string,
+  referenceSeq: string,
+  referenceId: string,
+  subjectId: string,
+  bandwidth: number,
+): Promise<ReferenceAlignment> {
+  return getAlignmentWorkerCtor().then(
+    (Ctor) =>
+      new Promise<ReferenceAlignment>((resolve, reject) => {
+        const worker = new Ctor()
+        worker.onmessage = (event: MessageEvent<{ ok: boolean; alignment?: ReferenceAlignment; error?: string }>) => {
+          worker.terminate()
+          if (event.data.ok && event.data.alignment) {
+            resolve(event.data.alignment)
+          } else {
+            reject(new Error(event.data.error ?? 'Alignment error'))
+          }
+        }
+        worker.onerror = (err: ErrorEvent) => {
+          worker.terminate()
+          reject(new Error(err.message))
+        }
+        worker.postMessage({ readSeq, referenceSeq, referenceId, subjectId, bandwidth })
+      }),
+    () => Promise.resolve(alignReadToReference(readSeq, referenceSeq, referenceId, subjectId, bandwidth)),
+  )
+}
+
 type ViewerState = 'empty' | 'loading' | 'loaded' | 'error'
 type SearchState = {
   query: string
@@ -123,6 +162,7 @@ type SearchState = {
 const ANNOTATION_VIEWPORT_EXTRA_BASES = 12
 const ANNOTATION_FEATURE_PADDING_BASES = 6
 const DEFAULT_ALIGNMENT_BANDWIDTH = 20
+const MAX_REFERENCE_ALIGNMENT_BASES = 10_000
 
 export function createTraceViewer(): HTMLDivElement {
   const root = document.createElement('div')
@@ -454,6 +494,7 @@ export function createTraceViewer(): HTMLDivElement {
   let variantReviews: Record<string, CalledVariant['review']> = {}
   let variantFilterMode: VariantFilterMode = 'all'
   let selectedVariantId: string | null = null
+  let alignmentRequestId = 0
   // ── Contig assembly state ─────────────────────────────────────────────────
   let currentContig: import('../consensus/contig').PairedContig | null = null
   const setAllControlsDisabled = (disabled: boolean) => {
@@ -1125,45 +1166,64 @@ export function createTraceViewer(): HTMLDivElement {
    * Run reference alignment for the active trace slot, then call variants.
    * Updates all relevant UI panels.
    */
-  const runAlignment = (refSeq: string, refName: string) => {
+  const runAlignment = async (refSeq: string, refName: string) => {
     if (!rawTrace) return
     const displayTrace = renderer.getCurrentTrace() ?? rawTrace
 
-    // Use the currently-displayed sequence (with edits + strand applied).
-    const readSeq = displayTrace.sequence
-    const qualities = displayTrace.qualities
+    if (refSeq.length > MAX_REFERENCE_ALIGNMENT_BASES) {
+      setReferencePanelStatus(referencePanelElements, `Reference is ${refSeq.length.toLocaleString()} bases; this client-side aligner supports up to ${MAX_REFERENCE_ALIGNMENT_BASES.toLocaleString()} bases.`, 'error')
+      return
+    }
+
+    const usingContig = currentContig !== null
+    const readSeq = usingContig ? currentContig.consensus : displayTrace.sequence
+    const subjectId = usingContig ? currentContig.id : (activeSlotId ?? 'slot')
+    const qualities = usingContig ? null : displayTrace.qualities
+    const requestId = ++alignmentRequestId
 
     setReferencePanelStatus(referencePanelElements, 'Aligning…', 'idle')
+    referencePanelElements.alignBtn.disabled = true
 
-    // Run synchronously (sequences are short for Sanger reads).
-    const result = alignReadToReference(readSeq, refSeq, refName, activeSlotId ?? 'slot', DEFAULT_ALIGNMENT_BANDWIDTH)
-    alignmentResult = result
-    referenceSequence = refSeq
-    referenceId = refName
+    try {
+      const result = await alignInWorker(readSeq, refSeq, refName, subjectId, DEFAULT_ALIGNMENT_BANDWIDTH)
+      if (requestId !== alignmentRequestId) return
 
-    // Determine the sequence actually used in alignment (strand-corrected).
-    const alignedReadSeq = result.strand === 'reverse'
-      ? displayTrace.sequence  // aligner already ran on RC internally
-      : readSeq
+      alignmentResult = result
+      referenceSequence = refSeq
+      referenceId = refName
 
-    calledVariants = callVariants(result, alignedReadSeq, refSeq, qualities)
-    variantReviews = {}
-    selectedVariantId = null
+      // Determine the sequence actually used in alignment (strand-corrected).
+      const alignedReadSeq = result.strand === 'reverse' ? reverseComplement(readSeq) : readSeq
+      const alignedQualities = result.strand === 'reverse' && qualities ? Array.from(qualities).reverse() : qualities
 
-    const strand = result.strand
-    const status = `Aligned ${strand} · ref pos ${result.refStart}–${result.refEnd} · score ${result.score.toFixed(0)} · ${calledVariants.length} variant${calledVariants.length !== 1 ? 's' : ''}`
-    setReferencePanelStatus(referencePanelElements, status, 'success')
+      calledVariants = callVariants(result, alignedReadSeq, refSeq, alignedQualities)
+      variantReviews = {}
+      selectedVariantId = null
 
-    refreshVariantTable()
+      const strand = result.strand
+      const source = usingContig ? 'fwd/rev consensus' : 'trace'
+      const status = `Aligned ${source} ${strand} · ref pos ${result.refStart}–${result.refEnd} · score ${result.score.toFixed(0)} · ${calledVariants.length} variant${calledVariants.length !== 1 ? 's' : ''}`
+      setReferencePanelStatus(referencePanelElements, status, 'success')
 
-    // Persist to active slot.
-    if (activeSlotId) {
-      workspace.updateSlot(activeSlotId, {
-        alignmentResult,
-        referenceSequence,
-        referenceId,
-        variantReviews: { ...variantReviews },
-      })
+      refreshVariantTable()
+
+      // Persist to active slot.
+      if (activeSlotId) {
+        workspace.updateSlot(activeSlotId, {
+          alignmentResult,
+          referenceSequence,
+          referenceId,
+          variantReviews: { ...variantReviews },
+        })
+      }
+    } catch (error) {
+      if (requestId !== alignmentRequestId) return
+      const message = error instanceof Error ? error.message : 'Alignment failed'
+      setReferencePanelStatus(referencePanelElements, message, 'error')
+    } finally {
+      if (requestId === alignmentRequestId) {
+        referencePanelElements.alignBtn.disabled = referencePanelElements.textarea.value.trim().length === 0
+      }
     }
   }
 
@@ -1171,6 +1231,7 @@ export function createTraceViewer(): HTMLDivElement {
    * Clear alignment state (when trace changes or user clicks "Clear").
    */
   const clearAlignment = () => {
+    alignmentRequestId += 1
     alignmentResult = null
     referenceSequence = null
     referenceId = null
