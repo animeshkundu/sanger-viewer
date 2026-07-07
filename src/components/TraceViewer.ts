@@ -133,6 +133,18 @@ export function createTraceViewer(): HTMLDivElement {
     <!-- Hidden status span kept for test/automation compatibility -->
     <span id="status" class="sr-only">No trace loaded.</span>
 
+    <div
+      id="privacy-offline-badge"
+      class="privacy-offline-badge"
+      data-testid="privacy-offline-badge"
+      role="note"
+      aria-label="Privacy and offline capability"
+    >
+      <span aria-hidden="true">🔒</span>
+      <strong>Runs entirely in your browser — nothing is uploaded.</strong>
+      <span>Offline-ready after first load.</span>
+    </div>
+
     <div class="dropzone" data-testid="dropzone" role="region" aria-label="File upload area">
 
       <!-- File input always at dropzone level so setInputFiles works in any state -->

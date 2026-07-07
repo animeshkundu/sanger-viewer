@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Sanger Viewer">
+  <rect width="128" height="128" rx="28" fill="#0f172a"/>
+  <path d="M18 74c12 0 12-28 24-28s12 48 24 48 12-60 24-60 12 36 24 36" fill="none" stroke="#93c5fd" stroke-width="8" stroke-linecap="round"/>
+  <path d="M18 88c12 0 12-36 24-36s12 16 24 16 12-34 24-34 12 56 24 56" fill="none" stroke="#86efac" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="64" cy="64" r="8" fill="#f8fafc"/>
+</svg>
