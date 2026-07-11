@@ -98,6 +98,36 @@ test('edited base flows into the FASTQ export sequence line', async ({ page }) =
   expect(qualLine[displayIndex]).toBe('!')
 })
 
+test('edited base is searchable at the edited position', async ({ page }) => {
+  await loadFixture(page)
+
+  const spans = page.locator('.sequence-panel span[data-base-index]')
+  const firstSpan = spans.first()
+  const displayIndex = Number(await firstSpan.getAttribute('data-base-index'))
+  expect(displayIndex).toBe(0)
+
+  const originalBase = ((await firstSpan.textContent()) ?? '').toUpperCase()
+  expect(originalBase).toMatch(/^[ACGT]$/)
+  const replacementBase = originalBase === 'A' ? 'C' : 'A'
+
+  const followingBases = await spans.evaluateAll((nodes) =>
+    nodes.slice(1, 10).map((node) => node.textContent ?? '').join(''),
+  )
+  const editedQuery = `${replacementBase}${followingBases.toUpperCase()}`
+
+  await firstSpan.dblclick()
+  await page.keyboard.type(replacementBase)
+  await expect(page.locator(`.sequence-panel span[data-base-index="${displayIndex}"]`)).toHaveText(replacementBase)
+
+  await page.locator('#search-input').fill(editedQuery)
+
+  await expect(page.locator('#search-summary')).toContainText('1 of')
+  await expect.poll(
+    async () => page.locator('[data-testid="chromatogram-canvas"]').getAttribute('data-search-active-range'),
+  ).toBe(`0:${editedQuery.length}`)
+  await expect(page.locator(`.sequence-panel span[data-base-index="${displayIndex}"]`)).toHaveAttribute('data-search-active', 'true')
+})
+
 test('undo reverts the edited base and removes .edited-base class', async ({ page }) => {
   await loadFixture(page)
 

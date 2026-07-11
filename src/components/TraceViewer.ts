@@ -544,9 +544,28 @@ export function createTraceViewer(): HTMLDivElement {
     syncSearchUi(false)
   }
 
+  const findMatchesInEditedForwardSequence = (normalizedQuery: string): SubsequenceMatch[] => {
+    if (!rawTrace || !normalizedQuery) return []
+    const editedForwardSequence = editModel.applyToBaseCalls(rawTrace.baseCalls).join('')
+    return findSubsequenceMatches(editedForwardSequence, normalizedQuery)
+  }
+
+  const refreshSearchMatchesForCurrentEdits = () => {
+    if (!searchState.query) {
+      searchState = { query: '', matches: [], activeIndex: -1 }
+      return
+    }
+    const matches = findMatchesInEditedForwardSequence(searchState.query)
+    searchState = {
+      ...searchState,
+      matches,
+      activeIndex: matches.length > 0 ? Math.max(0, Math.min(searchState.activeIndex, matches.length - 1)) : -1,
+    }
+  }
+
   const applySearchQuery = (query: string, recenterActive = true) => {
     const normalizedQuery = normalizeSearchQuery(query)
-    const matches = rawTrace && normalizedQuery ? findSubsequenceMatches(rawTrace.sequence, normalizedQuery) : []
+    const matches = findMatchesInEditedForwardSequence(normalizedQuery)
     selectedBaseIndex = null
     hoveredBaseIndex = null
     hideTooltip(tooltip)
@@ -634,7 +653,7 @@ export function createTraceViewer(): HTMLDivElement {
     applyDisplayTrace()
     renderer.setViewportState(state.view.startSample, state.view.samplesPerPixel)
     const normalizedQuery = normalizeSearchQuery(state.search.query)
-    const matches = normalizedQuery ? findSubsequenceMatches(rawTrace.sequence, normalizedQuery) : []
+    const matches = findMatchesInEditedForwardSequence(normalizedQuery)
     searchState = {
       query: normalizedQuery,
       matches,
@@ -1839,6 +1858,7 @@ export function createTraceViewer(): HTMLDivElement {
       editModel.undo()
       editingIndex = -1
       setUndoRedoState(controls, editModel.canUndo, editModel.canRedo)
+      refreshSearchMatchesForCurrentEdits()
       applyDisplayTrace(true)
     }
 
@@ -1846,6 +1866,7 @@ export function createTraceViewer(): HTMLDivElement {
       editModel.redo()
       editingIndex = -1
       setUndoRedoState(controls, editModel.canUndo, editModel.canRedo)
+      refreshSearchMatchesForCurrentEdits()
       applyDisplayTrace(true)
     }
 
@@ -2065,6 +2086,7 @@ export function createTraceViewer(): HTMLDivElement {
     editModel.apply(forwardIdx, storedBase, originalBase)
     setUndoRedoState(controls, editModel.canUndo, editModel.canRedo)
     editingIndex = -1
+    refreshSearchMatchesForCurrentEdits()
     applyDisplayTrace(true)
     // Refocus the span at the same display index after re-render.
     const updatedSpan = sequencePanel.querySelector<HTMLElement>(`[data-base-index="${displayIdx}"]`)
@@ -2126,6 +2148,7 @@ export function createTraceViewer(): HTMLDivElement {
         editModel.apply(forwardIdx, originalBase, originalBase)
         setUndoRedoState(controls, editModel.canUndo, editModel.canRedo)
         editingIndex = -1
+        refreshSearchMatchesForCurrentEdits()
         applyDisplayTrace(true)
         const refreshedSpan = sequencePanel.querySelector<HTMLElement>(`[data-base-index="${displayIdx}"]`)
         refreshedSpan?.focus()
@@ -2172,6 +2195,7 @@ export function createTraceViewer(): HTMLDivElement {
       editModel.undo()
       editingIndex = -1
       setUndoRedoState(controls, editModel.canUndo, editModel.canRedo)
+      refreshSearchMatchesForCurrentEdits()
       applyDisplayTrace(true)
       refreshSequence()
       schedulePermalinkPersist()
@@ -2181,6 +2205,7 @@ export function createTraceViewer(): HTMLDivElement {
       editModel.redo()
       editingIndex = -1
       setUndoRedoState(controls, editModel.canUndo, editModel.canRedo)
+      refreshSearchMatchesForCurrentEdits()
       applyDisplayTrace(true)
       refreshSequence()
       schedulePermalinkPersist()
