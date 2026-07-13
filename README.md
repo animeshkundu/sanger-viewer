@@ -65,3 +65,13 @@ A static devlog is published at `/sanger-viewer/blog/`.
 ## Fixtures
 
 Fixture files are in `fixtures/` with provenance in `fixtures/PROVENANCE.md`.
+
+## Metrics
+
+We measure real usage with GitHub-native, server-side signals only — the app
+ships **no analytics and no telemetry**, and no trace data ever leaves your
+browser. The aha moment (first successful trace render), the AARRR funnel, the
+pre-registered continue/iterate/pivot thresholds, and the privacy boundary are
+documented in [`docs/measurement.md`](docs/measurement.md). A weekly workflow
+appends repo-traffic snapshots to
+[`docs/metrics/traffic-history.json`](docs/metrics/traffic-history.json).
