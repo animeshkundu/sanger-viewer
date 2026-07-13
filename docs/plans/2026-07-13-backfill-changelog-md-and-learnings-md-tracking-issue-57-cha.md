@@ -71,9 +71,9 @@ artifacts during implementation.
 1. **Dated, traceable changelog:** On the public branch/PR, open `CHANGELOG.md` in GitHub.
    Confirm `[1.0.0]` has an ISO date, every historical section is dated, and every change
    bullet's PR link opens a merged PR with matching scope.
-2. **Concrete learnings:** Open `LEARNINGS.md` in GitHub and count at least five substantive
-   lessons (target: eight). Confirm each includes project-specific evidence and an actionable
-   future rule, with a working source link.
+2. **Concrete learnings:** Open `LEARNINGS.md` in GitHub and count at least eight substantive
+   lessons. Confirm each includes project-specific evidence and an actionable future rule,
+   with a working source link. This exceeds the issue's minimum of five.
 3. **GitHub rendering:** Use GitHub's rendered-file views for both documents and verify
    headings, lists, inline code, and links render without malformed markup.
 4. **Strict scope:** Inspect the implementation commit's changed-file list and confirm it
@@ -81,10 +81,10 @@ artifacts during implementation.
 5. **CI:** Open the public workflow run and verify the `test` job passed its lint,
    typecheck, Vitest, Playwright E2E, performance smoke, and build steps. Preserve the
    actual command output in the handoff/PR.
-6. **Mission-wide non-regression:** From the deployed/public repository, verify the README
-   hero and live-site links still return HTTP 200 and inspect the community profile/new-issue
-   chooser. Report their observed status, but make no out-of-scope edits if another unit has
-   not delivered them.
+
+The mission-wide README and community-health checkpoints belong to parallel units and are
+not this work unit's acceptance gate. Their status may be noted during handoff, but this unit
+must neither edit their files nor block its completion on another unit's delivery.
 
 ## Risks and mitigations
 
@@ -109,4 +109,3 @@ artifacts during implementation.
   remains required by issue #57.
 - Include the exact unit marker on its own line in any later PR body. Put it in the branch
   name only if the controller permits renaming the task branch safely.
-
