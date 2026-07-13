@@ -1,8 +1,13 @@
 name: Traffic snapshot
 
 # Appends a dated GitHub repo-traffic snapshot to docs/metrics/traffic-history.json.
-# Server-side only: reads the repo traffic API with the built-in GITHUB_TOKEN.
-# This is NOT user telemetry — the shipped site adds no analytics.
+# Server-side only: reads the repo traffic API. This is NOT user telemetry — the
+# shipped site adds no analytics.
+#
+# Activation: the ephemeral Actions GITHUB_TOKEN cannot read the repo traffic API
+# (HTTP 403 "Resource not accessible by integration"). To collect live data, add a
+# repository secret named TRAFFIC_TOKEN holding a PAT with traffic (push) access.
+# Without it, this workflow runs green and simply skips collection.
 
 on:
   workflow_dispatch: {}
@@ -24,22 +29,27 @@ jobs:
 
       - name: Collect traffic snapshot
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.TRAFFIC_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
-          set -euo pipefail
+          set -uo pipefail
           mkdir -p docs/metrics
           if [ ! -f docs/metrics/traffic-history.json ]; then
             echo '{"schema":"sanger-viewer traffic history; server-side GitHub repo traffic API; no user telemetry","snapshots":[]}' > docs/metrics/traffic-history.json
           fi
-          views=$(gh api "repos/${{ github.repository }}/traffic/views")
-          clones=$(gh api "repos/${{ github.repository }}/traffic/clones")
+          if ! views=$(gh api "repos/${{ github.repository }}/traffic/views" 2>/dev/null); then
+            echo "::notice::Traffic API not accessible with the current token. Add a repo secret TRAFFIC_TOKEN (a PAT with traffic/push access) to enable live collection. Skipping this run."
+            exit 0
+          fi
+          clones=$(gh api "repos/${{ github.repository }}/traffic/clones" 2>/dev/null || echo '{"count":0,"uniques":0}')
           now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
           entry=$(jq -n --arg now "$now" --argjson v "$views" --argjson c "$clones" \
             '{date:$now, views:{count:($v.count // 0), uniques:($v.uniques // 0)}, clones:{count:($c.count // 0), uniques:($c.uniques // 0)}}')
           jq --argjson e "$entry" '.snapshots += [$e]' docs/metrics/traffic-history.json > docs/metrics/traffic-history.tmp.json
           mv docs/metrics/traffic-history.tmp.json docs/metrics/traffic-history.json
+          echo "SNAPSHOT_TAKEN=1" >> "$GITHUB_ENV"
 
       - name: Commit snapshot
+        if: env.SNAPSHOT_TAKEN == '1'
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
