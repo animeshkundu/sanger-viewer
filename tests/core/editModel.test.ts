@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { BaseEditModel, EDITED_BASE_QUALITY_SENTINEL } from '../../src/editing/BaseEditModel'
+import { findSubsequenceMatches } from '../../src/search/findSubsequence'
 
 // ---------------------------------------------------------------------------
 // EDITED_BASE_QUALITY_SENTINEL
@@ -236,6 +237,27 @@ describe('BaseEditModel — applyToQualities', () => {
     model.apply(1, 'G', 'C')
     model.undo()
     expect(model.applyToQualities([30, 35, 40, 20])).toEqual([30, 35, 40, 20])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Search propagation
+// ---------------------------------------------------------------------------
+
+describe('BaseEditModel — search propagation', () => {
+  it('findSubsequenceMatches sees the edited working sequence instead of the raw base calls', () => {
+    const model = new BaseEditModel()
+    const rawBaseCalls = ['A', 'C', 'G', 'T']
+
+    expect(findSubsequenceMatches(rawBaseCalls.join(''), 'TCG')).toEqual([])
+
+    model.apply(0, 'T', 'A')
+    const editedSequence = model.applyToBaseCalls(rawBaseCalls).join('')
+
+    expect(editedSequence).toBe('TCGT')
+    expect(findSubsequenceMatches(editedSequence, 'TCG')).toEqual([
+      { start: 0, end: 3, strand: 'forward' },
+    ])
   })
 })
 
