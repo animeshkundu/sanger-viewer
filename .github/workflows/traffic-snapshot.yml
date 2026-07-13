@@ -1,0 +1,53 @@
+name: Traffic snapshot
+
+# Appends a dated GitHub repo-traffic snapshot to docs/metrics/traffic-history.json.
+# Server-side only: reads the repo traffic API with the built-in GITHUB_TOKEN.
+# This is NOT user telemetry — the shipped site adds no analytics.
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: "17 6 * * 1" # every Monday 06:17 UTC
+
+permissions:
+  contents: write
+
+concurrency:
+  group: traffic-snapshot
+  cancel-in-progress: false
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Collect traffic snapshot
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir -p docs/metrics
+          if [ ! -f docs/metrics/traffic-history.json ]; then
+            echo '{"schema":"sanger-viewer traffic history; server-side GitHub repo traffic API; no user telemetry","snapshots":[]}' > docs/metrics/traffic-history.json
+          fi
+          views=$(gh api "repos/${{ github.repository }}/traffic/views")
+          clones=$(gh api "repos/${{ github.repository }}/traffic/clones")
+          now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          entry=$(jq -n --arg now "$now" --argjson v "$views" --argjson c "$clones" \
+            '{date:$now, views:{count:($v.count // 0), uniques:($v.uniques // 0)}, clones:{count:($c.count // 0), uniques:($c.uniques // 0)}}')
+          jq --argjson e "$entry" '.snapshots += [$e]' docs/metrics/traffic-history.json > docs/metrics/traffic-history.tmp.json
+          mv docs/metrics/traffic-history.tmp.json docs/metrics/traffic-history.json
+
+      - name: Commit snapshot
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/metrics/traffic-history.json
+          if git diff --cached --quiet; then
+            echo "No traffic change to commit."
+          else
+            git commit -m "chore(metrics): weekly traffic snapshot"
+            git push
+          fi
