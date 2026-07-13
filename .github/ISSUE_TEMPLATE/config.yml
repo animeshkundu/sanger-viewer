@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Open sanger-viewer
+    url: https://animesh.kundus.in/sanger-viewer/
+    about: Try the current release before opening an issue.
+  - name: Read the Devlog
+    url: https://animesh.kundus.in/sanger-viewer/blog/
+    about: Follow design decisions, research, and release progress.

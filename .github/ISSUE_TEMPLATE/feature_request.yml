@@ -1,0 +1,42 @@
+name: Feature request
+description: Suggest an improvement for scientists using sanger-viewer
+title: "[Feature]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe the scientific workflow rather than only the proposed interface. sanger-viewer
+        must remain a static, client-side application that never uploads trace data.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or workflow
+      description: What are you trying to accomplish, and what blocks or slows you today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the result you would find useful.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: How do you handle this workflow now?
+    validations:
+      required: true
+  - type: textarea
+    id: example
+    attributes:
+      label: Example data or references
+      description: Link to public examples where useful. Do not attach confidential trace data.
+  - type: checkboxes
+    id: constraints
+    attributes:
+      label: Project constraints
+      options:
+        - label: This request can work entirely in the browser without uploading or transmitting trace data.
+          required: true
