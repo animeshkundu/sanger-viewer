@@ -2,11 +2,30 @@
 
 Browser-native Sanger trace viewer for `.ab1` and `.scf` files — zero install, 100% client-side/private, and faster to open for quick inspection than desktop-first tools such as SnapGene Viewer, FinchTV, or Chromas.
 
-**Live demo:** https://animeshkundu.github.io/sanger-viewer/
+**[Open sanger-viewer](https://animesh.kundus.in/sanger-viewer/)**
 
 ![Animated walkthrough showing open → rendered trace → share permalink → analyze flow](docs/hero-open-render-share-analyze.gif)
 
 sanger-viewer is a private-by-default, browser-native Sanger workbench: open a trace instantly (including auto-loaded sample first impression), inspect and edit with confidence, share exact view state via client-side permalink hashes, and run reference alignment, variant review, contig assembly, and primer/in-silico PCR analysis — all in-browser, with trace data staying on your machine.
+
+## Try it in 20 seconds
+
+1. **[Open the live viewer](https://animesh.kundus.in/sanger-viewer/).**
+2. A sample trace auto-loads, so you immediately see a rendered chromatogram with zero setup.
+3. Drag and drop your own `.ab1` or `.scf` file, or open it with the file picker.
+
+## Why browser-native?
+
+All four tools can inspect trace files locally. sanger-viewer removes the desktop install and can encode the exact view state in a browser URL.
+
+| | sanger-viewer | SnapGene Viewer | FinchTV | Chromas |
+| --- | --- | --- | --- | --- |
+| Install required | No | Yes | Yes | Yes |
+| Cost | Free | Free viewer | Free | Free |
+| Data privacy | Stays client-side in your browser; nothing uploaded | Local desktop app | Local desktop app | Local desktop app |
+| `.ab1` + `.scf` support | Yes | Yes | Yes | Yes |
+| Shareable permalink of the exact view | Yes | Not built in | Not built in | Not built in |
+| Platform | Any modern browser | Desktop OS-specific | Desktop OS-specific | Desktop OS-specific |
 
 ## Why use it
 
