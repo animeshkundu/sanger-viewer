@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://animesh.kundus.in/sanger-viewer/sitemap.xml

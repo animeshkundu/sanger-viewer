@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title>Sanger Viewer chromatogram</title>
+  <rect width="64" height="64" rx="14" fill="#0f172a"/>
+  <path d="M6 49h52" stroke="#475569" stroke-width="2" stroke-linecap="round"/>
+  <path d="M6 48c8 0 10-3 14-21 3-13 6-13 9 0 4 18 6 21 14 21" fill="none" stroke="#22c55e" stroke-width="3" stroke-linecap="round"/>
+  <path d="M18 48c7 0 9-4 13-27 2-10 5-10 7 0 4 23 6 27 13 27" fill="none" stroke="#3b82f6" stroke-width="3" stroke-linecap="round"/>
+  <path d="M32 48c6 0 8-3 11-17 3-13 6-13 9 0 3 14 4 17 7 17" fill="none" stroke="#ef4444" stroke-width="3" stroke-linecap="round"/>
+</svg>

@@ -13,6 +13,7 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "perf:smoke": "vitest run tests/core/performance-smoke.test.ts",
+    "og:image": "node scripts/generate-og-image.mjs",
     "ux:gallery": "playwright test tests/e2e/ux-gallery.e2e.test.ts && tsx scripts/generate-ux-gallery-html.ts"
   },
   "devDependencies": {
