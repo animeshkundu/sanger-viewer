@@ -28,6 +28,8 @@ jobs:
           enablement: true
       - run: npm ci
       - run: npm run build
+      - name: Write build SHA
+        run: echo "${{ github.sha }}" > dist/BUILD_SHA.txt
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
