@@ -138,4 +138,31 @@ test.describe('Workspace shell', () => {
     await tabUntil(page, '[data-testid="share-view-btn"]')
     await expect(page.locator('[data-testid="share-view-btn"]')).toBeFocused()
   })
+
+  test('back-to-top button appears after scrolling and returns keyboard users to the top', { tag: ['@desktop'] }, async ({ page, isMobile }) => {
+    test.skip(isMobile, 'keyboard focus assertions use desktop Tab model; touch uses tap')
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await waitForSampleLoad(page)
+
+    const backToTop = page.getByRole('button', { name: 'Back to top' })
+    const sidebarToggle = page.locator('.sidebar-toggle-btn')
+
+    await expect(backToTop).toBeHidden()
+
+    await page.evaluate(() => {
+      window.scrollTo(0, document.documentElement.scrollHeight)
+    })
+
+    await expect(backToTop).toBeVisible()
+    await backToTop.focus()
+    await expect(backToTop).toBeFocused()
+    await page.keyboard.press('Enter')
+
+    await page.waitForFunction(() => {
+      const viewer = document.querySelector<HTMLElement>('.viewer')
+      return viewer !== null && Math.abs(viewer.getBoundingClientRect().top) < 20
+    })
+    await expect(sidebarToggle).toBeFocused()
+    await expect(backToTop).toBeHidden()
+  })
 })
