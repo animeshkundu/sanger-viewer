@@ -123,6 +123,7 @@ type SearchState = {
 const ANNOTATION_VIEWPORT_EXTRA_BASES = 12
 const ANNOTATION_FEATURE_PADDING_BASES = 6
 const DEFAULT_ALIGNMENT_BANDWIDTH = 20
+const BACK_TO_TOP_SCROLL_THRESHOLD_PX = 160
 
 export function createTraceViewer(): HTMLDivElement {
   const root = document.createElement('div')
@@ -804,7 +805,7 @@ export function createTraceViewer(): HTMLDivElement {
 
   const syncBackToTopVisibility = () => {
     const viewerTop = root.getBoundingClientRect().top + window.scrollY
-    const shouldShow = viewerState === 'loaded' && window.scrollY > viewerTop + 160
+    const shouldShow = viewerState === 'loaded' && window.scrollY > viewerTop + BACK_TO_TOP_SCROLL_THRESHOLD_PX
     backToTopBtn.classList.toggle('hidden', !shouldShow)
   }
 
