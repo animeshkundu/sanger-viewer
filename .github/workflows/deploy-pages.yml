@@ -30,7 +30,7 @@ jobs:
       - run: npm run build
       - name: Write build SHA
         run: echo "${{ github.sha }}" > dist/BUILD_SHA.txt
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: dist
 
