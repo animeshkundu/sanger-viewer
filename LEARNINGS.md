@@ -3,6 +3,18 @@
 Durable engineering and UX lessons distilled from the project's shipped
 devlog. Each entry links to the evidence that produced it.
 
+## 2026-07-15 — Global shortcuts must preserve local typing and focus
+
+- **Context:** The shortcuts help dialog opens from a document-level `?` handler,
+  while search and base editing also consume printable keys.
+- **Learning:** Global printable shortcuts must ignore editable targets. Modal
+  shortcuts must also move focus inside, contain Tab navigation, and restore the
+  exact connected trigger after dismissal.
+- **Apply it:** Test global shortcuts from both a neutral control and a text
+  field, including forward and reverse focus wrapping and Escape restoration.
+- **Evidence:** `src/components/KeyboardShortcutsDialog.ts` and
+  `tests/e2e/keyboard-shortcuts.e2e.test.ts`.
+
 ## 2026-07-13 — Derived features must use the displayed sequence
 
 - **Context:** Editable calls appeared correctly in the sequence panel and

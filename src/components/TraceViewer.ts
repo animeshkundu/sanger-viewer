@@ -22,6 +22,7 @@ import { createSequencePanel, renderSequence } from './SequencePanel'
 import { createPositionReadout, updatePositionReadout } from './PositionReadout'
 import { createMetadataPanel, updateMetadataPanel } from './MetadataPanel'
 import { createWorkspaceBar, renderWorkspaceBar } from './WorkspaceBar'
+import { createKeyboardShortcutsDialog } from './KeyboardShortcutsDialog'
 import { createAnnotationTrack } from './AnnotationTrack'
 import { createPlasmidMap } from './PlasmidMap'
 import { createQualityTrack } from './QualityTrack'
@@ -234,6 +235,7 @@ export function createTraceViewer(): HTMLDivElement {
     renderer.focusBaseRange(position, position + 1)
     refreshReadout()
   })
+  const keyboardShortcutsDialog = createKeyboardShortcutsDialog()
   const canvasWrap = root.querySelector<HTMLElement>('.canvas-wrap')!
   const dropzone = root.querySelector<HTMLElement>('.dropzone')!
   const sampleRibbon = root.querySelector<HTMLElement>('#sample-ribbon')!
@@ -336,6 +338,7 @@ export function createTraceViewer(): HTMLDivElement {
     sequencePanel,
     baseInspector,
   )
+  root.append(keyboardShortcutsDialog.element)
   const updateSidebarToggleState = (open: boolean) => {
     shellSidebar.setAttribute('data-sidebar-open', String(open))
     sidebarToggleBtn.setAttribute('aria-expanded', String(open))
@@ -407,6 +410,7 @@ export function createTraceViewer(): HTMLDivElement {
       }
       qualityTrack.destroy()
       renderer.destroy()
+      keyboardShortcutsDialog.destroy()
       document.removeEventListener('keydown', undoRedoKeyHandler)
       rootDisconnectObserver.disconnect()
     }
