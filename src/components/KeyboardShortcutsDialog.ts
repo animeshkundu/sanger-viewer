@@ -8,8 +8,9 @@ const FOCUSABLE_SELECTOR = [
 ].join(',')
 
 function isEditable(target: EventTarget | null): boolean {
-  return target instanceof HTMLElement &&
-    (target.matches('input, textarea, select') || target.isContentEditable)
+  if (!(target instanceof HTMLElement)) return false
+  const editable = target.closest<HTMLElement>('input, textarea, select, [contenteditable]')
+  return editable !== null && !editable.matches(':disabled, [readonly], [contenteditable="false"]')
 }
 
 export type KeyboardShortcutsDialog = {
@@ -70,17 +71,19 @@ export function createKeyboardShortcutsDialog(): KeyboardShortcutsDialog {
     if (event.key !== 'Tab') return
     const focusable = [...dialog.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)]
       .filter((element) => !element.hasAttribute('hidden'))
-    const first = focusable[0]
-    const last = focusable.at(-1)
-    if (!first || !last) {
+    if (focusable.length === 0) {
       event.preventDefault()
       dialog.focus()
-    } else if (event.shiftKey && document.activeElement === first) {
+      return
+    }
+    const first = focusable[0]
+    const last = focusable.at(-1)
+    if (event.shiftKey && document.activeElement === first) {
       event.preventDefault()
-      last.focus()
+      last?.focus()
     } else if (!event.shiftKey && document.activeElement === last) {
       event.preventDefault()
-      first.focus()
+      first?.focus()
     }
   }
 

@@ -35,7 +35,7 @@ test('? does not open keyboard shortcuts while typing in a text field', async ({
   await page.goto('')
   await expect(page.locator('#status')).toContainText('Loaded sample.ab1')
 
-  const search = page.locator('#search-input')
+  const search = page.getByRole('textbox', { name: 'Find:' })
   await search.focus()
   await page.keyboard.type('?')
 
