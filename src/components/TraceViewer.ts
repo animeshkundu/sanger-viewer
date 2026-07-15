@@ -2117,13 +2117,41 @@ export function createTraceViewer(): HTMLDivElement {
     openBaseInspector(Number(idxStr))
   })
 
-  // Keyboard: Enter or Space on a focused span opens the base inspector.
+  // Keyboard: arrow keys move focus between bases; Enter or Space opens the inspector.
   sequencePanel.addEventListener('keydown', (event) => {
     if (!rawTrace) return
     const target = event.target as HTMLElement
     const idxStr = target.dataset.baseIndex
     if (idxStr === undefined) return
     const displayIdx = Number(idxStr)
+
+    if (event.key === 'ArrowRight' || event.key === 'ArrowLeft' || event.key === 'Home' || event.key === 'End') {
+      const trace = renderer.getCurrentTrace()
+      if (!trace) return
+      const firstIndex = trimSettings.mode === 'trimmed' && trimResult?.status === 'ok' ? trimResult.trimStart : 0
+      const lastIndex = trimSettings.mode === 'trimmed' && trimResult?.status === 'ok'
+        ? trimResult.trimEnd - 1
+        : trace.baseCalls.length - 1
+      let nextIndex: number
+      if (event.key === 'ArrowRight') nextIndex = Math.min(displayIdx + 1, lastIndex)
+      else if (event.key === 'ArrowLeft') nextIndex = Math.max(displayIdx - 1, firstIndex)
+      else if (event.key === 'Home') nextIndex = firstIndex
+      else nextIndex = lastIndex
+
+      event.preventDefault()
+      target.tabIndex = -1
+      selectedBaseIndex = nextIndex
+      inspectorDisplayIndex = nextIndex
+      renderer.focusBaseRange(nextIndex, nextIndex)
+      refreshReadout()
+      refreshSequence()
+      const nextSpan = sequencePanel.querySelector<HTMLElement>(`[data-base-index="${nextIndex}"]`)
+      if (nextSpan) {
+        nextSpan.tabIndex = 0
+        nextSpan.focus()
+      }
+      return
+    }
 
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault()
