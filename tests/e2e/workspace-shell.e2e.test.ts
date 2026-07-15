@@ -1,5 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
 
+const SCROLL_TO_TOP_TOLERANCE_PX = 20
+
 async function waitForSampleLoad(page: Page) {
   await page.goto('')
   await expect(page.locator('#status')).toContainText('Loaded sample.ab1')
@@ -137,5 +139,32 @@ test.describe('Workspace shell', () => {
     await expect(page.locator('[data-tab="share"]')).toBeFocused()
     await tabUntil(page, '[data-testid="share-view-btn"]')
     await expect(page.locator('[data-testid="share-view-btn"]')).toBeFocused()
+  })
+
+  test('back-to-top button appears after scrolling and returns keyboard users to the top', { tag: ['@desktop'] }, async ({ page, isMobile }) => {
+    test.skip(isMobile, 'keyboard focus assertions use desktop Tab model; touch uses tap')
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await waitForSampleLoad(page)
+
+    const backToTop = page.getByRole('button', { name: 'Back to top' })
+    const sidebarToggle = page.locator('.sidebar-toggle-btn')
+
+    await expect(backToTop).toBeHidden()
+
+    await page.evaluate(() => {
+      window.scrollTo(0, document.documentElement.scrollHeight)
+    })
+
+    await expect(backToTop).toBeVisible()
+    await backToTop.focus()
+    await expect(backToTop).toBeFocused()
+    await page.keyboard.press('Enter')
+
+    await page.waitForFunction((tolerance) => {
+      const viewer = document.querySelector<HTMLElement>('.viewer')
+      return viewer !== null && Math.abs(viewer.getBoundingClientRect().top) < tolerance
+    }, SCROLL_TO_TOP_TOLERANCE_PX)
+    await expect(sidebarToggle).toBeFocused()
+    await expect(backToTop).toBeHidden()
   })
 })

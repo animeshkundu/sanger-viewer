@@ -123,6 +123,7 @@ type SearchState = {
 const ANNOTATION_VIEWPORT_EXTRA_BASES = 12
 const ANNOTATION_FEATURE_PADDING_BASES = 6
 const DEFAULT_ALIGNMENT_BANDWIDTH = 20
+const BACK_TO_TOP_SCROLL_THRESHOLD_PX = 160
 
 export function createTraceViewer(): HTMLDivElement {
   const root = document.createElement('div')
@@ -194,6 +195,10 @@ export function createTraceViewer(): HTMLDivElement {
       <span id="sample-ribbon-text">Viewing sample trace — drop your own .ab1/.scf (100% in-browser, nothing uploaded)</span>
       <button id="sample-ribbon-dismiss" type="button" class="status-banner__dismiss" aria-label="Dismiss sample trace notice">Dismiss</button>
     </div>
+
+    <button type="button" class="back-to-top-btn hidden" aria-label="Back to top">
+      ↑ Top
+    </button>
 
     <div class="canvas-wrap">
       <canvas data-testid="chromatogram-canvas" aria-label="Chromatogram trace canvas"></canvas>
@@ -394,6 +399,7 @@ export function createTraceViewer(): HTMLDivElement {
   const sampleBtn = root.querySelector<HTMLButtonElement>('#sample-load-btn')!
   const permalinkHint = root.querySelector<HTMLElement>('#permalink-hint')!
   const sampleRibbonDismissBtn = root.querySelector<HTMLButtonElement>('#sample-ribbon-dismiss')!
+  const backToTopBtn = root.querySelector<HTMLButtonElement>('.back-to-top-btn')!
   const searchInput = root.querySelector<HTMLInputElement>('#search-input')!
   const canvas = root.querySelector<HTMLCanvasElement>('[data-testid="chromatogram-canvas"]')!
   canvas.style.touchAction = 'none'
@@ -405,9 +411,15 @@ export function createTraceViewer(): HTMLDivElement {
         cancelAnimationFrame(permalinkRaf)
         permalinkRaf = 0
       }
+      if (backToTopRaf) {
+        cancelAnimationFrame(backToTopRaf)
+        backToTopRaf = 0
+      }
       qualityTrack.destroy()
       renderer.destroy()
       document.removeEventListener('keydown', undoRedoKeyHandler)
+      window.removeEventListener('scroll', scheduleBackToTopVisibility)
+      window.removeEventListener('resize', scheduleBackToTopVisibility)
       rootDisconnectObserver.disconnect()
     }
   })
@@ -442,6 +454,8 @@ export function createTraceViewer(): HTMLDivElement {
   const initialPermalink = decodePermalinkState(window.location.hash)
   let pendingPermalink: PermalinkStateV1 | null = initialPermalink
   let permalinkRaf = 0
+  let backToTopRaf = 0
+  let backToTopKeyboardActivation = false
   let activeSidebarTab: 'inspect' | 'map' | 'analyze' | 'share' = 'inspect'
   let editingIndex: number = -1  // display index of the span currently in "edit mode" (-1 = none)
   let inspectorDisplayIndex: number | null = null
@@ -789,6 +803,20 @@ export function createTraceViewer(): HTMLDivElement {
     sampleRibbon.classList.toggle('hidden', !show)
   }
 
+  const syncBackToTopVisibility = () => {
+    const viewerTop = root.getBoundingClientRect().top + window.scrollY
+    const shouldShow = viewerState === 'loaded' && window.scrollY > viewerTop + BACK_TO_TOP_SCROLL_THRESHOLD_PX
+    backToTopBtn.classList.toggle('hidden', !shouldShow)
+  }
+
+  const scheduleBackToTopVisibility = () => {
+    if (backToTopRaf) return
+    backToTopRaf = requestAnimationFrame(() => {
+      backToTopRaf = 0
+      syncBackToTopVisibility()
+    })
+  }
+
   const setState = (state: ViewerState, message = '') => {
     viewerState = state
     emptyStateEl.classList.toggle('hidden', state !== 'empty')
@@ -818,6 +846,7 @@ export function createTraceViewer(): HTMLDivElement {
     }
     syncSearchUi(false)
     syncSampleRibbon()
+    syncBackToTopVisibility()
   }
 
   const refreshReadout = () => {
@@ -1485,6 +1514,20 @@ export function createTraceViewer(): HTMLDivElement {
     fileInputExtra.value = ''
   })
   sampleBtn.addEventListener('click', () => void loadSample())
+  backToTopBtn.addEventListener('keydown', (event) => {
+    const isSpaceKey = event.key === ' ' || event.key === 'Space'
+    backToTopKeyboardActivation = event.key === 'Enter' || isSpaceKey
+    if (isSpaceKey) event.preventDefault()
+  })
+  backToTopBtn.addEventListener('click', () => {
+    const restoreFocus = backToTopKeyboardActivation
+    backToTopKeyboardActivation = false
+    const behavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'
+    root.scrollIntoView({ behavior, block: 'start' })
+    if (restoreFocus) sidebarToggleBtn.focus({ preventScroll: true })
+  })
+  window.addEventListener('scroll', scheduleBackToTopVisibility, { passive: true })
+  window.addEventListener('resize', scheduleBackToTopVisibility)
   if (pendingPermalink?.source.kind === 'local') {
     setPermalinkHint(`Permalink loaded. Reattach local file "${pendingPermalink.source.value}" to restore this exact view.`)
   } else {
