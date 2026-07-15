@@ -15,6 +15,8 @@ test('keyboard shortcuts dialog traps focus, closes on Escape, and restores focu
   const closeButton = dialog.getByRole('button', { name: 'Close keyboard shortcuts' })
   await expect(dialog).toBeVisible()
   await expect(dialog).toHaveAttribute('aria-modal', 'true')
+  await expect(dialog).toHaveAttribute('aria-labelledby', 'keyboard-shortcuts-title')
+  await expect(dialog.locator('#keyboard-shortcuts-title')).toHaveText('Keyboard shortcuts')
   await expect(dialog.getByText('Undo')).toBeVisible()
   await expect(dialog.getByText('Next search match')).toBeVisible()
   await expect(closeButton).toBeFocused()
