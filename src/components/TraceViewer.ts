@@ -1515,6 +1515,7 @@ export function createTraceViewer(): HTMLDivElement {
   sampleBtn.addEventListener('click', () => void loadSample())
   backToTopBtn.addEventListener('keydown', (event) => {
     backToTopKeyboardActivation = event.key === 'Enter' || event.key === ' '
+    if (event.key === ' ') event.preventDefault()
   })
   backToTopBtn.addEventListener('click', () => {
     const restoreFocus = backToTopKeyboardActivation

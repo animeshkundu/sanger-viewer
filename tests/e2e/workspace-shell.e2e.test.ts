@@ -1,5 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
 
+const SCROLL_TO_TOP_TOLERANCE_PX = 20
+
 async function waitForSampleLoad(page: Page) {
   await page.goto('')
   await expect(page.locator('#status')).toContainText('Loaded sample.ab1')
@@ -158,10 +160,10 @@ test.describe('Workspace shell', () => {
     await expect(backToTop).toBeFocused()
     await page.keyboard.press('Enter')
 
-    await page.waitForFunction(() => {
+    await page.waitForFunction((tolerance) => {
       const viewer = document.querySelector<HTMLElement>('.viewer')
-      return viewer !== null && Math.abs(viewer.getBoundingClientRect().top) < 20
-    })
+      return viewer !== null && Math.abs(viewer.getBoundingClientRect().top) < tolerance
+    }, SCROLL_TO_TOP_TOLERANCE_PX)
     await expect(sidebarToggle).toBeFocused()
     await expect(backToTop).toBeHidden()
   })

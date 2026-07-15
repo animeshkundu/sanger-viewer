@@ -661,6 +661,11 @@ a {
   border-color: var(--color-border-strong);
 }
 
+.back-to-top-btn:focus-visible {
+  color: var(--color-text);
+  border-color: var(--color-brand);
+}
+
 /* Loading spinner */
 @keyframes spin {
   to { transform: rotate(360deg); }
