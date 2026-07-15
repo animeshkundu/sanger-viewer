@@ -1,0 +1,5 @@
+Contact: <!-- TODO: security disclosure email or HTTPS form -->
+Expires: <!-- TODO: RFC 3339 date less than one year from publication -->
+Canonical: <!-- TODO: absolute /.well-known/security.txt URL -->
+Policy: <!-- TODO: absolute SECURITY.md or security-policy URL -->
+Preferred-Languages: en
