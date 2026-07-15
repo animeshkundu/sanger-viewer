@@ -1515,8 +1515,9 @@ export function createTraceViewer(): HTMLDivElement {
   })
   sampleBtn.addEventListener('click', () => void loadSample())
   backToTopBtn.addEventListener('keydown', (event) => {
-    backToTopKeyboardActivation = event.key === 'Enter' || event.key === ' '
-    if (event.key === ' ') event.preventDefault()
+    const isSpaceKey = event.key === ' ' || event.key === 'Space'
+    backToTopKeyboardActivation = event.key === 'Enter' || isSpaceKey
+    if (isSpaceKey) event.preventDefault()
   })
   backToTopBtn.addEventListener('click', () => {
     const restoreFocus = backToTopKeyboardActivation
