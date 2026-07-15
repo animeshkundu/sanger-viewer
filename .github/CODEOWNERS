@@ -1,0 +1,4 @@
+# TODO: replace placeholder owners with real maintainers or teams.
+* @OWNER/MAINTAINERS
+.github/ @OWNER/MAINTAINERS
+SECURITY.md @OWNER/SECURITY

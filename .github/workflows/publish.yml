@@ -1,0 +1,14 @@
+name: Publish
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  destination-note:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "TODO: Pages deployment is handled by pages.yml; no package registry applies."
