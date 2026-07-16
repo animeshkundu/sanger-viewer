@@ -1,5 +1,6 @@
 import type { TrimResult } from '../quality/mottTrim'
 import { DEFAULT_MIXED_BASE_THRESHOLD } from '../calling/mixedBase'
+import { clampAmplitudeScale } from '../render/viewport'
 
 export function createControls(): HTMLDivElement {
   const root = document.createElement('div')
@@ -14,6 +15,18 @@ export function createControls(): HTMLDivElement {
       <button data-action="pan-left">← Pan</button>
       <button data-action="pan-right">Pan →</button>
       <button data-action="fit">Fit</button>
+      <label class="trim-label" for="amplitude-scale">
+        <span class="trim-label__text">Height:</span>
+        <input
+          type="range"
+          id="amplitude-scale"
+          data-amplitude="scale"
+          min="0.25" max="8" step="0.25" value="1"
+          class="trim-slider"
+          aria-label="Vertical amplitude scale"
+        />
+        <output id="amplitude-scale-display" for="amplitude-scale" class="trim-value">1.0×</output>
+      </label>
       <button data-action="toggle-strand" aria-pressed="false" title="Toggle reverse complement strand">5′→3′</button>
     </div>
     <div class="controls-group controls-group--export" role="group" aria-label="Export" data-group="export">
@@ -153,6 +166,8 @@ export function setControlsDisabled(controls: HTMLElement, disabled: boolean): v
   if (slider) slider.disabled = disabled
   const mixedSlider = controls.querySelector<HTMLInputElement>('[data-mixed="threshold"]')
   if (mixedSlider) mixedSlider.disabled = disabled
+  const amplitudeSlider = controls.querySelector<HTMLInputElement>('[data-amplitude="scale"]')
+  if (amplitudeSlider) amplitudeSlider.disabled = disabled
   const searchInput = controls.querySelector<HTMLInputElement>('#search-input')
   if (searchInput) searchInput.disabled = disabled
 }
@@ -204,6 +219,24 @@ export function setTrimMode(controls: HTMLElement, mode: 'full' | 'trimmed'): vo
 export function getTrimThreshold(controls: HTMLElement): number {
   const slider = controls.querySelector<HTMLInputElement>('[data-trim="threshold"]')
   return slider ? Number(slider.value) : 20
+}
+
+export function getAmplitudeScale(controls: HTMLElement): number {
+  const slider = controls.querySelector<HTMLInputElement>('[data-amplitude="scale"]')
+  return clampAmplitudeScale(slider ? Number(slider.value) : 1)
+}
+
+export function setAmplitudeScaleDisplay(controls: HTMLElement, scale: number): void {
+  const normalized = clampAmplitudeScale(scale)
+  const slider = controls.querySelector<HTMLInputElement>('[data-amplitude="scale"]')
+  if (slider) slider.value = String(normalized)
+  const output = controls.querySelector<HTMLOutputElement>('#amplitude-scale-display')
+  if (output) {
+    const formatted = Number.isInteger(normalized)
+      ? normalized.toFixed(1)
+      : normalized.toFixed(2).replace(/0$/, '')
+    output.value = `${formatted}×`
+  }
 }
 
 export function setSearchSummary(controls: HTMLElement, summary: string): void {

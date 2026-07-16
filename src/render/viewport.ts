@@ -14,6 +14,15 @@ export interface BaseViewportRange {
   end: number
 }
 
+export const DEFAULT_AMPLITUDE_SCALE = 1
+export const MIN_AMPLITUDE_SCALE = 0.25
+export const MAX_AMPLITUDE_SCALE = 8
+
+export function clampAmplitudeScale(value: number): number {
+  if (!Number.isFinite(value)) return DEFAULT_AMPLITUDE_SCALE
+  return Math.max(MIN_AMPLITUDE_SCALE, Math.min(MAX_AMPLITUDE_SCALE, value))
+}
+
 export function clampViewport(startSample: number, samplesPerPixel: number, totalSamples: number, width: number): Viewport {
   const clampedSamplesPerPixel = Math.max(0.5, samplesPerPixel)
   const visibleSamples = Math.max(1, width * clampedSamplesPerPixel)

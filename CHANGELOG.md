@@ -8,7 +8,11 @@ Dates below are the dates the linked pull requests were merged.
 
 ## [Unreleased]
 
-No changes yet.
+### Added
+
+- Added independent 0.25×–8× vertical chromatogram scaling, including
+  view-faithful PNG/SVG export and backward-compatible permalink and workspace
+  persistence.
 
 ## [1.0.0] - 2026-07-13
 

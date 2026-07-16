@@ -3,6 +3,19 @@
 Durable engineering and UX lessons distilled from the project's shipped
 devlog. Each entry links to the evidence that produced it.
 
+## 2026-07-16 — Keep alternate render paths mathematically identical
+
+- **Context:** Vertical amplitude scaling affects the interactive canvas, PNG
+  capture of that canvas, and the independently generated SVG path.
+- **Learning:** A view control is not complete when only the live renderer
+  changes. Shared baseline, normalization, clamping, and excursion math must be
+  applied identically in every export path.
+- **Apply it:** Add deterministic coordinate tests for pure export renderers and
+  an end-to-end comparison for the interactive surface whenever view
+  transformations change.
+- **Evidence:** `tests/core/amplitudeScale.test.ts` and
+  `tests/e2e/amplitude-scale.e2e.test.ts`.
+
 ## 2026-07-13 — Derived features must use the displayed sequence
 
 - **Context:** Editable calls appeared correctly in the sequence panel and

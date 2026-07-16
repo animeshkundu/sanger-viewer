@@ -10,7 +10,7 @@
  */
 
 import { TRACE_COLORS } from '../render/colors'
-import { clampViewport } from '../render/viewport'
+import { clampAmplitudeScale, clampViewport } from '../render/viewport'
 import { decimateSamples } from '../render/decimation'
 import type { TraceData } from '../types/trace'
 
@@ -23,6 +23,8 @@ export interface SvgExportOptions {
   startSample?: number
   /** Last sample index to render (default trace.sampleCount - 1). */
   endSample?: number
+  /** Vertical trace excursion multiplier (default 1, clamped to 0.25–8). */
+  amplitudeScale?: number
 }
 
 /**
@@ -34,6 +36,7 @@ export interface SvgExportOptions {
 export function exportSvg(trace: TraceData, options: SvgExportOptions = {}): string {
   const width = options.width ?? 1200
   const height = options.height ?? 400
+  const amplitudeScale = clampAmplitudeScale(options.amplitudeScale ?? 1)
 
   // Determine the sample range to render.
   const rawStart = options.startSample ?? 0
@@ -75,7 +78,7 @@ export function exportSvg(trace: TraceData, options: SvgExportOptions = {}): str
       // Zoomed in — continuous polyline.
       let started = false
       for (const { pixel, max } of points) {
-        const y = height * 0.85 - (max / maxY) * height * 0.7
+        const y = height * 0.85 - (max / maxY) * height * 0.7 * amplitudeScale
         if (!started) {
           d += `M${pixel.toFixed(2)},${y.toFixed(2)}`
           started = true
@@ -86,8 +89,8 @@ export function exportSvg(trace: TraceData, options: SvgExportOptions = {}): str
     } else {
       // Zoomed out — discrete vertical segments per pixel column.
       for (const { pixel, min, max } of points) {
-        const yMax = height * 0.85 - (max / maxY) * height * 0.7
-        const yMin = height * 0.85 - (min / maxY) * height * 0.7
+        const yMax = height * 0.85 - (max / maxY) * height * 0.7 * amplitudeScale
+        const yMin = height * 0.85 - (min / maxY) * height * 0.7 * amplitudeScale
         d += `M${pixel.toFixed(2)},${yMin.toFixed(2)}L${pixel.toFixed(2)},${yMax.toFixed(2)}`
       }
     }
