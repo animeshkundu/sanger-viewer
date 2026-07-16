@@ -122,3 +122,19 @@ devlog. Each entry links to the evidence that produced it.
   starts from a real user operation such as editing or strand switching.
 - **Evidence:** [v13 editable bases and export tests](blog/2026-07-03-v13-editable-bases/)
   and [v22 contig FASTA tests](blog/2026-07-04-v22-contig-assembly/).
+
+## 2026-07-16 — Orientation-flip the strict end when searching the reverse strand
+
+- **Context:** The primer binding search enforces a zero-tolerance 3′-end
+  mismatch rule, but reverse primers are located by matching their reverse
+  complement left-to-right against the top strand. Reverse-complementing flips
+  orientation, so the primer's 3′ end lands at index 0 of the match — not the
+  trailing bases the strict rule assumed.
+- **Learning:** Any per-position rule tied to primer/read polarity (3′ clamps,
+  extension checks, quality tapering) must move with the sequence when it is
+  reverse-complemented. Exact-match tests cannot catch this because they exercise
+  no position-dependent branch.
+- **Apply it:** For strand-symmetric search or scoring, add a mismatch-bearing
+  test per strand that places the sole mismatch at each end, so the polarity of
+  every end-specific rule is pinned.
+- **Evidence:** [reverse-primer 3′ strict fix](docs/history/2026-07-16-reverse-primer-3prime-strict.md).

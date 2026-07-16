@@ -61,12 +61,19 @@ function reverseComplement(seq: string): string {
  * Score one primer alignment at a specific offset on the template strand.
  * Returns { mismatches, threeEndMismatches } — or null if the site overruns
  * the template or exceeds the tolerance.
+ *
+ * @param threeEndAtStart  When true, the primer's 3′ end is at index 0 of the
+ *   supplied `primer` string. This is the case for reverse primers, where the
+ *   reverse-complement of the primer is matched left-to-right against the top
+ *   strand, so the primer's 3′-terminal bases sit at the *start* of the match.
+ *   When false (forward primers, read 5′→3′), the 3′ end is the trailing bases.
  */
 function scoreSite(
   primer: string,
   template: string,
   templateOffset: number,
   maxMismatches: number,
+  threeEndAtStart = false,
 ): { mismatches: number; threeEndMismatches: number } | null {
   const pLen = primer.length
   if (templateOffset < 0 || templateOffset + pLen > template.length) return null
@@ -78,7 +85,8 @@ function scoreSite(
   for (let k = 0; k < pLen; k++) {
     if (!basesCompatible(primer[k], template[templateOffset + k])) {
       mismatches++
-      if (k >= threeEndStart) {
+      const inThreeEnd = threeEndAtStart ? k < THREE_END_STRICT : k >= threeEndStart
+      if (inThreeEnd) {
         threeEndMismatches++
         return null  // 3′ mismatch — reject immediately
       }
@@ -129,9 +137,11 @@ export function findPrimerBindingSites(
 
   // ── Reverse: primer binds bottom strand ─────────────────────────────────────
   // Match RC(primer) against the top strand, then record 1-based site.
+  // RC reverses orientation, so the primer's 3′ end maps to index 0 of rcPrimer;
+  // the strict 3′ check must therefore be applied to the *start* of the match.
   const rcPrimer = reverseComplement(primerSeq)
   for (let i = 0; i + pLen <= tLen; i++) {
-    const score = scoreSite(rcPrimer, templateSeq, i, maxMismatches)
+    const score = scoreSite(rcPrimer, templateSeq, i, maxMismatches, true)
     if (score) {
       sites.push({
         primerId,
