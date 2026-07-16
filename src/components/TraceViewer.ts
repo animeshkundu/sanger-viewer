@@ -1,6 +1,8 @@
 import { ChromatogramCanvas } from '../render/ChromatogramCanvas'
 import {
   createControls,
+  getAmplitudeScale,
+  setAmplitudeScaleDisplay,
   setControlsDisabled,
   setConsensusFastaButtonState,
   setExportMenuOpen,
@@ -70,7 +72,7 @@ import { TraceWorkspace, makeSlot } from '../workspace/TraceWorkspace'
 import { decodePermalinkState, encodePermalinkState, type PermalinkSource, type PermalinkStateV1 } from '../workspace/permalink'
 import { buildAnnotationFeatures, filterAnnotationFeaturesByRange, type AnnotationFeature } from '../annotations'
 import { findRestrictionSites, type RestrictionSitePosition } from '../plasmidMap/restriction'
-import { mapSampleViewportToBaseRange } from '../render/viewport'
+import { DEFAULT_AMPLITUDE_SCALE, mapSampleViewportToBaseRange } from '../render/viewport'
 import { BaseEditModel } from '../editing'
 import { alignReadToReference, parseFastaSequence } from '../alignment/aligner'
 import { callVariants } from '../variants/caller'
@@ -461,6 +463,7 @@ export function createTraceViewer(): HTMLDivElement {
     ;[
       root.querySelector<HTMLInputElement>('[data-trim="threshold"]'),
       root.querySelector<HTMLInputElement>('[data-mixed="threshold"]'),
+      root.querySelector<HTMLInputElement>('[data-amplitude="scale"]'),
       root.querySelector<HTMLInputElement>('#search-input'),
     ].filter((el): el is HTMLInputElement => el !== null).forEach((el) => {
       el.disabled = disabled
@@ -473,6 +476,7 @@ export function createTraceViewer(): HTMLDivElement {
   }
   setMixedThresholdDisplay(root, mixedBaseThreshold)
   setMixedSummary(root, 0)
+  setAmplitudeScaleDisplay(root, DEFAULT_AMPLITUDE_SCALE)
   setUndoRedoState(controls, false, false)
   sidebarToggleBtn.addEventListener('click', () => {
     const isOpen = shellSidebar.getAttribute('data-sidebar-open') === 'true'
@@ -651,7 +655,12 @@ export function createTraceViewer(): HTMLDivElement {
     setUndoRedoState(controls, false, false)
     qualityTrack.setVisible(state.overlays.quality)
     applyDisplayTrace()
-    renderer.setViewportState(state.view.startSample, state.view.samplesPerPixel)
+    renderer.setViewportState(
+      state.view.startSample,
+      state.view.samplesPerPixel,
+      state.view.amplitudeScale,
+    )
+    setAmplitudeScaleDisplay(root, renderer.getViewportState().amplitudeScale)
     const normalizedQuery = normalizeSearchQuery(state.search.query)
     const matches = findMatchesInEditedForwardSequence(normalizedQuery)
     searchState = {
@@ -736,7 +745,13 @@ export function createTraceViewer(): HTMLDivElement {
     const previousViewport = preserveViewport ? renderer.getViewportState() : null
     renderer.setTrace(displayTrace)
     renderer.setAmbiguousIndices(mixedBaseResult?.ambiguousIndices ?? [])
-    if (previousViewport) renderer.setViewportState(previousViewport.startSample, previousViewport.samplesPerPixel)
+    if (previousViewport) {
+      renderer.setViewportState(
+        previousViewport.startSample,
+        previousViewport.samplesPerPixel,
+        previousViewport.amplitudeScale,
+      )
+    }
     applyTrim(displayTrace)
     syncSearchUi(false)
     refreshReadout()
@@ -1245,6 +1260,7 @@ export function createTraceViewer(): HTMLDivElement {
 
   const clearRenderPanels = () => {
     renderer.clearTrace()
+    setAmplitudeScaleDisplay(root, DEFAULT_AMPLITUDE_SCALE)
     annotationFeatures = []
     restrictionSites = []
     annotationTrack.clear()
@@ -1330,7 +1346,12 @@ export function createTraceViewer(): HTMLDivElement {
     if (rawTrace) {
       updateMetadataPanel(metadataPanel, rawTrace.metadata)
       applyDisplayTrace()
-      renderer.setViewportState(slot.viewport.startSample, slot.viewport.samplesPerPixel)
+      renderer.setViewportState(
+        slot.viewport.startSample,
+        slot.viewport.samplesPerPixel,
+        slot.viewport.amplitudeScale ?? DEFAULT_AMPLITUDE_SCALE,
+      )
+      setAmplitudeScaleDisplay(root, renderer.getViewportState().amplitudeScale)
       refreshReadout()
       const msg = `Loaded ${rawTrace.fileName} (${rawTrace.baseCalls.length} bases)`
       setState('loaded', msg)
@@ -1408,6 +1429,8 @@ export function createTraceViewer(): HTMLDivElement {
     editModel.reset()
     setStrandToggleState(controls, false)
     setMixedThresholdDisplay(root, mixedBaseThreshold)
+    renderer.setAmplitudeScale(DEFAULT_AMPLITUDE_SCALE)
+    setAmplitudeScaleDisplay(root, DEFAULT_AMPLITUDE_SCALE)
     setUndoRedoState(controls, false, false)
     hideTooltip(tooltip)
     updateMetadataPanel(metadataPanel, trace.metadata)
@@ -1766,6 +1789,7 @@ export function createTraceViewer(): HTMLDivElement {
           vp.startSample + vWidth * vp.samplesPerPixel,
           displayTrace.sampleCount - 1
         ),
+        amplitudeScale: vp.amplitudeScale,
       })
       const blob = new Blob([svg], { type: 'image/svg+xml' })
       const suffix = isRevcomp ? '-revcomp' : ''
@@ -1901,6 +1925,12 @@ export function createTraceViewer(): HTMLDivElement {
       mixedBaseThreshold = Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : DEFAULT_MIXED_BASE_THRESHOLD
       setMixedThresholdDisplay(root, mixedBaseThreshold)
       scheduleMixedBaseRecompute()
+      schedulePermalinkPersist()
+      return
+    }
+    if (target.getAttribute('data-amplitude') === 'scale') {
+      renderer.setAmplitudeScale(getAmplitudeScale(root))
+      setAmplitudeScaleDisplay(root, renderer.getViewportState().amplitudeScale)
       schedulePermalinkPersist()
       return
     }

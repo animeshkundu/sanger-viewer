@@ -16,6 +16,7 @@ import type { MixedBaseResult } from '../calling/mixedBase'
 import { DEFAULT_MIXED_BASE_THRESHOLD } from '../calling/mixedBase'
 import type { PermalinkSource } from './permalink'
 import type { ReferenceAlignment, CalledVariant } from '../types/alignment'
+import { DEFAULT_AMPLITUDE_SCALE } from '../render/viewport'
 
 export interface WorkspaceSearchState {
   query: string
@@ -48,7 +49,7 @@ export interface TraceSlot {
   /** Source metadata for permalink reconstruction. */
   source: PermalinkSource
   /** Chromatogram viewport state. */
-  viewport: { startSample: number; samplesPerPixel: number }
+  viewport: { startSample: number; samplesPerPixel: number; amplitudeScale?: number }
   /** Whether the sample-state ribbon has been dismissed for this slot. */
   sampleRibbonDismissed: boolean
   /** Reference alignment result for this slot, or null if not yet aligned. */
@@ -177,7 +178,11 @@ export function makeSlot(trace: TraceData, source: PermalinkSource): Omit<TraceS
     mixedBaseThreshold: DEFAULT_MIXED_BASE_THRESHOLD,
     mixedBaseResult: null,
     source,
-    viewport: { startSample: 0, samplesPerPixel: Math.max(1, trace.sampleCount / 300) },
+    viewport: {
+      startSample: 0,
+      samplesPerPixel: Math.max(1, trace.sampleCount / 300),
+      amplitudeScale: DEFAULT_AMPLITUDE_SCALE,
+    },
     sampleRibbonDismissed: false,
     alignmentResult: null,
     referenceSequence: null,

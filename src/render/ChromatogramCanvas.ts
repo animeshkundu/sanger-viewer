@@ -1,5 +1,11 @@
 import { TRACE_COLORS } from './colors'
-import { clampViewport, findNearestPeakIndex, findVisiblePeakRange } from './viewport'
+import {
+  DEFAULT_AMPLITUDE_SCALE,
+  clampAmplitudeScale,
+  clampViewport,
+  findNearestPeakIndex,
+  findVisiblePeakRange,
+} from './viewport'
 import { decimateSamples } from './decimation'
 import type { BaseHoverInfo, TrimBoundaries, TraceData } from '../types/trace'
 import type { SubsequenceMatch } from '../search/findSubsequence'
@@ -9,6 +15,7 @@ export class ChromatogramCanvas {
   private trace: TraceData | null = null
   private startSample = 0
   private samplesPerPixel = 5
+  private amplitudeScale = DEFAULT_AMPLITUDE_SCALE
   private raf = 0
   private trimBoundaries: TrimBoundaries | null = null
   private searchMatches: SubsequenceMatch[] = []
@@ -94,6 +101,12 @@ export class ChromatogramCanvas {
     this.requestDraw()
   }
 
+  setAmplitudeScale(value: number): void {
+    this.amplitudeScale = clampAmplitudeScale(value)
+    this.canvas.setAttribute('data-amplitude-scale', String(this.amplitudeScale))
+    this.requestDraw()
+  }
+
   getCurrentTrace(): TraceData | null {
     return this.trace
   }
@@ -152,18 +165,32 @@ export class ChromatogramCanvas {
   }
 
   /** Return raw viewport state for persistence (e.g. workspace slot save). */
-  getViewportState(): { startSample: number; samplesPerPixel: number } {
+  getViewportState(): { startSample: number; samplesPerPixel: number; amplitudeScale: number } {
     if (!this.trace) {
-      return { startSample: this.startSample, samplesPerPixel: this.samplesPerPixel }
+      return {
+        startSample: this.startSample,
+        samplesPerPixel: this.samplesPerPixel,
+        amplitudeScale: this.amplitudeScale,
+      }
     }
     const vp = clampViewport(this.startSample, this.samplesPerPixel, this.trace.sampleCount, this.canvas.clientWidth)
-    return { startSample: vp.startSample, samplesPerPixel: vp.samplesPerPixel }
+    return {
+      startSample: vp.startSample,
+      samplesPerPixel: vp.samplesPerPixel,
+      amplitudeScale: this.amplitudeScale,
+    }
   }
 
   /** Restore saved viewport state (e.g. when switching workspace slots). */
-  setViewportState(startSample: number, samplesPerPixel: number): void {
+  setViewportState(
+    startSample: number,
+    samplesPerPixel: number,
+    amplitudeScale = this.amplitudeScale,
+  ): void {
     this.startSample = startSample
     this.samplesPerPixel = samplesPerPixel
+    this.amplitudeScale = clampAmplitudeScale(amplitudeScale)
+    this.canvas.setAttribute('data-amplitude-scale', String(this.amplitudeScale))
     this.requestDraw()
   }
 
@@ -171,6 +198,7 @@ export class ChromatogramCanvas {
     this.trace = null
     this.startSample = 0
     this.samplesPerPixel = 5
+    this.amplitudeScale = DEFAULT_AMPLITUDE_SCALE
     this.trimBoundaries = null
     this.searchMatches = []
     this.activeSearchMatchIndex = -1
@@ -278,6 +306,7 @@ export class ChromatogramCanvas {
     if (!this.trace) {
       this.canvas.removeAttribute('data-viewport-start')
       this.canvas.removeAttribute('data-viewport-spp')
+      this.canvas.removeAttribute('data-amplitude-scale')
       return
     }
 
@@ -286,6 +315,7 @@ export class ChromatogramCanvas {
     this.samplesPerPixel = vp.samplesPerPixel
     this.canvas.setAttribute('data-viewport-start', String(this.startSample))
     this.canvas.setAttribute('data-viewport-spp', String(this.samplesPerPixel))
+    this.canvas.setAttribute('data-amplitude-scale', String(this.amplitudeScale))
     const visiblePeaks = findVisiblePeakRange(this.trace.peakPositions, {
       startSample: vp.startSample,
       endSample: vp.endSample,
@@ -327,7 +357,7 @@ export class ChromatogramCanvas {
         // Zoomed in — continuous polyline; decimation returns one point per sample (min === max).
         let started = false
         for (const { pixel, max } of points) {
-          const y = height * 0.85 - (max / maxY) * height * 0.7
+          const y = height * 0.85 - (max / maxY) * height * 0.7 * this.amplitudeScale
           if (!started) {
             this.ctx.moveTo(pixel, y)
             started = true
@@ -339,8 +369,8 @@ export class ChromatogramCanvas {
         // Zoomed out — draw each pixel column as a discrete vertical segment so adjacent
         // columns are not connected by diagonal lines that don't correspond to the signal.
         for (const { pixel, min, max } of points) {
-          const yMax = height * 0.85 - (max / maxY) * height * 0.7
-          const yMin = height * 0.85 - (min / maxY) * height * 0.7
+          const yMax = height * 0.85 - (max / maxY) * height * 0.7 * this.amplitudeScale
+          const yMin = height * 0.85 - (min / maxY) * height * 0.7 * this.amplitudeScale
           this.ctx.moveTo(pixel, yMin)
           this.ctx.lineTo(pixel, yMax)
         }

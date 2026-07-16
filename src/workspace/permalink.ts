@@ -1,4 +1,5 @@
 import type { EditEntry } from '../editing'
+import { DEFAULT_AMPLITUDE_SCALE, clampAmplitudeScale } from '../render/viewport'
 
 export type PermalinkSource =
   | { kind: 'sample'; value: string }
@@ -7,7 +8,7 @@ export type PermalinkSource =
 export interface PermalinkStateV1 {
   version: 1
   source: PermalinkSource
-  view: { startSample: number; samplesPerPixel: number }
+  view: { startSample: number; samplesPerPixel: number; amplitudeScale?: number }
   strand: 'forward' | 'reverse'
   trim: { mode: 'full' | 'trimmed'; threshold: number }
   search: { query: string; activeIndex: number }
@@ -96,13 +97,24 @@ function normalizeState(candidate: unknown): PermalinkStateV1 | null {
   if (!(baseIndex === null || Number.isInteger(baseIndex))) return null
   const overlays = value.overlays
   if (!overlays || typeof overlays.quality !== 'boolean' || typeof overlays.annotations !== 'boolean' || typeof overlays.mixedBases !== 'boolean') return null
+  const view: PermalinkStateV1['view'] = {
+    startSample: Math.max(0, value.view.startSample),
+    samplesPerPixel: Math.max(0.5, value.view.samplesPerPixel),
+  }
+  // Legacy links keep their original serialized shape while runtime consumers
+  // still receive the backward-compatible 1× default.
+  Object.defineProperty(view, 'amplitudeScale', {
+    value: clampAmplitudeScale(value.view.amplitudeScale ?? DEFAULT_AMPLITUDE_SCALE),
+    enumerable: value.view.amplitudeScale !== undefined,
+    configurable: true,
+    writable: true,
+  })
+  const variantReviews = normalizeVariantReviews(value.variantReviews)
+  const ui = normalizeUiState(value.ui)
   return {
     version: VERSION,
     source: value.source,
-    view: {
-      startSample: Math.max(0, value.view.startSample),
-      samplesPerPixel: Math.max(0.5, value.view.samplesPerPixel),
-    },
+    view,
     strand: value.strand,
     trim: {
       mode: value.trim.mode,
@@ -115,8 +127,8 @@ function normalizeState(candidate: unknown): PermalinkStateV1 | null {
     selection: { baseIndex },
     edits: normalizeEdits(value.edits),
     overlays,
-    variantReviews: normalizeVariantReviews(value.variantReviews),
-    ui: normalizeUiState(value.ui),
+    ...(variantReviews ? { variantReviews } : {}),
+    ...(ui ? { ui } : {}),
   }
 }
 
@@ -154,4 +166,3 @@ export function decodePermalinkState(hash: string): PermalinkStateV1 | null {
     return null
   }
 }
-
