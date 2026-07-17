@@ -3,6 +3,20 @@
 Durable engineering and UX lessons distilled from the project's shipped
 devlog. Each entry links to the evidence that produced it.
 
+## 2026-07-15 — Measure floating UI only after it is renderable
+
+- **Context:** The fixed-position chromatogram tooltip could overflow the
+  viewport because it was positioned before its text was populated, while its
+  hidden state made its dimensions unavailable.
+- **Learning:** Reveal and populate floating UI before reading layout
+  dimensions, then place it in the same coordinate system as its input. For
+  fixed tooltips driven by `clientX` and `clientY`, compare measured dimensions
+  with the window viewport, mirror-flip overflowing axes, and clamp the result.
+- **Apply it:** Keep the regression browser-based: Vitest uses the Node
+  environment and excludes `tests/e2e/**`, so viewport layout must be verified
+  with Playwright.
+- **Evidence:** [Tooltip viewport overflow history](docs/history/2026-07-15-tooltip-viewport-overflow.md).
+
 ## 2026-07-13 — Derived features must use the displayed sequence
 
 - **Context:** Editable calls appeared correctly in the sequence panel and
