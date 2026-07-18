@@ -30,7 +30,7 @@ All four tools can inspect trace files locally. sanger-viewer removes the deskto
 ## Why use it
 
 - Open `.ab1` and `.scf` traces directly in the browser with drag-and-drop, file picker, or the built-in sample trace
-- Inspect rendered chromatograms with quality shading, base labels, zoom/pan, tooltip hover, and a synced sequence panel
+- Inspect rendered chromatograms with quality shading, base labels, zoom/pan, reverse-complement viewing, tooltip hover, and a synced sequence panel
 - Keep trace data private: parsing, rendering, and export stay client-side in the browser
 - Use power features already shipping in the app today, including undo/redo edits, Q-trim, mixed-base calling, annotations, base inspection, multi-trace consensus, and PNG/SVG/FASTA export
 
