@@ -953,6 +953,25 @@ canvas {
   display: block;
 }
 
+.quality-track__heatmap-wrap {
+  margin-top: var(--space-1);
+}
+
+.quality-track__heatmap-label {
+  display: block;
+  margin-bottom: var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.quality-track__heatmap {
+  width: 100%;
+  height: 14px;
+  display: block;
+  border-radius: var(--radius-sm);
+  cursor: crosshair;
+}
+
 /* ─── Controls ───────────────────────────────────────────────────── */
 .controls {
   margin-top: 0.75rem;
@@ -1161,7 +1180,8 @@ canvas {
 }
 
 /* ─── Tooltip ────────────────────────────────────────────────────── */
-.tooltip {
+.tooltip,
+.quality-track__tooltip {
   position: fixed;
   pointer-events: none;
   background: var(--color-tooltip-bg);
