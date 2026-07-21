@@ -3,6 +3,19 @@
 Durable engineering and UX lessons distilled from the project's shipped
 devlog. Each entry links to the evidence that produced it.
 
+## 2026-07-21 — Share geometry between canvas paint and hit testing
+
+- **Context:** The Phred heatmap needed to remain aligned with chromatogram
+  peaks through zoom, pan, trimming, and high-DPI canvas scaling while exposing
+  the exact score under the pointer.
+- **Learning:** Derive painted cell bounds and pointer hit tests from one
+  CSS-pixel geometry model. Scale pointer coordinates into that model instead
+  of testing against backing-store pixels, which vary with device pixel ratio.
+- **Apply it:** Keep canvas geometry pure and fixture-test clipping,
+  reverse-display ordering, missing data, and boundary hit behavior before
+  wiring browser events.
+- **Evidence:** [Phred heatmap implementation history](docs/history/2026-07-21-phred-quality-heatmap.md).
+
 ## 2026-07-13 — Derived features must use the displayed sequence
 
 - **Context:** Editable calls appeared correctly in the sequence panel and

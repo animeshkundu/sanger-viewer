@@ -12,7 +12,7 @@ export interface QualityBar {
   cssVar: '--color-qual-poor' | '--color-qual-fair' | '--color-qual-good' | '--color-qual-excellent'
 }
 
-function getTier(score: number): Pick<QualityBar, 'tier' | 'cssVar'> {
+export function getQualityTier(score: number): Pick<QualityBar, 'tier' | 'cssVar'> {
   if (score >= 40) return { tier: 'excellent', cssVar: '--color-qual-excellent' }
   if (score >= 30) return { tier: 'good', cssVar: '--color-qual-good' }
   if (score >= 20) return { tier: 'fair', cssVar: '--color-qual-fair' }
@@ -40,7 +40,7 @@ export function computeQualityBars(
     const score = Math.max(0, Math.round(qualities[i] ?? 0))
     const scaled = Math.round((Math.min(score, MAX_PHRED_FOR_HEIGHT) / MAX_PHRED_FOR_HEIGHT) * MAX_QUALITY_BAR_HEIGHT)
     const height = score === 0 ? 1 : Math.max(1, Math.min(MAX_QUALITY_BAR_HEIGHT, scaled))
-    const tier = getTier(score)
+    const tier = getQualityTier(score)
     bars.push({ baseIndex: i, score, x, height, ...tier })
   }
   return bars

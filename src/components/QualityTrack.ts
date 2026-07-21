@@ -1,8 +1,20 @@
 import { computeQualityBars, MAX_QUALITY_BAR_HEIGHT } from '../quality/qualityBars'
+import {
+  computeQualityHeatmapCells,
+  computeQualityHeatmapRuns,
+  findQualityHeatmapCell,
+} from '../quality/qualityHeatmap'
+import type { QualityHeatmapCell } from '../quality/qualityHeatmap'
 import type { TrimResult } from '../quality/mottTrim'
 import type { TraceData } from '../types/trace'
+import {
+  createTooltip,
+  hideTooltip,
+  showQualityTooltip,
+} from './Tooltip'
 
 const TRACK_HEIGHT = 56
+const HEATMAP_HEIGHT = 14
 const BAR_WIDTH = 3
 
 export function computeBarDrawLeft(x: number, barWidth: number, canvasWidth: number): number {
@@ -55,13 +67,35 @@ export function createQualityTrack(): QualityTrackHandle {
   canvas.setAttribute('aria-label', 'Per-base quality bars')
   canvas.setAttribute('data-testid', 'quality-track-canvas')
   canvasWrap.append(canvas)
-  root.append(header, canvasWrap)
+
+  const heatmapWrap = document.createElement('div')
+  heatmapWrap.className = 'quality-track__heatmap-wrap'
+  const heatmapLabel = document.createElement('span')
+  heatmapLabel.className = 'quality-track__heatmap-label'
+  heatmapLabel.textContent = 'Phred confidence'
+  const heatmapCanvas = document.createElement('canvas')
+  heatmapCanvas.className = 'quality-track__heatmap'
+  heatmapCanvas.height = HEATMAP_HEIGHT
+  heatmapCanvas.setAttribute('role', 'img')
+  heatmapCanvas.setAttribute('aria-label', 'Phred quality heatmap; hover for exact score')
+  heatmapCanvas.setAttribute('data-testid', 'quality-heatmap-canvas')
+  heatmapWrap.append(heatmapLabel, heatmapCanvas)
+
+  const heatmapTooltip = createTooltip()
+  heatmapTooltip.className = 'quality-track__tooltip hidden'
+  heatmapTooltip.setAttribute('role', 'tooltip')
+  heatmapTooltip.setAttribute('data-testid', 'quality-heatmap-tooltip')
+  root.append(header, canvasWrap, heatmapWrap, heatmapTooltip)
 
   const ctx = canvas.getContext('2d')
   if (!ctx) throw new Error('Canvas 2D unavailable')
+  const heatmapCtx = heatmapCanvas.getContext('2d')
+  if (!heatmapCtx) throw new Error('Canvas 2D unavailable')
 
   let visible = true
   let lastModel: QualityTrackModel | null = null
+  let heatmapCells: QualityHeatmapCell[] = []
+  let heatmapWidth = 1
   let themeMediaQuery: MediaQueryList | null = null
   let themeObserver: MutationObserver | null = null
   let resizeObserver: ResizeObserver | null = null
@@ -72,6 +106,8 @@ export function createQualityTrack(): QualityTrackHandle {
     toggle.setAttribute('aria-pressed', String(visible))
     toggle.textContent = visible ? 'Hide quality track' : 'Show quality track'
     canvasWrap.classList.toggle('hidden', !visible)
+    heatmapWrap.classList.toggle('hidden', !visible)
+    if (!visible) hideTooltip(heatmapTooltip)
   }
 
   const resizeCanvas = () => {
@@ -81,13 +117,21 @@ export function createQualityTrack(): QualityTrackHandle {
     canvas.width = Math.floor(width * dpr)
     canvas.height = Math.floor(height * dpr)
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-    return { width, height }
+    heatmapCanvas.width = Math.floor(width * dpr)
+    heatmapCanvas.height = Math.floor(HEATMAP_HEIGHT * dpr)
+    heatmapCtx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    heatmapWidth = width
+    return { width, height, dpr }
   }
 
   const draw = (model: QualityTrackModel | null) => {
-    const { width, height } = resizeCanvas()
+    const { width, height, dpr } = resizeCanvas()
     ctx.clearRect(0, 0, width, height)
+    heatmapCtx.clearRect(0, 0, width, HEATMAP_HEIGHT)
+    heatmapCells = []
     canvas.setAttribute('data-bar-count', '0')
+    heatmapCanvas.setAttribute('data-cell-count', '0')
+    hideTooltip(heatmapTooltip)
     if (!visible || !model) return
 
     const { trace, startSample, samplesPerPixel, trim, mode } = model
@@ -105,8 +149,39 @@ export function createQualityTrack(): QualityTrackHandle {
     canvas.setAttribute('data-bar-count', String(bars.length))
     canvas.setAttribute('data-track-height', String(MAX_QUALITY_BAR_HEIGHT))
 
-    const barWidth = Math.min(BAR_WIDTH, Math.max(1, width))
     const cssVars = getComputedStyle(document.documentElement)
+    heatmapCells = computeQualityHeatmapCells(
+      trace.qualities,
+      trace.peakPositions,
+      startSample,
+      samplesPerPixel,
+      width,
+      trimStart,
+      trimEnd,
+    )
+    heatmapCanvas.setAttribute('data-cell-count', String(heatmapCells.length))
+    heatmapCanvas.setAttribute('data-track-height', String(HEATMAP_HEIGHT))
+    const heatmapRuns = computeQualityHeatmapRuns(heatmapCells, width, dpr)
+    for (const cssVar of [
+      '--color-qual-excellent',
+      '--color-qual-good',
+      '--color-qual-fair',
+      '--color-qual-poor',
+    ] as const) {
+      heatmapCtx.beginPath()
+      let hasRuns = false
+      for (const run of heatmapRuns) {
+        if (run.cssVar !== cssVar) continue
+        heatmapCtx.rect(run.x, 0, run.width, HEATMAP_HEIGHT)
+        hasRuns = true
+      }
+      if (hasRuns) {
+        heatmapCtx.fillStyle = cssVars.getPropertyValue(cssVar).trim() || '#94a3b8'
+        heatmapCtx.fill()
+      }
+    }
+
+    const barWidth = Math.min(BAR_WIDTH, Math.max(1, width))
     for (const bar of bars) {
       const color = cssVars.getPropertyValue(bar.cssVar).trim() || '#94a3b8'
       const x = computeBarDrawLeft(bar.x, barWidth, width)
@@ -115,6 +190,32 @@ export function createQualityTrack(): QualityTrackHandle {
       ctx.fillRect(x, y, barWidth, bar.height)
     }
   }
+
+  const handleHeatmapPointerMove = (event: PointerEvent) => {
+    if (!visible || !lastModel) {
+      hideTooltip(heatmapTooltip)
+      return
+    }
+    const rect = heatmapCanvas.getBoundingClientRect()
+    if (rect.width <= 0) {
+      hideTooltip(heatmapTooltip)
+      return
+    }
+    const localX = (event.clientX - rect.left) * (heatmapWidth / rect.width)
+    const cell = findQualityHeatmapCell(heatmapCells, localX)
+    if (!cell) {
+      hideTooltip(heatmapTooltip)
+      return
+    }
+    showQualityTooltip(heatmapTooltip, cell.baseIndex, cell.score, event.clientX, event.clientY)
+  }
+
+  const handleHeatmapPointerLeave = () => {
+    hideTooltip(heatmapTooltip)
+  }
+
+  heatmapCanvas.addEventListener('pointermove', handleHeatmapPointerMove)
+  heatmapCanvas.addEventListener('pointerleave', handleHeatmapPointerLeave)
 
   toggle.addEventListener('click', () => {
     setVisible(!visible)
@@ -168,6 +269,8 @@ export function createQualityTrack(): QualityTrackHandle {
     themeObserver = null
     themeMediaQuery?.removeEventListener('change', handleThemeChange)
     themeMediaQuery = null
+    heatmapCanvas.removeEventListener('pointermove', handleHeatmapPointerMove)
+    heatmapCanvas.removeEventListener('pointerleave', handleHeatmapPointerLeave)
   }
 
   setVisible(true)
