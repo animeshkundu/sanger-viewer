@@ -127,8 +127,26 @@ const DEFAULT_ALIGNMENT_BANDWIDTH = 20
 export function createTraceViewer(): HTMLDivElement {
   const root = document.createElement('div')
   root.className = 'viewer'
+  root.dataset.viewerState = 'empty'
   root.innerHTML = `
-    <h1>Sanger Viewer</h1>
+    <section class="viewer-intro" aria-labelledby="viewer-title">
+      <div class="viewer-intro__copy">
+        <p class="viewer-intro__eyebrow">
+          <span class="viewer-intro__pulse" aria-hidden="true"></span>
+          Sanger signal workspace
+        </p>
+        <h1 id="viewer-title">Read every peak.<br /><span>Trust every call.</span></h1>
+        <p class="viewer-intro__summary">
+          Inspect chromatograms, quality, variants, and assemblies in one private workspace.
+          Your trace never leaves this browser.
+        </p>
+      </div>
+      <div class="viewer-intro__proof" aria-label="Viewer capabilities">
+        <div><strong>100%</strong><span>on-device</span></div>
+        <div><strong>AB1 · SCF</strong><span>native formats</span></div>
+        <div><strong>0</strong><span>uploads</span></div>
+      </div>
+    </section>
 
     <!-- Hidden status span kept for test/automation compatibility -->
     <span id="status" class="sr-only">No trace loaded.</span>
@@ -142,27 +160,43 @@ export function createTraceViewer(): HTMLDivElement {
 
       <!-- Empty state (shown when no trace is loaded) -->
       <div id="empty-state" class="empty-state" data-testid="empty-state-dropzone">
-        <div class="empty-state__icon" aria-hidden="true">🧬</div>
+        <div class="empty-state__visual" aria-hidden="true">
+          <svg class="empty-state__signal" viewBox="0 0 360 120" preserveAspectRatio="none">
+            <path class="empty-state__signal-grid" d="M0 30H360M0 60H360M0 90H360" />
+            <path class="empty-state__signal-line empty-state__signal-line--a" d="M0 82C35 82 42 76 57 77C73 78 76 93 91 93C110 93 112 70 128 69C145 68 145 84 161 84C179 84 183 35 198 34C214 33 216 84 234 84C250 84 251 75 268 75C289 75 293 84 313 84H360" />
+            <path class="empty-state__signal-line empty-state__signal-line--c" d="M0 91C31 91 39 86 55 86C74 86 78 70 94 70C110 70 111 88 128 88C147 88 149 79 167 79C184 79 185 91 203 91C219 91 224 52 240 52C256 52 258 91 278 91C299 91 305 86 324 86H360" />
+            <path class="empty-state__signal-line empty-state__signal-line--g" d="M0 95C24 95 31 91 49 91C68 91 71 81 89 81C109 81 111 95 131 95C147 95 151 15 168 15C185 15 187 95 207 95C227 95 230 90 249 90C269 90 273 82 291 82C310 82 315 95 334 95H360" />
+            <path class="empty-state__signal-line empty-state__signal-line--t" d="M0 88C29 88 35 92 53 92C69 92 74 44 90 44C107 44 108 90 128 90C145 90 148 73 164 73C181 73 185 90 202 90C219 90 222 81 239 81C257 81 261 94 280 94C300 94 304 87 323 87H360" />
+          </svg>
+          <span class="empty-state__format">.ab1</span>
+        </div>
+        <p class="empty-state__kicker">Start with a sequencing trace</p>
         <h2 class="empty-state__title">Drop an .ab1 or .scf file to start</h2>
         <p class="empty-state__body">
-          Your sequencing trace opens entirely in-browser — nothing is uploaded.
+          Your sequencing trace opens entirely in-browser — nothing is uploaded,
+          stored, or sent anywhere.
         </p>
         <div class="empty-state__actions">
           <label class="empty-state__file-label" for="file-input">
-            📂 Choose file
+            <span aria-hidden="true">↗</span> Choose file
           </label>
           <button id="sample-load-btn" class="empty-state__sample-btn">
-            ✨ Try the sample
+            Try the sample <span aria-hidden="true">→</span>
           </button>
         </div>
         <p class="empty-state__hint">or drag &amp; drop anywhere in this box</p>
+        <ol class="empty-state__steps" aria-label="Three-step workflow">
+          <li><span>01</span><strong>Open</strong><small>AB1 or SCF</small></li>
+          <li><span>02</span><strong>Inspect</strong><small>Peaks + quality</small></li>
+          <li><span>03</span><strong>Decide</strong><small>Edit + export</small></li>
+        </ol>
         <p id="permalink-hint" class="empty-state__hint hidden" role="status" aria-live="polite" aria-atomic="true"></p>
       </div>
 
       <!-- Compact header (shown after a trace is loaded) -->
       <div id="dropzone-header" class="dropzone-header hidden">
         <label class="dropzone-header__label" for="file-input">
-          📂 Change file
+          <span aria-hidden="true">↗</span> Change file
         </label>
         <span class="dropzone-drag-hint" aria-hidden="true">or drag &amp; drop</span>
       </div>
@@ -195,8 +229,27 @@ export function createTraceViewer(): HTMLDivElement {
       <button id="sample-ribbon-dismiss" type="button" class="status-banner__dismiss" aria-label="Dismiss sample trace notice">Dismiss</button>
     </div>
 
-    <div class="canvas-wrap">
-      <canvas data-testid="chromatogram-canvas" aria-label="Chromatogram trace canvas"></canvas>
+    <div class="canvas-wrap" data-trace-ready="false">
+      <div class="trace-stage__header">
+        <div class="trace-stage__identity">
+          <span class="trace-stage__kicker">Active signal</span>
+          <strong id="trace-stage-file">Awaiting trace</strong>
+        </div>
+        <div class="trace-stage__metrics" aria-label="Trace summary">
+          <span id="trace-stage-format">—</span>
+          <span id="trace-stage-bases">0 bases</span>
+          <span id="trace-stage-samples">0 samples</span>
+        </div>
+        <div class="trace-stage__legend" aria-label="Trace channel colors">
+          <span data-base="A">A</span>
+          <span data-base="C">C</span>
+          <span data-base="G">G</span>
+          <span data-base="T">T</span>
+        </div>
+      </div>
+      <div class="trace-stage__surface">
+        <canvas data-testid="chromatogram-canvas" aria-label="Chromatogram trace canvas"></canvas>
+      </div>
     </div>
   `
 
@@ -235,6 +288,10 @@ export function createTraceViewer(): HTMLDivElement {
     refreshReadout()
   })
   const canvasWrap = root.querySelector<HTMLElement>('.canvas-wrap')!
+  const traceStageFile = root.querySelector<HTMLElement>('#trace-stage-file')!
+  const traceStageFormat = root.querySelector<HTMLElement>('#trace-stage-format')!
+  const traceStageBases = root.querySelector<HTMLElement>('#trace-stage-bases')!
+  const traceStageSamples = root.querySelector<HTMLElement>('#trace-stage-samples')!
   const dropzone = root.querySelector<HTMLElement>('.dropzone')!
   const sampleRibbon = root.querySelector<HTMLElement>('#sample-ribbon')!
   root.insertBefore(annotationTrack.element, canvasWrap)
@@ -789,8 +846,17 @@ export function createTraceViewer(): HTMLDivElement {
     sampleRibbon.classList.toggle('hidden', !show)
   }
 
+  const syncTraceStage = (trace: TraceData | null) => {
+    canvasWrap.dataset.traceReady = String(trace !== null)
+    traceStageFile.textContent = trace?.fileName ?? 'Awaiting trace'
+    traceStageFormat.textContent = trace ? trace.format.toUpperCase() : '—'
+    traceStageBases.textContent = `${trace?.baseCalls.length ?? 0} bases`
+    traceStageSamples.textContent = `${trace?.sampleCount.toLocaleString() ?? 0} samples`
+  }
+
   const setState = (state: ViewerState, message = '') => {
     viewerState = state
+    root.dataset.viewerState = state
     emptyStateEl.classList.toggle('hidden', state !== 'empty')
     dropzoneHeader.classList.toggle('hidden', state === 'empty')
     loadingBanner.classList.toggle('hidden', state !== 'loading')
@@ -1283,6 +1349,7 @@ export function createTraceViewer(): HTMLDivElement {
     setMixedSummary(root, 0)
     setShareStatus(root, '')
     updateMetadataPanel(metadataPanel, null)
+    syncTraceStage(null)
     setReferencePanelStatus(referencePanelElements, '', 'idle')
     setVariantTableVisible(variantTableElements, false)
     clearRenderPanels()
@@ -1328,6 +1395,7 @@ export function createTraceViewer(): HTMLDivElement {
     setMixedSummary(root, mixedBaseResult?.ambiguousCount ?? 0)
 
     if (rawTrace) {
+      syncTraceStage(rawTrace)
       updateMetadataPanel(metadataPanel, rawTrace.metadata)
       applyDisplayTrace()
       renderer.setViewportState(slot.viewport.startSample, slot.viewport.samplesPerPixel)
@@ -1352,6 +1420,7 @@ export function createTraceViewer(): HTMLDivElement {
       // Evicted slot — show the file name but indicate it needs reloading.
       closeBaseInspector()
       updateMetadataPanel(metadataPanel, null)
+      syncTraceStage(null)
       clearRenderPanels()
       alignmentResult = null
       calledVariants = []
@@ -1410,6 +1479,7 @@ export function createTraceViewer(): HTMLDivElement {
     setMixedThresholdDisplay(root, mixedBaseThreshold)
     setUndoRedoState(controls, false, false)
     hideTooltip(tooltip)
+    syncTraceStage(trace)
     updateMetadataPanel(metadataPanel, trace.metadata)
     applyDisplayTrace()
 

@@ -24,7 +24,7 @@ export function createWorkspaceBar(): HTMLDivElement {
   openBtn.className = 'workspace-bar__open-btn'
   openBtn.title = 'Open another trace'
   openBtn.setAttribute('aria-label', 'Open another trace')
-  openBtn.textContent = '＋'
+  openBtn.textContent = '+'
   openBtn.addEventListener('click', () => {
     bar.dispatchEvent(new CustomEvent('workspace-open', { bubbles: true }))
   })

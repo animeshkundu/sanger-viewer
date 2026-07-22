@@ -26,6 +26,7 @@ export class ChromatogramCanvas {
     fill: 'rgba(99, 102, 241, 0.2)',
     stroke: 'rgba(79, 70, 229, 0.8)',
   }
+  private traceColors: Record<keyof typeof TRACE_COLORS, string> = { ...TRACE_COLORS }
   private surfaceColor = '#ffffff'
 
   constructor(private canvas: HTMLCanvasElement) {
@@ -257,6 +258,12 @@ export class ChromatogramCanvas {
     if (typeof document === 'undefined') return
     const cssVars = getComputedStyle(document.documentElement)
     this.surfaceColor = cssVars.getPropertyValue('--color-surface').trim() || this.surfaceColor
+    this.traceColors = {
+      A: cssVars.getPropertyValue('--color-trace-a').trim() || TRACE_COLORS.A,
+      C: cssVars.getPropertyValue('--color-trace-c').trim() || TRACE_COLORS.C,
+      G: cssVars.getPropertyValue('--color-trace-g').trim() || TRACE_COLORS.G,
+      T: cssVars.getPropertyValue('--color-trace-t').trim() || TRACE_COLORS.T,
+    }
     this.searchHighlightColors = {
       matchColor: cssVars.getPropertyValue('--color-search-match-bg').trim() || this.searchHighlightColors.matchColor,
       activeFill: cssVars.getPropertyValue('--color-search-canvas-active-fill').trim() || this.searchHighlightColors.activeFill,
@@ -318,7 +325,7 @@ export class ChromatogramCanvas {
     }
 
     ;(['A', 'C', 'G', 'T'] as const).forEach((base) => {
-      this.ctx.strokeStyle = TRACE_COLORS[base]
+      this.ctx.strokeStyle = this.traceColors[base]
       this.ctx.lineWidth = 1.2
       this.ctx.beginPath()
       const data = channels[base]
@@ -356,7 +363,7 @@ export class ChromatogramCanvas {
       const peak = this.trace.peakPositions[i]
       const x = (peak - vp.startSample) / vp.samplesPerPixel
       const base = (this.trace.baseCalls[i] ?? 'N').toUpperCase() as keyof typeof TRACE_COLORS
-      this.ctx.fillStyle = TRACE_COLORS[base] ?? '#444'
+      this.ctx.fillStyle = this.traceColors[base] ?? '#444'
       this.ctx.fillText(base, x, height - 2)
     }
   }

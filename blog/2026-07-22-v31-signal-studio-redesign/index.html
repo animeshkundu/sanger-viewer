@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>2026-07-22 — v31 signal studio redesign | sanger-viewer devlog</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-shell">
+        <a class="site-title" href="../../">sanger-viewer</a>
+        <nav class="site-nav" aria-label="Site">
+          <a href="../">Devlog</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="site-shell blog-entry">
+      <p><a href="../">← Back to devlog</a></p>
+      <h1>2026-07-22 — v31 signal studio: a trace-first redesign</h1>
+      <p><time datetime="2026-07-22">July 22, 2026</time></p>
+
+      <p>
+        This release rebuilds the landing experience and working viewer around one idea: the signal is
+        the evidence. The result is a bolder but quieter scientific workspace, with a privacy-first file
+        decision, a dedicated chromatogram stage, and a consistent instrument-style tool rail.
+      </p>
+
+      <h2>A real front door, without a marketing detour</h2>
+      <p>
+        The empty state is now the product's landing page. A custom four-channel signal illustration
+        replaces the platform-dependent emoji, accepted formats are visible immediately, and the exact
+        local-only privacy promise sits beside the file action. Open, Inspect, and Decide describe the
+        complete workflow without adding a route between the user and their trace.
+      </p>
+
+      <h2>The chromatogram becomes the stage</h2>
+      <p>
+        Loaded traces now sit in a framed evidence surface with truthful live metadata: file name,
+        format, base count, sample count, and channel legend. The product introduction compresses in the
+        loaded state, keeping the canvas above the fold while the genuine empty state retains more room
+        for onboarding. Workspace tabs, sample context, quality, annotations, sequence, and toolbar form
+        one clear vertical reading order.
+      </p>
+
+      <h2>A coherent tool rail</h2>
+      <p>
+        Inspect, Map, Analyze, and Share retain their existing ARIA tab model and keyboard navigation,
+        but now read as one instrument panel. Previously unrelated coloured feature cards share a common
+        surface, radius, elevation, focus treatment, and accent line. The scientific features are
+        unchanged; their hierarchy and scanability are not.
+      </p>
+
+      <h2>Theme, accessibility, and performance</h2>
+      <ul>
+        <li>Light and dark palettes use semantic tokens; the renderer still reads the same surface token.</li>
+        <li>Text, UI-border, and focus contrast stay covered by measured browser assertions.</li>
+        <li>Primary actions retain 44 px targets and all keyboard/ARIA contracts.</li>
+        <li>Reduced-motion mode disables decorative transition and animation.</li>
+        <li>No remote font, image, library, analytics, or runtime request was introduced.</li>
+        <li>The canvas rendering path remains pixel-bounded; presentation adds no per-frame DOM work.</li>
+      </ul>
+
+      <h2>Written UX assessment</h2>
+      <p>
+        <strong>Is this great UX?</strong> Yes. The screenshots show a clear evidence-first hierarchy:
+        file identity and trace metrics sit immediately above a large painted chromatogram, the primary
+        toolbar remains adjacent, and advanced work is progressively disclosed in the rail. Light and
+        dark themes feel intentionally related rather than mechanically inverted.
+      </p>
+      <p>
+        <strong>What specifically needs to improve?</strong> On the 360 × 640 loaded view, the compact
+        header necessarily shows less of the chromatogram than desktop, although the canvas still starts
+        in the first viewport. The large-file review exposed and resolved page-level overflow with two
+        long trace tabs, and removed blank analysis surfaces from the empty landing state. The Analyze rail
+        remains content-dense by nature; a future pass could add collapsible sub-sections without hiding
+        status or changing keyboard order. Long local filenames correctly truncate on narrow screens, but
+        a tooltip would improve pointer discovery.
+      </p>
+      <p>
+        <strong>Accessibility measurements:</strong> text contrast ≥ 4.5:1, UI and border contrast ≥
+        3:1, visible focus rings, and keyboard operation are covered by the existing measured E2E suite
+        and the new signal-studio acceptance spec.
+      </p>
+
+      <h2>Evidence</h2>
+      <p>
+        The complete automated UX gallery covers twelve states in light and dark across desktop, tablet,
+        and narrow-mobile viewports. Focused large-file captures use the real 1165-base
+        <code>3730.ab1</code> fixture and the synthetic 5 kbp stress trace; both retain painted canvas
+        content, readable stage metrics, bounded controls, and a stable sidebar.
+      </p>
+      <p>
+        Acceptance coverage lives in
+        <code>tests/e2e/signal-studio-redesign.e2e.test.ts</code>. The visual contract and future design
+        constraints are documented in <code>docs/design-system.md</code>.
+      </p>
+    </main>
+  </body>
+</html>

@@ -36,7 +36,7 @@
     />
     <meta name="twitter:image" content="https://animesh.kundus.in/sanger-viewer/og-image.png" />
 
-    <meta name="theme-color" content="#2563eb" />
+    <meta name="theme-color" content="#083a35" />
     <link rel="icon" type="image/svg+xml" href="/sanger-viewer/favicon.svg" />
     <link rel="apple-touch-icon" href="/sanger-viewer/favicon.svg" />
     <script type="application/ld+json">
@@ -60,8 +60,18 @@
   <body>
     <header class="site-header">
       <div class="site-shell">
-        <a class="site-title" href="./">sanger-viewer</a>
+        <a class="site-title" href="./" aria-label="Sanger Viewer home">
+          <svg class="site-title__mark" viewBox="0 0 32 32" aria-hidden="true">
+            <path d="M4 9c4 0 4 5 8 5s4-5 8-5 4 5 8 5M4 23c4 0 4-5 8-5s4 5 8 5 4-5 8-5" />
+            <path d="M8 6v20M24 6v20" />
+          </svg>
+          <span class="site-title__copy">
+            <span class="site-title__wordmark">sanger-viewer</span>
+            <span class="site-title__descriptor">Trace analysis studio</span>
+          </span>
+        </a>
         <nav class="site-nav" aria-label="Site">
+          <span class="site-nav__privacy"><span aria-hidden="true"></span> Local &amp; private</span>
           <a href="./blog/">Devlog</a>
         </nav>
       </div>
