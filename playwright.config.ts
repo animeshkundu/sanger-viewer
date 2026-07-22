@@ -3,6 +3,7 @@ import { defineConfig, devices } from '@playwright/test'
 export default defineConfig({
   testDir: 'tests/e2e',
   timeout: 60_000,
+  workers: 2,
   use: {
     baseURL: 'http://127.0.0.1:4173/'
   },
@@ -34,8 +35,12 @@ export default defineConfig({
         isMobile: true,
         hasTouch: true,
       },
-      // Limit to the UX gallery spec and the front-door-polish spec so existing tests are not affected.
-      testMatch: ['**/ux-gallery.e2e.test.ts', '**/front-door-polish.e2e.test.ts'],
+      // Limit to visual/front-door specs so unrelated suites keep their established project matrix.
+      testMatch: [
+        '**/ux-gallery.e2e.test.ts',
+        '**/front-door-polish.e2e.test.ts',
+        '**/signal-studio-redesign.e2e.test.ts',
+      ],
     }
   ]
 })

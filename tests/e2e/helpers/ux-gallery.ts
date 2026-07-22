@@ -97,32 +97,32 @@ export function computePixelVariance(data: Uint8ClampedArray, pixelCount: number
  * Throws if the canvas is blank — prevents vacuous screenshots.
  */
 export async function assertCanvasNonBlank(page: Page): Promise<void> {
-  const isNonBlank = await page.locator('[data-testid="chromatogram-canvas"]').evaluate((el, threshold) => {
-    const canvas = el as HTMLCanvasElement
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return false
-    const { width, height } = canvas
-    if (width === 0 || height === 0) return false
-    const pixelCount = width * height
-    const data = ctx.getImageData(0, 0, width, height).data
-    // Welford's online algorithm — single-pass luminance variance
-    // Uniform fill (any color) → variance ≈ 0; real trace → variance >> threshold
-    let mean = 0
-    let m2 = 0
-    let count = 0
-    for (let i = 0; i < data.length; i += 4) {
-      const lum = (data[i] + data[i + 1] + data[i + 2]) / 3
-      count++
-      const delta = lum - mean
-      mean += delta / count
-      m2 += delta * (lum - mean)
-    }
-    const variance = count < 2 ? 0 : m2 / count
-    return variance > threshold
-  }, MIN_CANVAS_VARIANCE_THRESHOLD)
-  if (!isNonBlank) {
-    throw new Error('Chromatogram canvas is blank (uniform fill detected) — aborting screenshot to prevent vacuous capture')
-  }
+  await expect.poll(async () => (
+    page.locator('[data-testid="chromatogram-canvas"]').evaluate((el) => {
+      const canvas = el as HTMLCanvasElement
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return 0
+      const { width, height } = canvas
+      if (width === 0 || height === 0) return 0
+      const data = ctx.getImageData(0, 0, width, height).data
+      // Welford's online algorithm — single-pass luminance variance
+      // Uniform fill (any color) → variance ≈ 0; real trace → variance >> threshold
+      let mean = 0
+      let m2 = 0
+      let count = 0
+      for (let i = 0; i < data.length; i += 4) {
+        const lum = (data[i] + data[i + 1] + data[i + 2]) / 3
+        count++
+        const delta = lum - mean
+        mean += delta / count
+        m2 += delta * (lum - mean)
+      }
+      return count < 2 ? 0 : m2 / count
+    })
+  ), {
+    message: 'Chromatogram canvas remained blank (uniform fill detected)',
+    timeout: 5_000,
+  }).toBeGreaterThan(MIN_CANVAS_VARIANCE_THRESHOLD)
 }
 
 /**

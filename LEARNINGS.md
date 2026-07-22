@@ -3,6 +3,20 @@
 Durable engineering and UX lessons distilled from the project's shipped
 devlog. Each entry links to the evidence that produced it.
 
+## 2026-07-22 — Let the interface change density when the user's job changes
+
+- **Context:** A single static hero either weakened the empty-state onboarding
+  or pushed too much of the loaded chromatogram below the first viewport.
+- **Learning:** The front door and working surface can share one route while
+  using different information density. Empty state should spend space on
+  privacy, formats, and workflow; loaded state should compress brand context and
+  give that space back to evidence.
+- **Apply it:** Drive hierarchy from explicit application state, keep live
+  metrics truthful, and verify the evidence surface starts above the fold at
+  desktop, tablet, and narrow widths.
+- **Evidence:** [v31 signal studio redesign](blog/2026-07-22-v31-signal-studio-redesign/)
+  and [design-system contract](docs/design-system.md).
+
 ## 2026-07-13 — Derived features must use the displayed sequence
 
 - **Context:** Editable calls appeared correctly in the sequence panel and
