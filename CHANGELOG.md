@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Dates below are the dates the linked pull requests were merged.
 
+## [1.1.0](https://github.com/animeshkundu/sanger-viewer/compare/v1.0.0...v1.1.0) (2026-07-22)
+
+
+### Features
+
+* add project-page SEO, social card, sitemap, favicon, and live build-SHA stamp ([#80](https://github.com/animeshkundu/sanger-viewer/issues/80)) ([67ddc0e](https://github.com/animeshkundu/sanger-viewer/commit/67ddc0ee5991dd06da8c25b8826bbdce6a6b4e53))
+
+
+### Bug Fixes
+
+* **ci:** traffic-snapshot degrades gracefully when the token cannot read the traffic API ([1d30f92](https://github.com/animeshkundu/sanger-viewer/commit/1d30f929cc04f36a77f2133eb2d252eb0dd9089d))
+* **copilot-setup:** correct hallucinated actions/setup-node SHA (unblocks the coding agent's setup job) ([d7df6b1](https://github.com/animeshkundu/sanger-viewer/commit/d7df6b137bd10c5ce162a48ba5be5b940c16cda9))
+
 ## [Unreleased]
 
 No changes yet.
