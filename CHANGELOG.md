@@ -8,7 +8,13 @@ Dates below are the dates the linked pull requests were merged.
 
 ## [Unreleased]
 
-No changes yet.
+### Fixed
+
+- **2026-07-16:** Apply the primer 3′-end strict mismatch rule to the correct end
+  for reverse primers. The reverse search matches the primer's reverse complement
+  left-to-right, so the 3′ end sits at the start of the match; it was previously
+  checked at the 5′ end, causing over- and under-prediction of reverse binding
+  sites and PCR amplicons.
 
 ## [1.0.0] - 2026-07-13
 

@@ -340,6 +340,44 @@ describe('findPrimerBindingSites', () => {
     expect(fwd.length).toBe(0)
   })
 
+  // ── Reverse-primer 3′-end orientation ───────────────────────────────────────
+  // A reverse primer binds the bottom strand; RC(primer) is matched left-to-right
+  // against the top strand, so the primer's 3′ end sits at index 0 of the match.
+  // The strict 3′ mismatch rule (critical for PCR specificity) must apply there.
+  //   primer P      = AAACGTGG   (3′ end = G)
+  //   RC(P)         = CCACGTTT
+  const REV_PRIMER = 'AAACGTGG'
+
+  it('REV: an exact reverse binding site is found (positive control)', () => {
+    // RC(P) = CCACGTTT planted at 0-based index 4 → 1-based start 5, end 12.
+    const tpl = 'AAAA' + 'CCACGTTT' + 'AAAA'
+    const rev = findPrimerBindingSites('p', REV_PRIMER, tpl, 1).filter((s) => s.strand === 'reverse')
+    const site = rev.find((s) => s.start === 5)
+    expect(site).toBeDefined()
+    expect(site?.end).toBe(12)
+    expect(site?.mismatches).toBe(0)
+  })
+
+  it('REV: rejects a reverse site whose only mismatch is at the primer 3′ end', () => {
+    // Region 'ACACGTTT' equals RC(P)='CCACGTTT' except index 0 (the primer's 3′ base).
+    // A 3′-terminal mismatch must be rejected, exactly as for forward primers.
+    const tpl = 'AAAA' + 'ACACGTTT' + 'AAAA'
+    const rev = findPrimerBindingSites('p', REV_PRIMER, tpl, 1).filter((s) => s.strand === 'reverse')
+    expect(rev.length).toBe(0)
+  })
+
+  it('REV: tolerates a reverse site whose only mismatch is at the primer 5′ end', () => {
+    // Region 'CCACGTTA' equals RC(P)='CCACGTTT' except the last base (the primer's
+    // 5′ end), which is outside the strict 3′ window and must be tolerated.
+    const tpl = 'AAAA' + 'CCACGTTA' + 'AAAA'
+    const rev = findPrimerBindingSites('p', REV_PRIMER, tpl, 1).filter((s) => s.strand === 'reverse')
+    const site = rev.find((s) => s.start === 5)
+    expect(site).toBeDefined()
+    expect(site?.end).toBe(12)
+    expect(site?.mismatches).toBe(1)
+    expect(site?.threeEndMismatches).toBe(0)
+  })
+
   it('finds no sites when primer is longer than template', () => {
     const sites = findPrimerBindingSites('p', 'ACGTACGTACGT', 'ACGT', 0)
     expect(sites.length).toBe(0)
