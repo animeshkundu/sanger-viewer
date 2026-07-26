@@ -237,6 +237,37 @@ test('keyboard focus order is logical and focus rings are visible', { tag: ['@de
   expect(refreshedHeaderFocusOutline).not.toBe('0px')
 })
 
+test('sequence bases support roving arrow, Home, and End navigation', { tag: ['@desktop'] }, async ({ page, isMobile }) => {
+  test.skip(isMobile, 'tablet/touch project does not support keyboard focus testing')
+  await waitForInitialSampleLoad(page)
+
+  const base = (index: number) => page.locator(`.sequence-panel span[data-base-index="${index}"]`)
+  const expectFocusedBase = async (index: number) => {
+    await expect(page.locator(':focus')).toHaveAttribute('data-base-index', String(index))
+    await expect(base(index)).toHaveAttribute('tabindex', '0')
+    await expect(page.locator('#base-inspector')).toHaveAttribute('data-base-index', String(index))
+    await expect(page.locator('#base-inspector [data-field="position"]')).toHaveText(String(index + 1))
+  }
+
+  await base(0).focus()
+  await expectFocusedBase(0)
+
+  await page.keyboard.press('ArrowRight')
+  await expectFocusedBase(1)
+  await expect(base(0)).toHaveAttribute('tabindex', '-1')
+
+  await page.keyboard.press('ArrowLeft')
+  await expectFocusedBase(0)
+
+  await page.keyboard.press('End')
+  await expectFocusedBase(867)
+  await expect(base(0)).toHaveCount(0)
+
+  await page.keyboard.press('Home')
+  await expectFocusedBase(0)
+  await expect(base(867)).toHaveCount(0)
+})
+
 test('drag-drop shows dragging class then clears it', async ({ page }) => {
   await waitForInitialSampleLoad(page)
   const dropzone = page.locator('[data-testid="dropzone"]')
