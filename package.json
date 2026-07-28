@@ -17,14 +17,14 @@
     "ux:gallery": "playwright test tests/e2e/ux-gallery.e2e.test.ts && tsx scripts/generate-ux-gallery-html.ts"
   },
   "devDependencies": {
-    "@playwright/test": "^1.61.1",
-    "@types/node": "^26.1.0",
-    "@typescript-eslint/eslint-plugin": "^8.62.1",
+    "@playwright/test": "^1.62.0",
+    "@types/node": "^26.1.2",
+    "@typescript-eslint/eslint-plugin": "^8.65.0",
     "@typescript-eslint/parser": "^8.62.1",
-    "eslint": "^10.6.0",
-    "tsx": "^4.23.0",
-    "typescript": "~6.0.2",
-    "vite": "^8.1.1",
-    "vitest": "^4.1.9"
+    "eslint": "^10.8.0",
+    "tsx": "^4.23.1",
+    "typescript": "~7.0.2",
+    "vite": "^8.1.5",
+    "vitest": "^4.1.10"
   }
 }
