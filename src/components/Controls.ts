@@ -1,6 +1,16 @@
 import type { TrimResult } from '../quality/mottTrim'
 import { DEFAULT_MIXED_BASE_THRESHOLD } from '../calling/mixedBase'
 
+export function strandToggleLabel(isRevcomp: boolean): string {
+  return isRevcomp ? 'Reverse complement (3′→5′)' : 'Reverse complement (5′→3′)'
+}
+
+export function strandToggleTitle(isRevcomp: boolean): string {
+  return isRevcomp
+    ? 'Showing reverse complement — click to show forward strand'
+    : 'Showing forward strand — click to show reverse complement'
+}
+
 export function createControls(): HTMLDivElement {
   const root = document.createElement('div')
   root.className = 'controls'
@@ -14,7 +24,7 @@ export function createControls(): HTMLDivElement {
       <button data-action="pan-left">← Pan</button>
       <button data-action="pan-right">Pan →</button>
       <button data-action="fit">Fit</button>
-      <button data-action="toggle-strand" aria-pressed="false" title="Toggle reverse complement strand">5′→3′</button>
+      <button data-action="toggle-strand" aria-pressed="false" title="${strandToggleTitle(false)}">${strandToggleLabel(false)}</button>
     </div>
     <div class="controls-group controls-group--export" role="group" aria-label="Export" data-group="export">
       <span class="controls-group__label" aria-hidden="true">Export</span>
@@ -133,8 +143,8 @@ export function setStrandToggleState(controls: HTMLElement, isRevcomp: boolean):
   const btn = controls.querySelector<HTMLButtonElement>('[data-action="toggle-strand"]')
   if (!btn) return
   btn.setAttribute('aria-pressed', String(isRevcomp))
-  btn.textContent = isRevcomp ? '3′→5′' : '5′→3′'
-  btn.title = isRevcomp ? 'Showing reverse complement — click to show forward strand' : 'Showing forward strand — click to show reverse complement'
+  btn.textContent = strandToggleLabel(isRevcomp)
+  btn.title = strandToggleTitle(isRevcomp)
 }
 
 export function setControlsDisabled(controls: HTMLElement, disabled: boolean): void {
